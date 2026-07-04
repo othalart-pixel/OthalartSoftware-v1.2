@@ -17,6 +17,7 @@ namespace Cotizador_animacion_Othalart
         private List<Producto2DDefinicion> productos2DEditables =
             new List<Producto2DDefinicion>();
         private Producto2DDefinicion producto2DSeleccionado;
+        private OpcionesProducto2D opcionesProducto2D = new OpcionesProducto2D();
         private bool cargandoProductos2D = false;
         private int indiceArrastreProducto2D = -1;
 
@@ -81,6 +82,9 @@ namespace Cotizador_animacion_Othalart
             Button btnRestaurar = CrearBotonProducto2D("Restaurar base", 130);
             btnRestaurar.Click += (s, e) => RestaurarBibliotecaProductos2D();
 
+            Button btnOpciones = CrearBotonProducto2D("Configurar listas", 140);
+            btnOpciones.Click += (s, e) => EditarOpcionesProducto2D();
+
             acciones.Controls.Add(btnAgregar);
             acciones.Controls.Add(btnDuplicar);
             acciones.Controls.Add(btnQuitar);
@@ -89,6 +93,7 @@ namespace Cotizador_animacion_Othalart
             acciones.Controls.Add(btnGuardar);
             acciones.Controls.Add(btnRecargar);
             acciones.Controls.Add(btnRestaurar);
+            acciones.Controls.Add(btnOpciones);
 
             ConfigurarGrillaProductos2D();
 
@@ -134,6 +139,10 @@ namespace Cotizador_animacion_Othalart
 
         private void ConfigurarGrillaProductos2D()
         {
+            opcionesProducto2D = BibliotecaOpcionesProducto2DJsonService.CargarOpcionesConProductos(
+                productos2DEditables
+            );
+
             dgvProductos2D.Dock = DockStyle.Fill;
             dgvProductos2D.AllowUserToAddRows = false;
             dgvProductos2D.AllowUserToDeleteRows = false;
@@ -153,10 +162,26 @@ namespace Cotizador_animacion_Othalart
 
             dgvProductos2D.Columns.Clear();
             dgvProductos2D.Columns.Add("Nombre", "Producto");
-            dgvProductos2D.Columns.Add("Industria", "Industria");
-            dgvProductos2D.Columns.Add("Categoria", "Categoria");
-            dgvProductos2D.Columns.Add("UnidadCantidadSugerida", "Unidad cantidad");
-            dgvProductos2D.Columns.Add("UnidadDuracionSugerida", "Unidad duracion");
+            dgvProductos2D.Columns.Add(CrearColumnaComboProducto2D(
+                "Industria",
+                "Industria",
+                opcionesProducto2D.Industrias
+            ));
+            dgvProductos2D.Columns.Add(CrearColumnaComboProducto2D(
+                "Categoria",
+                "Categoria",
+                opcionesProducto2D.Categorias
+            ));
+            dgvProductos2D.Columns.Add(CrearColumnaComboProducto2D(
+                "UnidadCantidadSugerida",
+                "Unidad cantidad",
+                opcionesProducto2D.UnidadesCantidad
+            ));
+            dgvProductos2D.Columns.Add(CrearColumnaComboProducto2D(
+                "UnidadDuracionSugerida",
+                "Unidad duracion",
+                opcionesProducto2D.UnidadesDuracion
+            ));
             dgvProductos2D.Columns.Add("DuracionSugerida", "Duracion base");
             dgvProductos2D.Columns.Add("Nota", "Nota");
 
@@ -182,6 +207,32 @@ namespace Cotizador_animacion_Othalart
             dgvProductos2D.DragOver += DgvProductos2D_DragOver;
             dgvProductos2D.DragDrop -= DgvProductos2D_DragDrop;
             dgvProductos2D.DragDrop += DgvProductos2D_DragDrop;
+        }
+
+        private DataGridViewComboBoxColumn CrearColumnaComboProducto2D(
+            string nombre,
+            string encabezado,
+            IEnumerable<string> valores
+        )
+        {
+            DataGridViewComboBoxColumn columna = new DataGridViewComboBoxColumn();
+            columna.Name = nombre;
+            columna.HeaderText = encabezado;
+            columna.FlatStyle = FlatStyle.Flat;
+            columna.DisplayStyle = DataGridViewComboBoxDisplayStyle.ComboBox;
+            columna.SortMode = DataGridViewColumnSortMode.NotSortable;
+
+            foreach (string valor in valores ?? new List<string>())
+            {
+                string limpio = (valor ?? "").Trim();
+
+                if (!string.IsNullOrWhiteSpace(limpio) && !columna.Items.Contains(limpio))
+                {
+                    columna.Items.Add(limpio);
+                }
+            }
+
+            return columna;
         }
 
         private void DgvProductos2D_CellDoubleClick(object sender, DataGridViewCellEventArgs e)
@@ -261,6 +312,10 @@ namespace Cotizador_animacion_Othalart
                 .Select(ClonarProducto2D)
                 .ToList();
 
+            opcionesProducto2D =
+                BibliotecaOpcionesProducto2DJsonService.CargarOpcionesConProductos(productos2DEditables);
+            RefrescarItemsComboProductos2D();
+
             foreach (Producto2DDefinicion producto in productos2DEditables)
             {
                 AgregarFilaProducto2D(producto);
@@ -289,6 +344,11 @@ namespace Cotizador_animacion_Othalart
 
         private void PoblarFilaProducto2D(DataGridViewRow row, Producto2DDefinicion producto)
         {
+            AsegurarValorEnComboProducto2D("Industria", producto.Industria);
+            AsegurarValorEnComboProducto2D("Categoria", producto.Categoria);
+            AsegurarValorEnComboProducto2D("UnidadCantidadSugerida", producto.UnidadCantidadSugerida);
+            AsegurarValorEnComboProducto2D("UnidadDuracionSugerida", producto.UnidadDuracionSugerida);
+
             row.Cells["Nombre"].Value = producto.Nombre;
             row.Cells["Industria"].Value = producto.Industria;
             row.Cells["Categoria"].Value = producto.Categoria;
@@ -296,6 +356,247 @@ namespace Cotizador_animacion_Othalart
             row.Cells["UnidadDuracionSugerida"].Value = producto.UnidadDuracionSugerida;
             row.Cells["DuracionSugerida"].Value = producto.DuracionSugerida.ToString("0.##");
             row.Cells["Nota"].Value = producto.Nota;
+        }
+
+        private void RefrescarItemsComboProductos2D()
+        {
+            RefrescarItemsComboProducto2D("Industria", opcionesProducto2D.Industrias);
+            RefrescarItemsComboProducto2D("Categoria", opcionesProducto2D.Categorias);
+            RefrescarItemsComboProducto2D("UnidadCantidadSugerida", opcionesProducto2D.UnidadesCantidad);
+            RefrescarItemsComboProducto2D("UnidadDuracionSugerida", opcionesProducto2D.UnidadesDuracion);
+        }
+
+        private void RefrescarItemsComboProducto2D(string columna, IEnumerable<string> valores)
+        {
+            DataGridViewComboBoxColumn combo =
+                dgvProductos2D.Columns[columna] as DataGridViewComboBoxColumn;
+
+            if (combo == null)
+            {
+                return;
+            }
+
+            combo.Items.Clear();
+
+            foreach (string valor in valores ?? new List<string>())
+            {
+                string limpio = (valor ?? "").Trim();
+
+                if (!string.IsNullOrWhiteSpace(limpio) && !combo.Items.Contains(limpio))
+                {
+                    combo.Items.Add(limpio);
+                }
+            }
+        }
+
+        private void AsegurarValorEnComboProducto2D(string columna, string valor)
+        {
+            DataGridViewComboBoxColumn combo =
+                dgvProductos2D.Columns[columna] as DataGridViewComboBoxColumn;
+
+            valor = (valor ?? "").Trim();
+
+            if (combo != null && !string.IsNullOrWhiteSpace(valor) && !combo.Items.Contains(valor))
+            {
+                combo.Items.Add(valor);
+            }
+        }
+
+        private void EditarOpcionesProducto2D()
+        {
+            opcionesProducto2D =
+                BibliotecaOpcionesProducto2DJsonService.CargarOpcionesConProductos(productos2DEditables);
+
+            using (Form form = new Form())
+            {
+                form.Text = "Configurar listas de productos";
+                form.StartPosition = FormStartPosition.CenterParent;
+                form.Width = 920;
+                form.Height = 560;
+                form.MinimizeBox = false;
+                form.MaximizeBox = false;
+                form.ShowIcon = false;
+
+                TableLayoutPanel root = new TableLayoutPanel();
+                root.Dock = DockStyle.Fill;
+                root.ColumnCount = 4;
+                root.RowCount = 2;
+                root.Padding = new Padding(16);
+                root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));
+                root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));
+                root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));
+                root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));
+                root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+                root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+                ListBox lstIndustrias = CrearEditorListaProducto2D(
+                    root,
+                    "Industrias",
+                    opcionesProducto2D.Industrias,
+                    0
+                );
+                ListBox lstCategorias = CrearEditorListaProducto2D(
+                    root,
+                    "Categorias",
+                    opcionesProducto2D.Categorias,
+                    1
+                );
+                ListBox lstUnidadesCantidad = CrearEditorListaProducto2D(
+                    root,
+                    "Unidades cantidad",
+                    opcionesProducto2D.UnidadesCantidad,
+                    2
+                );
+                ListBox lstUnidadesDuracion = CrearEditorListaProducto2D(
+                    root,
+                    "Unidades duracion",
+                    opcionesProducto2D.UnidadesDuracion,
+                    3
+                );
+
+                FlowLayoutPanel acciones = new FlowLayoutPanel();
+                acciones.FlowDirection = FlowDirection.RightToLeft;
+                acciones.Dock = DockStyle.Fill;
+                acciones.AutoSize = true;
+
+                Button btnGuardar = CrearBotonProducto2D("Guardar listas", 130);
+                Button btnCancelar = CrearBotonProducto2D("Cancelar", 100);
+
+                btnGuardar.Click += (s, e) =>
+                {
+                    opcionesProducto2D.Industrias = ObtenerValoresListaProducto2D(lstIndustrias);
+                    opcionesProducto2D.Categorias = ObtenerValoresListaProducto2D(lstCategorias);
+                    opcionesProducto2D.UnidadesCantidad = ObtenerValoresListaProducto2D(lstUnidadesCantidad);
+                    opcionesProducto2D.UnidadesDuracion = ObtenerValoresListaProducto2D(lstUnidadesDuracion);
+
+                    BibliotecaOpcionesProducto2DJsonService.GuardarOpciones(opcionesProducto2D);
+                    RefrescarItemsComboProductos2D();
+                    lblEstadoProductos2D.Text =
+                        "Listas guardadas: " +
+                        BibliotecaOpcionesProducto2DJsonService.ObtenerRutaOpciones();
+                    form.DialogResult = DialogResult.OK;
+                    form.Close();
+                };
+
+                btnCancelar.Click += (s, e) =>
+                {
+                    form.DialogResult = DialogResult.Cancel;
+                    form.Close();
+                };
+
+                acciones.Controls.Add(btnGuardar);
+                acciones.Controls.Add(btnCancelar);
+                root.SetColumnSpan(acciones, 4);
+                root.Controls.Add(acciones, 0, 1);
+
+                form.Controls.Add(root);
+                form.ShowDialog(this);
+            }
+        }
+
+        private ListBox CrearEditorListaProducto2D(
+            TableLayoutPanel root,
+            string titulo,
+            IEnumerable<string> valores,
+            int columna
+        )
+        {
+            TableLayoutPanel panel = new TableLayoutPanel();
+            panel.Dock = DockStyle.Fill;
+            panel.RowCount = 4;
+            panel.ColumnCount = 1;
+            panel.Margin = new Padding(0, 0, 10, 0);
+            panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            panel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+            Label lblTitulo = new Label();
+            lblTitulo.Text = titulo;
+            lblTitulo.AutoSize = true;
+            lblTitulo.Font = new Font("Segoe UI", 10, FontStyle.Bold);
+            lblTitulo.Margin = new Padding(0, 0, 0, 8);
+
+            ListBox lista = new ListBox();
+            lista.Dock = DockStyle.Fill;
+            lista.SelectionMode = SelectionMode.One;
+
+            foreach (string valor in valores ?? new List<string>())
+            {
+                string limpio = (valor ?? "").Trim();
+
+                if (!string.IsNullOrWhiteSpace(limpio) && !lista.Items.Contains(limpio))
+                {
+                    lista.Items.Add(limpio);
+                }
+            }
+
+            TextBox txtNuevo = new TextBox();
+            txtNuevo.Dock = DockStyle.Top;
+            txtNuevo.Margin = new Padding(0, 8, 0, 6);
+
+            FlowLayoutPanel acciones = new FlowLayoutPanel();
+            acciones.AutoSize = true;
+            acciones.Margin = new Padding(0);
+
+            Button btnAgregar = CrearBotonProducto2D("Agregar", 90);
+            Button btnQuitar = CrearBotonProducto2D("Quitar", 80);
+
+            btnAgregar.Click += (s, e) =>
+            {
+                string valor = txtNuevo.Text.Trim();
+
+                if (string.IsNullOrWhiteSpace(valor))
+                {
+                    return;
+                }
+
+                if (!lista.Items.Cast<object>().Any(i =>
+                    string.Equals(Convert.ToString(i), valor, StringComparison.OrdinalIgnoreCase)))
+                {
+                    lista.Items.Add(valor);
+                    lista.SelectedItem = valor;
+                    txtNuevo.Clear();
+                }
+            };
+
+            btnQuitar.Click += (s, e) =>
+            {
+                if (lista.SelectedItem != null)
+                {
+                    lista.Items.Remove(lista.SelectedItem);
+                }
+            };
+
+            txtNuevo.KeyDown += (s, e) =>
+            {
+                if (e.KeyCode == Keys.Enter)
+                {
+                    btnAgregar.PerformClick();
+                    e.SuppressKeyPress = true;
+                }
+            };
+
+            acciones.Controls.Add(btnAgregar);
+            acciones.Controls.Add(btnQuitar);
+
+            panel.Controls.Add(lblTitulo, 0, 0);
+            panel.Controls.Add(lista, 0, 1);
+            panel.Controls.Add(txtNuevo, 0, 2);
+            panel.Controls.Add(acciones, 0, 3);
+
+            root.Controls.Add(panel, columna, 0);
+            return lista;
+        }
+
+        private List<string> ObtenerValoresListaProducto2D(ListBox lista)
+        {
+            return lista.Items
+                .Cast<object>()
+                .Select(i => Convert.ToString(i)?.Trim() ?? "")
+                .Where(i => !string.IsNullOrWhiteSpace(i))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
         }
 
         private void DgvProductos2D_SelectionChanged(object sender, EventArgs e)
