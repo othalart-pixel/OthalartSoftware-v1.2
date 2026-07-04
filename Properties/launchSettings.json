@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "Cotizador Othalart publicado": {
+      "commandName": "Executable",
+      "executablePath": "C:\\Windows\\System32\\cmd.exe",
+      "commandLineArgs": "/c \"C:\\Users\\PC\\OneDrive - Universidad Técnica Federico Santa María\\Escritorio\\OthalartSoftware v1.2\\Abrir Cotizador Othalart.cmd\"",
+      "workingDirectory": "C:\\Users\\PC\\OneDrive - Universidad Técnica Federico Santa María\\Escritorio\\OthalartSoftware v1.2"
+    }
+  }
+}

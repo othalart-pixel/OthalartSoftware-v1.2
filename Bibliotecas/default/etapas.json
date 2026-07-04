@@ -1,0 +1,30 @@
+[
+  {
+    "Clave": "Desarrollo",
+    "Nombre": "Desarrollo",
+    "Orden": 10,
+    "Activa": true,
+    "ColorArgb": -11751600
+  },
+  {
+    "Clave": "Preproduccion",
+    "Nombre": "Preproducci\u00F3n",
+    "Orden": 20,
+    "Activa": true,
+    "ColorArgb": -16121
+  },
+  {
+    "Clave": "Produccion",
+    "Nombre": "Producci\u00F3n",
+    "Orden": 30,
+    "Activa": true,
+    "ColorArgb": -769226
+  },
+  {
+    "Clave": "Postproduccion",
+    "Nombre": "Postproducci\u00F3n",
+    "Orden": 40,
+    "Activa": true,
+    "ColorArgb": -14575885
+  }
+]

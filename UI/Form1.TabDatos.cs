@@ -1,0 +1,8021 @@
+﻿using Cotizador_animacion_Othalart.Data;
+using Cotizador_animacion_Othalart.Models;
+using System.Drawing;
+using System.Windows.Forms;
+using System.Collections.Generic;
+using System.Linq;
+using System;
+
+
+namespace Cotizador_animacion_Othalart
+{
+    public partial class Form1
+    {
+        // =========================================================
+        // PLAZOS RÁPIDOS
+        // =========================================================
+
+        private FlowLayoutPanel panelPlazosRapidos = new FlowLayoutPanel();
+
+        private Button btnPlazoMedioMes = new Button();
+        private Button btnPlazoUnMes = new Button();
+        private Button btnPlazoTresMeses = new Button();
+        private Button btnPlazoSeisMeses = new Button();
+        private Button btnPlazoUnAno = new Button();
+
+        // =========================================================
+        // PRESUPUESTO RÁPIDO
+        // =========================================================
+
+        private FlowLayoutPanel panelPresupuestoRapido = new FlowLayoutPanel();
+
+        private Button btnPresupuestoSinInformar = new Button();
+        private Button btnPresupuestoMenos1M = new Button();
+        private Button btnPresupuestoMenos5M = new Button();
+        private Button btnPresupuestoMenos10M = new Button();
+        private Button btnPresupuestoMenos20M = new Button();
+        private Button btnPresupuestoMas20M = new Button();
+        private Button btnPresupuestoIngresar = new Button();
+
+        private string presupuestoClienteModo = "Sin informar";
+        private double presupuestoClienteRapidoCLP = 0.0;
+
+
+        private FlowLayoutPanel panelDestinoUsoRapido = new FlowLayoutPanel();
+        private List<string> destinosUsoSeleccionados = new List<string>();
+
+        private FlowLayoutPanel panelFormatoEntregaRapido = new FlowLayoutPanel();
+        private List<string> formatosEntregaSeleccionados = new List<string>();
+
+
+        // =========================================================
+        // CAMPOS NUEVOS - BRIEF SEGMENTADO
+        // =========================================================
+        private TextBox txtPresupuestoCliente = new TextBox();
+        private Label lblEstimacionPresupuestoDatos = new Label();
+        private ComboBox cmbProductoServicio = new ComboBox();
+        private ComboBox cmbTipoProductoServicio = new ComboBox();
+        private ComboBox cmbDestinoUso = new ComboBox();
+        private ComboBox cmbTipoPiezaPrincipal = new ComboBox();
+
+        private DateTimePicker dtpFechaInicioCliente = new DateTimePicker();
+        private DateTimePicker dtpFechaEntregaCliente = new DateTimePicker();
+        private Label lblPlazoClienteCalculado = new Label();
+        private NumericUpDown nudDiasHabilesEstudioSemana = new NumericUpDown();
+
+
+        private TextBox txtDuracionProductoValor = new TextBox();
+        private ComboBox cmbDuracionProductoUnidad = new ComboBox();
+        private bool bloqueandoEventosDuracionProducto = false;
+        private bool bloqueandoEventosCantidadGlobalProducto = false;
+        private bool reiniciarBriefEnProximoCambioProducto = false;
+        private NumericUpDown nudCantidadPiezas = new NumericUpDown();
+        private Button btnAplicarCantidadGlobalProducto = new Button();
+
+        private ComboBox cmbEstiloVisual = new ComboBox();
+        private ComboBox cmbNivelAcabado = new ComboBox();
+        private TextBox txtReferenciasVisuales = new TextBox();
+
+        private ComboBox cmbFormatoEntregaBrief = new ComboBox();
+        private ComboBox cmbRelacionAspecto = new ComboBox();
+        private ComboBox cmbResolucionEntrega = new ComboBox();
+
+        private DataGridView dgvEntregablesIndustria = new DataGridView();
+
+        private Button btnSeleccionarTodosEntregables = new Button();
+        private Button btnDeseleccionarTodosEntregables = new Button();
+        private Button btnSeleccionarDesarrolloEntregables = new Button();
+        private Button btnSeleccionarPreEntregables = new Button();
+        private Button btnSeleccionarProdEntregables = new Button();
+        private Button btnSeleccionarPostEntregables = new Button();
+        private Button btnEditarPipelineProducto = new Button();
+        private bool actualizandoEntregablesPorLote = false;
+        private Dictionary<string, List<DataGridViewRow>> indiceEntregablesPorCategoria =
+            new Dictionary<string, List<DataGridViewRow>>();
+
+        private FlowLayoutPanel panelInsumosClienteBrief = new FlowLayoutPanel();
+        private Panel panelResumenDatosLateral = new Panel();
+
+        // =========================================================
+        // CAMPOS ANTIGUOS - COMPATIBILIDAD
+        // No se muestran como entrada principal, pero se mantienen
+        // para que Form1.TabDatosLogic.cs no reviente mientras migramos.
+        // =========================================================
+
+        private ComboBox cmbTipoProducto = new ComboBox();
+        private TextBox txtUsoPrincipal = new TextBox();
+        private TextBox txtFormatoEntrega = new TextBox();
+        private TextBox txtPlataformaDestino = new TextBox();
+        private TextBox txtNotasBrief = new TextBox();
+
+        private CheckBox chkBriefRequierePersonajes = new CheckBox();
+        private CheckBox chkBriefRequiereFondos = new CheckBox();
+        private CheckBox chkBriefRequiereProps = new CheckBox();
+        private CheckBox chkBriefRequiereAnimacionPersonajes = new CheckBox();
+        private CheckBox chkBriefRequiereMotionGraphics = new CheckBox();
+        private CheckBox chkBriefRequiereEdicion = new CheckBox();
+        private CheckBox chkBriefRequiereAudio = new CheckBox();
+        private CheckBox chkBriefRequiereExportFinal = new CheckBox();
+
+        private CheckBox chkClienteEntregaGuion = new CheckBox();
+        private CheckBox chkClienteEntregaEstilo = new CheckBox();
+        private CheckBox chkClienteEntregaStoryboard = new CheckBox();
+        private CheckBox chkClienteEntregaAnimatic = new CheckBox();
+        private CheckBox chkClienteEntregaPersonajes = new CheckBox();
+        private CheckBox chkClienteEntregaFondos = new CheckBox();
+        private CheckBox chkClienteEntregaProps = new CheckBox();
+        private CheckBox chkClienteEntregaAnimacion = new CheckBox();
+        private CheckBox chkClienteEntregaAudio = new CheckBox();
+        private CheckBox chkClienteEntregaAssetsEditables = new CheckBox();
+        private CheckBox chkClienteEntregaMaterialGrabado = new CheckBox();
+
+        private Button btnAplicarSugerenciaBrief = new Button();
+
+        private void ConstruirTabDatos(TabPage tab)
+        {
+            tab.Controls.Clear();
+            tab.BackColor = Color.FromArgb(246, 247, 249);
+
+            Panel scroll = new Panel();
+            scroll.Dock = DockStyle.Fill;
+            scroll.AutoScroll = true;
+            scroll.BackColor = Color.FromArgb(246, 247, 249);
+
+            TableLayoutPanel contenedor = new TableLayoutPanel();
+            contenedor.Dock = DockStyle.Top;
+            contenedor.AutoSize = true;
+            contenedor.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            contenedor.Padding = new Padding(24, 22, 24, 24);
+            contenedor.Margin = new Padding(0);
+            contenedor.ColumnCount = 1;
+            contenedor.RowCount = 1;
+            contenedor.BackColor = Color.FromArgb(246, 247, 249);
+            contenedor.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 1060));
+            contenedor.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+            Label titulo = new Label();
+            titulo.Text = "Datos del cliente / proyecto";
+            titulo.Font = new Font("Segoe UI", 19, FontStyle.Bold);
+            titulo.ForeColor = Color.FromArgb(20, 20, 20);
+            titulo.AutoSize = true;
+            titulo.Margin = new Padding(0, 0, 0, 4);
+
+            Label bajada = new Label();
+            bajada.Text = "Completa el brief base para generar una cotización productiva consistente.";
+            bajada.Font = new Font("Segoe UI", 9.5f, FontStyle.Regular);
+            bajada.ForeColor = Color.FromArgb(95, 100, 108);
+            bajada.AutoSize = true;
+            bajada.Margin = new Padding(0, 0, 0, 18);
+
+            DatosConfigurarCalendariosCliente();
+            DatosConfigurarComboProductosServicios();
+            DatosConfigurarCombosBriefSegmentado();
+
+            Control cardEntregables = ConstruirCardDatosDesdeGroupBox(
+                ConstruirGrupoEntregablesIndustria(),
+                "Piezas 2D solicitadas"
+            );
+            Control cardInsumosCliente = ConstruirCardDatosDesdeGroupBox(
+                ConstruirGrupoInsumosClienteSegmentado(),
+                "Insumos que entrega el cliente"
+            );
+
+            TableLayoutPanel columnaPrincipal = new TableLayoutPanel();
+            columnaPrincipal.Dock = DockStyle.Top;
+            columnaPrincipal.AutoSize = true;
+            columnaPrincipal.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            columnaPrincipal.ColumnCount = 1;
+            columnaPrincipal.RowCount = 10;
+            columnaPrincipal.Margin = new Padding(0, 0, 18, 0);
+            columnaPrincipal.BackColor = Color.Transparent;
+            for (int i = 0; i < columnaPrincipal.RowCount; i++)
+            {
+                columnaPrincipal.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            }
+
+            FlowLayoutPanel bloqueAplicar = new FlowLayoutPanel();
+            bloqueAplicar.Dock = DockStyle.Top;
+            bloqueAplicar.AutoSize = true;
+            bloqueAplicar.FlowDirection = FlowDirection.TopDown;
+            bloqueAplicar.WrapContents = false;
+            bloqueAplicar.Margin = new Padding(0, 4, 0, 0);
+            bloqueAplicar.Padding = new Padding(0);
+
+            Button btnAplicarDatos = new Button();
+            btnAplicarDatos.Text = "Aplicar datos y actualizar";
+            btnAplicarDatos.Width = 250;
+            btnAplicarDatos.Height = 38;
+            btnAplicarDatos.Font = new Font("Segoe UI", 10, FontStyle.Bold);
+            btnAplicarDatos.Margin = new Padding(0, 0, 0, 8);
+            btnAplicarDatos.BackColor = Color.FromArgb(83, 192, 166);
+            btnAplicarDatos.ForeColor = Color.White;
+            btnAplicarDatos.FlatStyle = FlatStyle.Flat;
+            btnAplicarDatos.FlatAppearance.BorderColor = Color.FromArgb(69, 168, 144);
+            btnAplicarDatos.FlatAppearance.BorderSize = 0;
+            btnAplicarDatos.UseVisualStyleBackColor = false;
+            btnAplicarDatos.CausesValidation = false;
+            btnAplicarDatos.MouseDown -= BtnAplicarDatos_MouseDown;
+            btnAplicarDatos.MouseDown += BtnAplicarDatos_MouseDown;
+            btnAplicarDatos.Click -= BtnAplicarDatos_Click;
+            btnAplicarDatos.Click += BtnAplicarDatos_Click;
+
+            Label ayuda = new Label();
+            ayuda.Text = "Los cambios se guardan cuando presionas este botón.";
+            ayuda.ForeColor = Color.DimGray;
+            ayuda.Font = new Font("Segoe UI", 9);
+            ayuda.AutoSize = true;
+            ayuda.MaximumSize = new Size(760, 0);
+            ayuda.Margin = new Padding(0);
+
+            bloqueAplicar.Controls.Add(btnAplicarDatos);
+            bloqueAplicar.Controls.Add(ayuda);
+
+
+            dtpFechaInicioCliente.ValueChanged -= DtpFechasCliente_ValueChanged;
+            dtpFechaEntregaCliente.ValueChanged -= DtpFechasCliente_ValueChanged;
+
+            dtpFechaInicioCliente.ValueChanged += DtpFechasCliente_ValueChanged;
+            dtpFechaEntregaCliente.ValueChanged += DtpFechasCliente_ValueChanged;
+
+            ConstruirPanelSiguientePasoDatos();
+
+            columnaPrincipal.Controls.Add(titulo, 0, 0);
+            columnaPrincipal.Controls.Add(bajada, 0, 1);
+            columnaPrincipal.Controls.Add(ConstruirCardDatosComerciales(), 0, 2);
+            columnaPrincipal.Controls.Add(ConstruirCardDatosCliente(), 0, 3);
+            columnaPrincipal.Controls.Add(ConstruirCardDatosProyecto(), 0, 4);
+            columnaPrincipal.Controls.Add(ConstruirCardContextoProyecto(), 0, 5);
+            columnaPrincipal.Controls.Add(cardEntregables, 0, 6);
+            columnaPrincipal.Controls.Add(cardInsumosCliente, 0, 7);
+            columnaPrincipal.Controls.Add(bloqueAplicar, 0, 8);
+            columnaPrincipal.Controls.Add(panelSiguientePasoDatos, 0, 9);
+
+            contenedor.Controls.Add(columnaPrincipal, 0, 0);
+
+            scroll.Controls.Add(contenedor);
+            tab.Controls.Add(scroll);
+
+            ConfigurarEventosResumenDatos();
+            if (cmbProductoServicio.Items.Count > 0)
+            {
+                if (cmbProductoServicio.SelectedIndex < 0)
+                {
+                    cmbProductoServicio.SelectedIndex = 0;
+                }
+
+                RefrescarOpcionesSegunProducto();
+            }
+
+            RefrescarResumen();
+        }
+
+        private Panel CrearCardDatos(string titulo)
+        {
+            Panel card = new Panel();
+            card.Dock = DockStyle.Top;
+            card.AutoSize = true;
+            card.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            card.BackColor = Color.White;
+            card.Padding = new Padding(18, 16, 18, 18);
+            card.Margin = new Padding(0, 0, 0, 14);
+            card.BorderStyle = BorderStyle.FixedSingle;
+
+            TableLayoutPanel layout = new TableLayoutPanel();
+            layout.Dock = DockStyle.Top;
+            layout.AutoSize = true;
+            layout.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            layout.ColumnCount = 1;
+            layout.RowCount = 2;
+            layout.Margin = new Padding(0);
+            layout.BackColor = Color.White;
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+            Label lblTitulo = new Label();
+            lblTitulo.Text = titulo;
+            lblTitulo.AutoSize = true;
+            lblTitulo.Font = new Font("Segoe UI", 12.2f, FontStyle.Bold);
+            lblTitulo.ForeColor = Color.FromArgb(28, 32, 36);
+            lblTitulo.Margin = new Padding(0, 0, 0, 12);
+
+            layout.Controls.Add(lblTitulo, 0, 0);
+            card.Controls.Add(layout);
+            card.Tag = layout;
+
+            return card;
+        }
+
+        private void AgregarContenidoACard(Panel card, Control contenido)
+        {
+            TableLayoutPanel layout = card.Tag as TableLayoutPanel;
+            if (layout == null)
+            {
+                card.Controls.Add(contenido);
+                return;
+            }
+
+            contenido.Dock = DockStyle.Top;
+            contenido.Margin = new Padding(0);
+            layout.Controls.Add(contenido, 0, 1);
+        }
+
+        private Panel ConstruirCardDatosComerciales()
+        {
+            Panel card = CrearCardDatos("Datos comerciales");
+            TableLayoutPanel formulario = CrearFormularioDatos(7, 190, 710);
+
+            DatosAgregarFilaControl(formulario, "Moneda cotización:", CrearPanelMonedasClienteRapidas(), 0);
+            DatosAgregarFilaControl(formulario, "Presupuesto cliente:", CrearPanelPresupuestoRapido(), 1);
+            DatosAgregarFilaControl(formulario, "Fecha inicio estimada:", dtpFechaInicioCliente, 2);
+            DatosAgregarFilaControl(formulario, "Fecha estimada de entrega:", dtpFechaEntregaCliente, 3);
+            DatosAgregarFilaControl(formulario, "Días hábiles por semana:", nudDiasHabilesEstudioSemana, 4);
+            DatosAgregarFilaControl(formulario, "Plazo rápido:", CrearPanelPlazosRapidos(), 5);
+            DatosAgregarFilaControl(formulario, "Plazo declarado:", lblPlazoClienteCalculado, 6);
+
+            AgregarContenidoACard(card, formulario);
+            return card;
+        }
+
+        private Panel ConstruirCardDatosCliente()
+        {
+            Panel card = CrearCardDatos("Datos del cliente");
+            TableLayoutPanel formulario = CrearFormularioDatos(3, 190, 710);
+
+            DatosAgregarFilaControl(formulario, "Cliente:", txtNombreCliente, 0);
+            DatosAgregarFilaControl(formulario, "Empresa / marca:", txtEmpresa, 1);
+            DatosAgregarFilaControl(formulario, "Email:", txtEmail, 2);
+
+            AgregarContenidoACard(card, formulario);
+            return card;
+        }
+
+        private Panel ConstruirCardDatosProyecto()
+        {
+            Panel card = CrearCardDatos("Datos del proyecto");
+            TableLayoutPanel formulario = CrearFormularioDatos(2, 190, 710);
+
+            txtDescripcion.Multiline = true;
+            txtDescripcion.Width = 620;
+            txtDescripcion.Height = 82;
+
+            DatosAgregarFilaControl(formulario, "Nombre proyecto:", txtNombreProyecto, 0);
+            DatosAgregarFilaControl(formulario, "Descripción:", txtDescripcion, 1);
+
+            AgregarContenidoACard(card, formulario);
+            return card;
+        }
+
+        private Panel ConstruirCardContextoProyecto()
+        {
+            Panel card = CrearCardDatos("Contexto del proyecto");
+
+            TableLayoutPanel contenedor = new TableLayoutPanel();
+            contenedor.Dock = DockStyle.Top;
+            contenedor.AutoSize = true;
+            contenedor.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            contenedor.ColumnCount = 1;
+            contenedor.RowCount = 3;
+            contenedor.Margin = new Padding(0);
+            contenedor.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            contenedor.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            contenedor.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+            TableLayoutPanel formulario = CrearFormularioDatos(5, 190, 710);
+            DatosAgregarFilaContextoSimple(formulario, "¿Qué necesita el cliente? *:", cmbTipoProductoServicio, 0);
+            DatosAgregarFilaContextoSimple(formulario, "Producto / servicio *:", CrearPanelProductoServicioConPipeline(), 1);
+            DatosAgregarFilaContextoSimple(formulario, "Duración / tiempo *:", CrearPanelDuracionProducto(), 2);
+            DatosAgregarFilaContextoSimple(formulario, "Cantidad global:", CrearPanelCantidadGlobalProducto(), 3);
+
+            txtReferenciasVisuales.Multiline = true;
+            txtReferenciasVisuales.Width = 620;
+            txtReferenciasVisuales.Height = 58;
+            DatosAgregarFilaContextoSimple(formulario, "Referencias:", txtReferenciasVisuales, 4);
+
+            Label ayuda = new Label();
+            ayuda.Text = "Selecciona el producto solicitado y ajusta piezas, cantidades y duración cuando corresponda.";
+            ayuda.AutoSize = true;
+            ayuda.ForeColor = Color.FromArgb(95, 100, 108);
+            ayuda.Font = new Font("Segoe UI", 9f);
+            ayuda.MaximumSize = new Size(860, 0);
+            ayuda.Margin = new Padding(0, 8, 0, 0);
+
+            contenedor.Controls.Add(formulario, 0, 0);
+            contenedor.Controls.Add(ayuda, 0, 1);
+
+            AgregarContenidoACard(card, contenedor);
+
+            if (cmbProductoServicio.Items.Count > 0 && cmbProductoServicio.SelectedIndex < 0)
+            {
+                cmbProductoServicio.SelectedIndex = 0;
+            }
+            else
+            {
+                RefrescarOpcionesSegunProducto();
+            }
+
+            return card;
+        }
+
+        private TableLayoutPanel CrearFormularioDatos(int filas, int anchoEtiqueta, int anchoControl)
+        {
+            TableLayoutPanel formulario = new TableLayoutPanel();
+            formulario.Dock = DockStyle.Top;
+            formulario.AutoSize = true;
+            formulario.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            formulario.ColumnCount = 2;
+            formulario.RowCount = filas;
+            formulario.Margin = new Padding(0);
+            formulario.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, anchoEtiqueta));
+            formulario.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, anchoControl));
+
+            for (int i = 0; i < filas; i++)
+            {
+                formulario.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            }
+
+            return formulario;
+        }
+
+        private Panel ConstruirCardDatosDesdeGroupBox(GroupBox grupo, string titulo)
+        {
+            Panel card = CrearCardDatos(titulo);
+            bool esCardEntregables = titulo.IndexOf("Piezas", StringComparison.OrdinalIgnoreCase) >= 0;
+
+            if (grupo.Controls.Count > 0)
+            {
+                Control contenido = grupo.Controls[0];
+                grupo.Controls.Remove(contenido);
+                contenido.Dock = DockStyle.Top;
+                contenido.Margin = new Padding(0);
+
+                if (esCardEntregables)
+                {
+                    contenido.AutoSize = false;
+                    contenido.Height = 300;
+                    contenido.MinimumSize = new Size(0, 300);
+                    card.MinimumSize = new Size(0, 380);
+                }
+
+                AgregarContenidoACard(card, contenido);
+            }
+
+            return card;
+        }
+
+        private Panel ConstruirResumenLateralDatos()
+        {
+            panelResumenDatosLateral = CrearCardDatos("Resumen del proyecto");
+            panelResumenDatosLateral.Width = 310;
+            panelResumenDatosLateral.MinimumSize = new Size(310, 0);
+            panelResumenDatosLateral.Margin = new Padding(0, 0, 0, 14);
+            return panelResumenDatosLateral;
+        }
+
+        private void ConfigurarEventosResumenDatos()
+        {
+            txtNombreCliente.TextChanged -= DatosResumenCampo_Changed;
+            txtEmpresa.TextChanged -= DatosResumenCampo_Changed;
+            txtNombreProyecto.TextChanged -= DatosResumenCampo_Changed;
+            txtDescripcion.TextChanged -= DatosResumenCampo_Changed;
+            cmbTipoProductoServicio.SelectedIndexChanged -= DatosResumenCampo_Changed;
+            cmbProductoServicio.SelectedIndexChanged -= DatosResumenCampo_Changed;
+            dtpFechaInicioCliente.ValueChanged -= DatosResumenCampo_Changed;
+            dtpFechaEntregaCliente.ValueChanged -= DatosResumenCampo_Changed;
+            nudDiasHabilesEstudioSemana.ValueChanged -= DatosResumenCampo_Changed;
+
+            txtNombreCliente.TextChanged += DatosResumenCampo_Changed;
+            txtEmpresa.TextChanged += DatosResumenCampo_Changed;
+            txtNombreProyecto.TextChanged += DatosResumenCampo_Changed;
+            txtDescripcion.TextChanged += DatosResumenCampo_Changed;
+            cmbTipoProductoServicio.SelectedIndexChanged += DatosResumenCampo_Changed;
+            cmbProductoServicio.SelectedIndexChanged += DatosResumenCampo_Changed;
+            dtpFechaInicioCliente.ValueChanged += DatosResumenCampo_Changed;
+            dtpFechaEntregaCliente.ValueChanged += DatosResumenCampo_Changed;
+            nudDiasHabilesEstudioSemana.ValueChanged += DatosResumenCampo_Changed;
+        }
+
+        private void DatosResumenCampo_Changed(object sender, EventArgs e)
+        {
+            ActualizarResumenDatos();
+        }
+
+        private void ActualizarResumenDatos()
+        {
+            if (panelResumenDatosLateral == null || panelResumenDatosLateral.Tag == null)
+            {
+                return;
+            }
+
+            TableLayoutPanel layout = panelResumenDatosLateral.Tag as TableLayoutPanel;
+            if (layout == null)
+            {
+                return;
+            }
+
+            while (layout.Controls.Count > 1)
+            {
+                Control control = layout.Controls[1];
+                layout.Controls.Remove(control);
+                control.Dispose();
+            }
+
+            TableLayoutPanel contenido = new TableLayoutPanel();
+            contenido.Dock = DockStyle.Top;
+            contenido.AutoSize = true;
+            contenido.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            contenido.ColumnCount = 1;
+            contenido.RowCount = 0;
+            contenido.Margin = new Padding(0);
+
+            string moneda = string.IsNullOrWhiteSpace(monedaClienteSeleccionadaRapida)
+                ? "CLP"
+                : monedaClienteSeleccionadaRapida.Trim().ToUpperInvariant();
+
+            string presupuesto = ObtenerTextoPresupuestoResumenDatos();
+            string plazo = lblPlazoClienteCalculado == null || string.IsNullOrWhiteSpace(lblPlazoClienteCalculado.Text)
+                ? "No informado"
+                : lblPlazoClienteCalculado.Text;
+            string cliente = string.IsNullOrWhiteSpace(txtNombreCliente.Text) ? "No informado" : txtNombreCliente.Text.Trim();
+            string proyecto = string.IsNullOrWhiteSpace(txtNombreProyecto.Text) ? "No informado" : txtNombreProyecto.Text.Trim();
+            string tipoSolicitud = cmbTipoProductoServicio.SelectedItem?.ToString() ?? "No informado";
+            string producto = cmbProductoServicio.SelectedItem?.ToString() ?? "No informado";
+            string estado = ObtenerEstadoGeneralDatosResumen();
+
+            AgregarLineaResumenDatos(contenido, "Estado", estado, estado == "Listo para estimar");
+            AgregarLineaResumenDatos(contenido, "Moneda", moneda, true);
+            AgregarLineaResumenDatos(contenido, "Presupuesto", presupuesto, presupuesto != "No informado");
+            AgregarLineaResumenDatos(contenido, "Plazo", plazo, plazo != "No informado" && !plazo.StartsWith("Sin"));
+            AgregarLineaResumenDatos(contenido, "Cliente", cliente, cliente != "No informado");
+            AgregarLineaResumenDatos(contenido, "Proyecto", proyecto, proyecto != "No informado");
+            AgregarLineaResumenDatos(contenido, "Solicitud", tipoSolicitud, tipoSolicitud != "No informado");
+            AgregarLineaResumenDatos(contenido, "Producto", producto, producto != "No informado");
+
+            layout.Controls.Add(contenido, 0, 1);
+        }
+
+        private void AgregarLineaResumenDatos(TableLayoutPanel contenedor, string etiqueta, string valor, bool definido)
+        {
+            Label lbl = new Label();
+            lbl.AutoSize = true;
+            lbl.MaximumSize = new Size(260, 0);
+            lbl.Margin = new Padding(0, 0, 0, 10);
+            lbl.Font = new Font("Segoe UI", 9.2f, FontStyle.Regular);
+            lbl.ForeColor = definido ? Color.FromArgb(35, 40, 44) : Color.FromArgb(135, 140, 148);
+            lbl.Text = etiqueta + ": " + valor;
+
+            if (etiqueta == "Estado")
+            {
+                lbl.Font = new Font("Segoe UI", 10f, FontStyle.Bold);
+                lbl.ForeColor = definido ? Color.FromArgb(35, 140, 105) : Color.FromArgb(170, 105, 35);
+            }
+
+            contenedor.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            contenedor.Controls.Add(lbl, 0, contenedor.RowCount);
+            contenedor.RowCount++;
+        }
+
+        private string ObtenerTextoPresupuestoResumenDatos()
+        {
+            if (presupuestoClienteModo == "Sin informar")
+            {
+                return "No informado";
+            }
+
+            if (cotizacion != null && cotizacion.PresupuestoCliente > 0)
+            {
+                return FormatearValorVisual((double)cotizacion.PresupuestoCliente);
+            }
+
+            if (presupuestoClienteRapidoCLP > 0)
+            {
+                return FormatearValorVisual(presupuestoClienteRapidoCLP);
+            }
+
+            return "No informado";
+        }
+
+        private string ObtenerEstadoGeneralDatosResumen()
+        {
+            bool tieneCliente = !string.IsNullOrWhiteSpace(txtNombreCliente.Text);
+            bool tieneProyecto = !string.IsNullOrWhiteSpace(txtNombreProyecto.Text);
+            bool tieneProducto = cmbProductoServicio.SelectedItem != null &&
+                !string.IsNullOrWhiteSpace(cmbProductoServicio.SelectedItem.ToString());
+            bool tieneDuracion = ObtenerDuracionProductoValor() > 0;
+
+            return tieneCliente && tieneProyecto && tieneProducto && tieneDuracion
+                ? "Listo para estimar"
+                : "Incompleto";
+        }
+
+        private void DtpFechasCliente_ValueChanged(object sender, EventArgs e)
+        {
+            ActualizarPlazoClienteCalculadoDesdeFechas();
+            ActualizarResumenDatos();
+        }
+
+        private FlowLayoutPanel CrearPanelMonedasClienteRapidas()
+        {
+            if (cotizacion != null)
+            {
+                if (!string.IsNullOrWhiteSpace(cotizacion.MonedaPrecioCliente))
+                {
+                    monedaClienteSeleccionadaRapida =
+                        cotizacion.MonedaPrecioCliente.Trim().ToUpperInvariant();
+                }
+                else
+                {
+                    monedaClienteSeleccionadaRapida = "CLP";
+                    cotizacion.MonedaPrecioCliente = "CLP";
+                }
+            }
+            else
+            {
+                monedaClienteSeleccionadaRapida = "CLP";
+            }
+
+            panelMonedasClienteRapidas.Controls.Clear();
+            panelMonedasClienteRapidas.Dock = DockStyle.Fill;
+            panelMonedasClienteRapidas.FlowDirection = FlowDirection.LeftToRight;
+            panelMonedasClienteRapidas.WrapContents = false;
+            panelMonedasClienteRapidas.AutoScroll = false;
+            panelMonedasClienteRapidas.AutoSize = false;
+            panelMonedasClienteRapidas.Height = 34;
+            panelMonedasClienteRapidas.MinimumSize = new Size(0, 34);
+            panelMonedasClienteRapidas.Margin = new Padding(0, 2, 0, 6);
+            panelMonedasClienteRapidas.Padding = new Padding(0, 2, 0, 0);
+            panelMonedasClienteRapidas.BackColor = Color.Transparent;
+
+            panelMonedasClienteRapidas.Controls.Add(CrearBotonMonedaCliente("CLP"));
+            panelMonedasClienteRapidas.Controls.Add(CrearBotonMonedaCliente("USD"));
+            panelMonedasClienteRapidas.Controls.Add(CrearBotonMonedaCliente("EUR"));
+            panelMonedasClienteRapidas.Controls.Add(CrearBotonMonedaCliente("JPY"));
+            panelMonedasClienteRapidas.Controls.Add(CrearBotonMonedaCliente("KRW"));
+            panelMonedasClienteRapidas.Controls.Add(CrearBotonMonedaCliente("UF"));
+
+            MarcarBotonMonedaCliente(monedaClienteSeleccionadaRapida);
+
+            return panelMonedasClienteRapidas;
+        }
+
+        private Button CrearBotonMonedaCliente(string codigo)
+        {
+            Button btn = new Button();
+
+            btn.Text = codigo;
+            btn.Tag = codigo;
+            btn.Width = 58;
+            btn.Height = 28;
+            btn.Margin = new Padding(0, 0, 8, 0);
+            btn.Font = new Font("Segoe UI", 8.8f, FontStyle.Bold);
+            btn.FlatStyle = FlatStyle.Flat;
+            btn.FlatAppearance.BorderSize = 1;
+            btn.Cursor = Cursors.Hand;
+            btn.UseVisualStyleBackColor = false;
+
+            btn.Click -= BtnMonedaClienteRapida_Click;
+            btn.Click += BtnMonedaClienteRapida_Click;
+
+            btn.MouseEnter -= BtnMonedaCliente_MouseEnter;
+            btn.MouseEnter += BtnMonedaCliente_MouseEnter;
+
+            btn.MouseLeave -= BtnMonedaCliente_MouseLeave;
+            btn.MouseLeave += BtnMonedaCliente_MouseLeave;
+
+            return btn;
+        }
+
+        private Color ObtenerColorBaseMoneda(string codigo)
+        {
+            return Color.FromArgb(83, 192, 166);
+        }
+
+        private FlowLayoutPanel CrearPanelBotonesEntregables()
+        {
+            FlowLayoutPanel panel = new FlowLayoutPanel();
+            panel.Dock = DockStyle.Top;
+            panel.AutoSize = true;
+            panel.FlowDirection = FlowDirection.LeftToRight;
+            panel.WrapContents = false;
+            panel.Margin = new Padding(0, 0, 0, 8);
+            panel.Padding = new Padding(0);
+
+            ConfigurarBotonAccionEntregables(
+                btnSeleccionarTodosEntregables,
+                "Seleccionar todo"
+            );
+
+            ConfigurarBotonAccionEntregables(
+                btnDeseleccionarTodosEntregables,
+                "Deseleccionar todo"
+            );
+
+            ConfigurarBotonAccionEntregables(
+                btnSeleccionarDesarrolloEntregables,
+                "Desarrollo"
+            );
+
+            ConfigurarBotonAccionEntregables(
+                btnSeleccionarPreEntregables,
+                "Pre"
+            );
+
+            ConfigurarBotonAccionEntregables(
+                btnSeleccionarProdEntregables,
+                "Prod"
+            );
+
+            ConfigurarBotonAccionEntregables(
+                btnSeleccionarPostEntregables,
+                "Post"
+            );
+
+            btnSeleccionarTodosEntregables.Click -= BtnSeleccionarTodosEntregables_Click;
+            btnSeleccionarTodosEntregables.Click += BtnSeleccionarTodosEntregables_Click;
+
+            btnDeseleccionarTodosEntregables.Click -= BtnDeseleccionarTodosEntregables_Click;
+            btnDeseleccionarTodosEntregables.Click += BtnDeseleccionarTodosEntregables_Click;
+
+            btnSeleccionarDesarrolloEntregables.Click -= BtnSeleccionarDesarrolloEntregables_Click;
+            btnSeleccionarDesarrolloEntregables.Click += BtnSeleccionarDesarrolloEntregables_Click;
+
+            btnSeleccionarPreEntregables.Click -= BtnSeleccionarPreEntregables_Click;
+            btnSeleccionarPreEntregables.Click += BtnSeleccionarPreEntregables_Click;
+
+            btnSeleccionarProdEntregables.Click -= BtnSeleccionarProdEntregables_Click;
+            btnSeleccionarProdEntregables.Click += BtnSeleccionarProdEntregables_Click;
+
+            btnSeleccionarPostEntregables.Click -= BtnSeleccionarPostEntregables_Click;
+            btnSeleccionarPostEntregables.Click += BtnSeleccionarPostEntregables_Click;
+
+            panel.Controls.Add(btnSeleccionarTodosEntregables);
+            panel.Controls.Add(btnDeseleccionarTodosEntregables);
+            panel.Controls.Add(btnSeleccionarDesarrolloEntregables);
+            panel.Controls.Add(btnSeleccionarPreEntregables);
+            panel.Controls.Add(btnSeleccionarProdEntregables);
+            panel.Controls.Add(btnSeleccionarPostEntregables);
+
+            return panel;
+        }
+
+        private void ConfigurarBotonAccionEntregables(Button boton, string texto)
+        {
+            boton.Text = texto;
+            boton.Width = texto.Length <= 10 ? 92 : 160;
+            boton.Height = 30;
+            boton.Margin = new Padding(0, 0, 8, 0);
+            boton.Font = new Font("Segoe UI", 8.8f, FontStyle.Bold);
+            boton.BackColor = Color.White;
+            boton.ForeColor = Color.FromArgb(35, 35, 35);
+            boton.FlatStyle = FlatStyle.Flat;
+            boton.FlatAppearance.BorderColor = Color.FromArgb(150, 150, 150);
+            boton.FlatAppearance.BorderSize = 1;
+            boton.Cursor = Cursors.Hand;
+            boton.UseVisualStyleBackColor = false;
+        }
+
+        private void BtnSeleccionarTodosEntregables_Click(object sender, EventArgs e)
+        {
+            MarcarTodosLosEntregables(true);
+        }
+
+        private void BtnDeseleccionarTodosEntregables_Click(object sender, EventArgs e)
+        {
+            MarcarTodosLosEntregables(false);
+        }
+
+        private void BtnSeleccionarDesarrolloEntregables_Click(object sender, EventArgs e)
+        {
+            AlternarEntregablesPorCategoria("Desarrollo");
+        }
+
+        private void BtnSeleccionarPreEntregables_Click(object sender, EventArgs e)
+        {
+            AlternarEntregablesPorCategoria("Preproduccion");
+        }
+
+        private void BtnSeleccionarProdEntregables_Click(object sender, EventArgs e)
+        {
+            AlternarEntregablesPorCategoria("Produccion");
+        }
+
+        private void BtnSeleccionarPostEntregables_Click(object sender, EventArgs e)
+        {
+            AlternarEntregablesPorCategoria("Postproduccion");
+        }
+
+        private void MarcarTodosLosEntregables(bool usar)
+        {
+            if (dgvEntregablesIndustria == null)
+            {
+                return;
+            }
+
+            dgvEntregablesIndustria.EndEdit();
+
+            actualizandoEntregablesPorLote = true;
+
+            try
+            {
+                foreach (DataGridViewRow row in ObtenerFilasProductoEntregables())
+                {
+                    row.Cells["Usar"].Value = usar;
+                }
+            }
+            finally
+            {
+                actualizandoEntregablesPorLote = false;
+            }
+
+            ConfirmarEdicionEntregablesIndustria();
+            AplicarDatosDesdePantalla();
+            RefrescarResumen();
+            RefrescarPanelSiguientePasoDatos();
+            RefrescarBotonesCategoriaEntregables();
+        }
+
+        private void AlternarEntregablesPorCategoria(string categoriaObjetivo)
+        {
+            bool haySeleccionados = HayEntregablesSeleccionadosEnCategoria(categoriaObjetivo);
+            MarcarEntregablesPorCategoria(categoriaObjetivo, !haySeleccionados);
+        }
+
+        private void MarcarEntregablesPorCategoria(string categoriaObjetivo, bool usar)
+        {
+            if (dgvEntregablesIndustria == null)
+            {
+                return;
+            }
+
+            string objetivo = NormalizarTextoDatosVisual(categoriaObjetivo);
+
+            dgvEntregablesIndustria.EndEdit();
+
+            actualizandoEntregablesPorLote = true;
+
+            try
+            {
+                foreach (DataGridViewRow row in ObtenerFilasEntregablesPorCategoria(objetivo))
+                {
+                    row.Cells["Usar"].Value = usar;
+                }
+            }
+            finally
+            {
+                actualizandoEntregablesPorLote = false;
+            }
+
+            ConfirmarEdicionEntregablesIndustria();
+            AplicarDatosDesdePantalla();
+            RefrescarResumen();
+            RefrescarPanelSiguientePasoDatos();
+            RefrescarBotonesCategoriaEntregables();
+        }
+
+        private void ConfirmarEdicionEntregablesIndustria()
+        {
+            if (dgvEntregablesIndustria == null)
+            {
+                return;
+            }
+
+            try
+            {
+                if (dgvEntregablesIndustria.IsCurrentCellDirty)
+                {
+                    dgvEntregablesIndustria.CommitEdit(DataGridViewDataErrorContexts.Commit);
+                }
+
+                dgvEntregablesIndustria.EndEdit();
+            }
+            catch
+            {
+            }
+        }
+
+        private bool HayEntregablesSeleccionadosEnCategoria(string categoriaObjetivo)
+        {
+            if (dgvEntregablesIndustria == null)
+            {
+                return false;
+            }
+
+            string objetivo = NormalizarTextoDatosVisual(categoriaObjetivo);
+
+            foreach (DataGridViewRow row in ObtenerFilasEntregablesPorCategoria(objetivo))
+            {
+                if (ConvertirCeldaBoolEntregable(row.Cells["Usar"].Value))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private IEnumerable<DataGridViewRow> ObtenerFilasProductoEntregables()
+        {
+            if (dgvEntregablesIndustria == null)
+            {
+                yield break;
+            }
+
+            foreach (DataGridViewRow row in dgvEntregablesIndustria.Rows)
+            {
+                if (row == null || row.IsNewRow || EsFilaCategoriaEntregables(row))
+                {
+                    continue;
+                }
+
+                yield return row;
+            }
+        }
+
+        private List<DataGridViewRow> ObtenerFilasEntregablesPorCategoria(string categoriaNormalizada)
+        {
+            if (indiceEntregablesPorCategoria == null ||
+                indiceEntregablesPorCategoria.Count == 0)
+            {
+                ConstruirIndiceEntregablesPorCategoria();
+            }
+
+            List<DataGridViewRow> filas;
+
+            if (indiceEntregablesPorCategoria != null &&
+                indiceEntregablesPorCategoria.TryGetValue(categoriaNormalizada, out filas))
+            {
+                return filas;
+            }
+
+            return new List<DataGridViewRow>();
+        }
+
+        private void ConstruirIndiceEntregablesPorCategoria()
+        {
+            indiceEntregablesPorCategoria = new Dictionary<string, List<DataGridViewRow>>();
+
+            foreach (DataGridViewRow row in ObtenerFilasProductoEntregables())
+            {
+                string categoria = Convert.ToString(row.Cells["Categoria"].Value);
+                string clave = NormalizarTextoDatosVisual(categoria);
+
+                if (!indiceEntregablesPorCategoria.ContainsKey(clave))
+                {
+                    indiceEntregablesPorCategoria[clave] = new List<DataGridViewRow>();
+                }
+
+                indiceEntregablesPorCategoria[clave].Add(row);
+            }
+        }
+
+        private bool ConvertirCeldaBoolEntregable(object valor)
+        {
+            if (valor is bool b)
+            {
+                return b;
+            }
+
+            bool parsed;
+            return valor != null && bool.TryParse(valor.ToString(), out parsed) && parsed;
+        }
+
+        private void RefrescarBotonesCategoriaEntregables()
+        {
+            PintarBotonCategoriaEntregable(
+                btnSeleccionarDesarrolloEntregables,
+                "Desarrollo",
+                "Desarrollo",
+                HayEntregablesSeleccionadosEnCategoria("Desarrollo")
+            );
+
+            PintarBotonCategoriaEntregable(
+                btnSeleccionarPreEntregables,
+                "Pre",
+                "Preproduccion",
+                HayEntregablesSeleccionadosEnCategoria("Preproduccion")
+            );
+
+            PintarBotonCategoriaEntregable(
+                btnSeleccionarProdEntregables,
+                "Prod",
+                "Produccion",
+                HayEntregablesSeleccionadosEnCategoria("Produccion")
+            );
+
+            PintarBotonCategoriaEntregable(
+                btnSeleccionarPostEntregables,
+                "Post",
+                "Postproduccion",
+                HayEntregablesSeleccionadosEnCategoria("Postproduccion")
+            );
+        }
+
+        private void PintarBotonCategoriaEntregable(
+            Button boton,
+            string texto,
+            string etapa,
+            bool activo
+        )
+        {
+            if (boton == null)
+            {
+                return;
+            }
+
+            Color colorBase = ObtenerColorBaseEtapa(etapa);
+            Color colorActivo = MezclarConBlanco(colorBase, 0.18);
+            Color colorInactivo = MezclarConBlanco(colorBase, 0.86);
+            Color colorBorde = ObtenerColorBordeEtapa(etapa);
+
+            boton.Text = texto;
+            boton.BackColor = activo
+                ? colorActivo
+                : colorInactivo;
+            boton.ForeColor = Color.Black;
+            boton.FlatAppearance.BorderColor = activo
+                ? colorBorde
+                : MezclarConBlanco(colorBorde, 0.45);
+            boton.FlatAppearance.BorderSize = activo ? 2 : 1;
+        }
+
+        private Color ObtenerColorTextoSobreFondo(Color fondo)
+        {
+            int brillo =
+                (fondo.R * 299 + fondo.G * 587 + fondo.B * 114) / 1000;
+
+            if (brillo > 150)
+            {
+                return Color.FromArgb(25, 25, 25);
+            }
+
+            return Color.White;
+        }
+
+        private void MarcarBotonMonedaCliente(string monedaActiva)
+        {
+            if (panelMonedasClienteRapidas == null)
+            {
+                return;
+            }
+
+            monedaActiva = string.IsNullOrWhiteSpace(monedaActiva)
+                ? "CLP"
+                : monedaActiva.Trim().ToUpperInvariant();
+
+            foreach (Control control in panelMonedasClienteRapidas.Controls)
+            {
+                Button btn = control as Button;
+
+                if (btn == null || btn.Tag == null)
+                {
+                    continue;
+                }
+
+                string moneda = btn.Tag.ToString().Trim().ToUpperInvariant();
+                Color colorBase = ObtenerColorBaseMoneda(moneda);
+
+                bool activo = moneda == monedaActiva;
+
+                btn.FlatAppearance.BorderColor = colorBase;
+
+                if (activo)
+                {
+                    btn.BackColor = colorBase;
+                    btn.ForeColor = ObtenerColorTextoSobreFondo(colorBase);
+                    btn.FlatAppearance.BorderSize = 2;
+                }
+                else
+                {
+                    btn.BackColor = Color.FromArgb(252, 252, 252);
+                    btn.ForeColor = Color.FromArgb(45, 45, 45);
+                    btn.FlatAppearance.BorderSize = 1;
+                }
+            }
+        }
+
+        private void BtnMonedaCliente_MouseEnter(object sender, EventArgs e)
+        {
+            Button btn = sender as Button;
+
+            if (btn == null || btn.Tag == null)
+            {
+                return;
+            }
+
+            string moneda = btn.Tag.ToString().Trim().ToUpperInvariant();
+            string activa = string.IsNullOrWhiteSpace(monedaClienteSeleccionadaRapida)
+                ? "CLP"
+                : monedaClienteSeleccionadaRapida.Trim().ToUpperInvariant();
+
+            if (moneda == activa)
+            {
+                return;
+            }
+
+            Color colorBase = ObtenerColorBaseMoneda(moneda);
+
+            btn.BackColor = Color.FromArgb(230, 247, 242);
+            btn.ForeColor = Color.FromArgb(30, 30, 30);
+        }
+
+        private void BtnMonedaCliente_MouseLeave(object sender, EventArgs e)
+        {
+            MarcarBotonMonedaCliente(monedaClienteSeleccionadaRapida);
+        }
+
+        private void BtnMonedaClienteRapida_Click(object sender, EventArgs e)
+        {
+            Button btn = sender as Button;
+
+            if (btn == null || btn.Tag == null)
+            {
+                return;
+            }
+
+            string moneda = btn.Tag.ToString();
+
+            if (string.IsNullOrWhiteSpace(moneda))
+            {
+                return;
+            }
+
+            moneda = moneda.Trim().ToUpperInvariant();
+
+            monedaClienteSeleccionadaRapida = moneda;
+
+            if (cotizacion != null)
+            {
+                cotizacion.MonedaPrecioCliente = moneda;
+                cotizacion.MonedaVisualizacion = moneda;
+                cotizacion.MonedaPresupuestoCliente = moneda;
+            }
+
+            MarcarBotonMonedaCliente(moneda);
+
+            ActualizarTextosPresupuestoRapido();
+            RefrescarTextoPresupuestoManualDesdeClp();
+            AplicarDatosDesdePantalla();
+            RefrescarResumen();
+            ActualizarTextoMonedasActuales();
+            RefrescarPanelSiguientePasoDatos();
+            ActualizarResumenDatos();
+        }
+
+        private FlowLayoutPanel CrearPanelPresupuestoRapido()
+        {
+            panelPresupuestoRapido.Controls.Clear();
+
+            panelPresupuestoRapido.Dock = DockStyle.Fill;
+            panelPresupuestoRapido.FlowDirection = FlowDirection.LeftToRight;
+            panelPresupuestoRapido.WrapContents = true;
+            panelPresupuestoRapido.AutoScroll = false;
+            panelPresupuestoRapido.AutoSize = false;
+            panelPresupuestoRapido.Height = 80;
+            panelPresupuestoRapido.MinimumSize = new Size(0, 80);
+            panelPresupuestoRapido.Margin = new Padding(0, 2, 0, 6);
+            panelPresupuestoRapido.Padding = new Padding(0, 2, 0, 0);
+            panelPresupuestoRapido.BackColor = Color.Transparent;
+
+            ConfigurarBotonPresupuestoRapido(
+                btnPresupuestoSinInformar,
+                "No",
+                0.0,
+                "Sin informar",
+                0.0,
+                ""
+            );
+
+            ConfigurarBotonPresupuestoRapido(
+                btnPresupuestoMenos1M,
+                "",
+                800000.0,
+                "Menos de 1 millón",
+                1000000.0,
+                "<"
+            );
+
+            ConfigurarBotonPresupuestoRapido(
+                btnPresupuestoMenos5M,
+                "",
+                3500000.0,
+                "Menos de 5 millones",
+                5000000.0,
+                "<"
+            );
+
+            ConfigurarBotonPresupuestoRapido(
+                btnPresupuestoMenos10M,
+                "",
+                7500000.0,
+                "Menos de 10 millones",
+                10000000.0,
+                "<"
+            );
+
+            ConfigurarBotonPresupuestoRapido(
+                btnPresupuestoMenos20M,
+                "",
+                15000000.0,
+                "Menos de 20 millones",
+                20000000.0,
+                "<"
+            );
+
+            ConfigurarBotonPresupuestoRapido(
+                btnPresupuestoMas20M,
+                "",
+                25000000.0,
+                "Más de 20 millones",
+                20000000.0,
+                "+"
+            );
+
+            ConfigurarBotonPresupuestoIngresar();
+
+            txtPresupuestoCliente.Width = 160;
+            txtPresupuestoCliente.Height = 28;
+            txtPresupuestoCliente.Margin = new Padding(8, 8, 0, 0);
+            txtPresupuestoCliente.Visible = presupuestoClienteModo == "Manual";
+            txtPresupuestoCliente.Font = new Font("Segoe UI", 9F, FontStyle.Regular);
+            txtPresupuestoCliente.TextChanged -= TxtPresupuestoCliente_TextChanged;
+            txtPresupuestoCliente.TextChanged += TxtPresupuestoCliente_TextChanged;
+
+            panelPresupuestoRapido.Controls.Add(btnPresupuestoMenos1M);
+            panelPresupuestoRapido.Controls.Add(btnPresupuestoMenos5M);
+            panelPresupuestoRapido.Controls.Add(btnPresupuestoMenos10M);
+            panelPresupuestoRapido.Controls.Add(btnPresupuestoMenos20M);
+            panelPresupuestoRapido.Controls.Add(btnPresupuestoMas20M);
+            panelPresupuestoRapido.SetFlowBreak(btnPresupuestoMas20M, true);
+            panelPresupuestoRapido.Controls.Add(btnPresupuestoSinInformar);
+            panelPresupuestoRapido.Controls.Add(btnPresupuestoIngresar);
+            panelPresupuestoRapido.Controls.Add(txtPresupuestoCliente);
+
+            ActualizarLayoutPresupuestoRapido();
+            MarcarBotonPresupuestoRapido(presupuestoClienteModo);
+
+            return panelPresupuestoRapido;
+        }
+
+        private void ConfigurarBotonPresupuestoRapido(
+            Button boton,
+            string texto,
+            double valorCLP,
+            string modo,
+            double etiquetaCLP,
+            string operadorEtiqueta
+        )
+        {
+            boton.Tag = new PresupuestoRapidoTag
+            {
+                Modo = modo,
+                ValorCLP = valorCLP,
+                EtiquetaCLP = etiquetaCLP,
+                OperadorEtiqueta = operadorEtiqueta,
+                TextoFijo = texto,
+                EsManual = false
+            };
+            boton.Text = FormatearTextoBotonPresupuesto((PresupuestoRapidoTag)boton.Tag);
+
+            boton.Width = etiquetaCLP > 0.0 ? 132 : 100;
+            boton.Height = 30;
+            boton.Margin = new Padding(0, 0, 8, 8);
+            boton.Font = new Font("Segoe UI", 8.5f, FontStyle.Bold);
+            boton.TextAlign = ContentAlignment.MiddleCenter;
+            boton.FlatStyle = FlatStyle.Flat;
+            boton.FlatAppearance.BorderSize = 1;
+            boton.Cursor = Cursors.Hand;
+            boton.UseVisualStyleBackColor = false;
+
+            boton.Click -= BtnPresupuestoRapido_Click;
+            boton.Click += BtnPresupuestoRapido_Click;
+
+            boton.MouseEnter -= BtnPresupuestoRapido_MouseEnter;
+            boton.MouseEnter += BtnPresupuestoRapido_MouseEnter;
+
+            boton.MouseLeave -= BtnPresupuestoRapido_MouseLeave;
+            boton.MouseLeave += BtnPresupuestoRapido_MouseLeave;
+        }
+
+        private void ConfigurarBotonPresupuestoIngresar()
+        {
+            btnPresupuestoIngresar.Text = "Ingresar";
+            btnPresupuestoIngresar.Tag = new PresupuestoRapidoTag
+            {
+                Modo = "Manual",
+                ValorCLP = 0.0,
+                EsManual = true
+            };
+
+            btnPresupuestoIngresar.Width = 100;
+            btnPresupuestoIngresar.Height = 30;
+            btnPresupuestoIngresar.Margin = new Padding(0, 0, 8, 8);
+            btnPresupuestoIngresar.Font = new Font("Segoe UI", 8.5f, FontStyle.Bold);
+            btnPresupuestoIngresar.TextAlign = ContentAlignment.MiddleCenter;
+            btnPresupuestoIngresar.FlatStyle = FlatStyle.Flat;
+            btnPresupuestoIngresar.FlatAppearance.BorderSize = 1;
+            btnPresupuestoIngresar.Cursor = Cursors.Hand;
+            btnPresupuestoIngresar.UseVisualStyleBackColor = false;
+
+            btnPresupuestoIngresar.Click -= BtnPresupuestoRapido_Click;
+            btnPresupuestoIngresar.Click += BtnPresupuestoRapido_Click;
+
+            btnPresupuestoIngresar.MouseEnter -= BtnPresupuestoRapido_MouseEnter;
+            btnPresupuestoIngresar.MouseEnter += BtnPresupuestoRapido_MouseEnter;
+
+            btnPresupuestoIngresar.MouseLeave -= BtnPresupuestoRapido_MouseLeave;
+            btnPresupuestoIngresar.MouseLeave += BtnPresupuestoRapido_MouseLeave;
+        }
+
+        private class PresupuestoRapidoTag
+        {
+            public string Modo { get; set; } = "";
+            public double ValorCLP { get; set; } = 0.0;
+            public double EtiquetaCLP { get; set; } = 0.0;
+            public string OperadorEtiqueta { get; set; } = "";
+            public string TextoFijo { get; set; } = "";
+            public bool EsManual { get; set; } = false;
+        }
+
+        private void ActualizarLayoutPresupuestoRapido()
+        {
+            if (panelPresupuestoRapido == null)
+            {
+                return;
+            }
+
+            panelPresupuestoRapido.WrapContents = true;
+            panelPresupuestoRapido.SetFlowBreak(btnPresupuestoMas20M, true);
+            panelPresupuestoRapido.SetFlowBreak(btnPresupuestoIngresar, false);
+            panelPresupuestoRapido.Height = 80;
+            panelPresupuestoRapido.MinimumSize = new Size(0, panelPresupuestoRapido.Height);
+
+            foreach (Control control in panelPresupuestoRapido.Controls)
+            {
+                if (control is Button btn)
+                {
+                    btn.Height = 30;
+                }
+            }
+
+            txtPresupuestoCliente.Visible = presupuestoClienteModo == "Manual";
+            txtPresupuestoCliente.Margin = new Padding(8, 0, 0, 8);
+        }
+
+        private void ActualizarTextosPresupuestoRapido()
+        {
+            if (panelPresupuestoRapido == null)
+            {
+                return;
+            }
+
+            foreach (Control control in panelPresupuestoRapido.Controls)
+            {
+                if (control is Button btn && btn.Tag is PresupuestoRapidoTag tag)
+                {
+                    btn.Text = FormatearTextoBotonPresupuesto(tag);
+                }
+            }
+
+            ActualizarLayoutPresupuestoRapido();
+        }
+
+        private string FormatearTextoBotonPresupuesto(PresupuestoRapidoTag tag)
+        {
+            if (tag == null)
+            {
+                return "";
+            }
+
+            if (tag.EsManual || tag.EtiquetaCLP <= 0.0 || string.IsNullOrWhiteSpace(tag.OperadorEtiqueta))
+            {
+                return string.IsNullOrWhiteSpace(tag.TextoFijo) ? tag.Modo : tag.TextoFijo;
+            }
+
+            return tag.OperadorEtiqueta.Trim() + " " + FormatearPresupuestoRapidoVisual(tag.EtiquetaCLP);
+        }
+
+        private string FormatearPresupuestoRapidoVisual(double valorCLP)
+        {
+            string referenciaClp;
+
+            if (valorCLP >= 1000000.0)
+            {
+                referenciaClp = "$" + (valorCLP / 1000000.0).ToString(
+                    "0.#",
+                    new System.Globalization.CultureInfo("es-CL")
+                ) + "M";
+            }
+            else
+            {
+                referenciaClp = "$" + valorCLP.ToString("N0", new System.Globalization.CultureInfo("es-CL"));
+            }
+
+            if (!MostrarEquivalenciaMonedaPresupuestoRapido())
+            {
+                return referenciaClp;
+            }
+
+            return referenciaClp + " / " + FormatearEquivalenciaPresupuestoRapido(valorCLP);
+        }
+
+        private bool MostrarEquivalenciaMonedaPresupuestoRapido()
+        {
+            string moneda = string.IsNullOrWhiteSpace(monedaClienteSeleccionadaRapida)
+                ? "CLP"
+                : monedaClienteSeleccionadaRapida.Trim().ToUpperInvariant();
+
+            return moneda != "CLP";
+        }
+
+        private string FormatearEquivalenciaPresupuestoRapido(double valorCLP)
+        {
+            string moneda = string.IsNullOrWhiteSpace(monedaClienteSeleccionadaRapida)
+                ? "CLP"
+                : monedaClienteSeleccionadaRapida.Trim().ToUpperInvariant();
+
+            double valor = ConvertirDesdeCLP(valorCLP, moneda);
+
+            if (moneda == "USD")
+            {
+                return "US$ " + FormatearValorReferenciaPresupuesto(valor, 0);
+            }
+
+            if (moneda == "EUR")
+            {
+                return "€ " + FormatearValorReferenciaPresupuesto(valor, 0);
+            }
+
+            if (moneda == "JPY")
+            {
+                return "¥ " + FormatearValorReferenciaPresupuesto(valor, 0);
+            }
+
+            return moneda + " " + FormatearValorReferenciaPresupuesto(valor, moneda == "UF" ? 1 : 0);
+        }
+
+        private string FormatearValorReferenciaPresupuesto(double valor, int decimalesBase)
+        {
+            System.Globalization.CultureInfo cultura = new System.Globalization.CultureInfo("es-CL");
+            double absoluto = Math.Abs(valor);
+
+            if (absoluto >= 1000000.0)
+            {
+                return (valor / 1000000.0).ToString("0.#", cultura) + "M";
+            }
+
+            if (absoluto >= 1000.0)
+            {
+                return (valor / 1000.0).ToString("0.#", cultura) + "k";
+            }
+
+            if (absoluto >= 100.0)
+            {
+                return Math.Round(valor / 10.0, 0).ToString("N0", cultura) + "0";
+            }
+
+            if (absoluto >= 10.0)
+            {
+                return Math.Round(valor, 0).ToString("N0", cultura);
+            }
+
+            return valor.ToString(decimalesBase <= 0 ? "0" : "0.#", cultura);
+        }
+
+        private void BtnPresupuestoRapido_Click(object sender, EventArgs e)
+        {
+            Button boton = sender as Button;
+
+            if (boton == null || boton.Tag == null)
+            {
+                return;
+            }
+
+            PresupuestoRapidoTag tag = boton.Tag as PresupuestoRapidoTag;
+
+            if (tag == null)
+            {
+                return;
+            }
+
+            presupuestoClienteModo = tag.Modo;
+
+            if (tag.EsManual)
+            {
+                txtPresupuestoCliente.Visible = true;
+                ActualizarLayoutPresupuestoRapido();
+                txtPresupuestoCliente.Focus();
+                txtPresupuestoCliente.SelectAll();
+
+                MarcarBotonPresupuestoRapido("Manual");
+                AplicarPresupuestoClienteDesdeSeleccion();
+                RefrescarPanelSiguientePasoDatos();
+                RefrescarResumen();
+                ActualizarResumenDatos();
+                return;
+            }
+
+            presupuestoClienteRapidoCLP = tag.ValorCLP;
+
+            if (tag.ValorCLP <= 0.0)
+            {
+                txtPresupuestoCliente.TextChanged -= TxtPresupuestoCliente_TextChanged;
+                txtPresupuestoCliente.Text = "";
+                txtPresupuestoCliente.TextChanged += TxtPresupuestoCliente_TextChanged;
+                txtPresupuestoCliente.Visible = false;
+            }
+            else
+            {
+                txtPresupuestoCliente.TextChanged -= TxtPresupuestoCliente_TextChanged;
+                txtPresupuestoCliente.Text = FormatearNumeroPresupuestoEnMonedaActual(tag.ValorCLP);
+                txtPresupuestoCliente.TextChanged += TxtPresupuestoCliente_TextChanged;
+                txtPresupuestoCliente.Visible = false;
+            }
+
+            ActualizarLayoutPresupuestoRapido();
+            AplicarPresupuestoClienteDesdeSeleccion();
+            MarcarBotonPresupuestoRapido(tag.Modo);
+
+            RefrescarPanelSiguientePasoDatos();
+            RefrescarResumen();
+            ActualizarResumenDatos();
+        }
+
+        private void AplicarPresupuestoClienteDesdeSeleccion()
+        {
+            if (cotizacion == null)
+            {
+                return;
+            }
+
+            decimal presupuesto = 0m;
+
+            if (presupuestoClienteModo == "Manual")
+            {
+                double valorManual = (double)ParsearDecimalFlexible(txtPresupuestoCliente.Text);
+                double valorManualCLP = ConvertirHaciaCLP(valorManual, monedaClienteSeleccionadaRapida);
+                presupuesto = Convert.ToDecimal(valorManualCLP);
+            }
+            else
+            {
+                presupuestoClienteRapidoCLP = ObtenerValorPresupuestoRapidoCLP(presupuestoClienteModo, presupuestoClienteRapidoCLP);
+                presupuesto = Convert.ToDecimal(presupuestoClienteRapidoCLP);
+            }
+
+            cotizacion.PresupuestoCliente = presupuesto;
+
+            string moneda = string.IsNullOrWhiteSpace(monedaClienteSeleccionadaRapida)
+                ? "CLP"
+                : monedaClienteSeleccionadaRapida.Trim().ToUpperInvariant();
+
+            cotizacion.Moneda = moneda;
+            cotizacion.MonedaPrecioCliente = moneda;
+            cotizacion.MonedaVisualizacion = moneda;
+            cotizacion.MonedaPresupuestoCliente = moneda;
+        }
+
+        private double ObtenerValorPresupuestoRapidoCLP(string modo, double fallback)
+        {
+            if (string.IsNullOrWhiteSpace(modo))
+            {
+                return fallback;
+            }
+
+            string normalizado = NormalizarTextoDatosVisual(modo);
+
+            if (normalizado == NormalizarTextoDatosVisual("Sin informar"))
+            {
+                return 0.0;
+            }
+
+            if (normalizado == NormalizarTextoDatosVisual("Menos de 1 millón"))
+            {
+                return 800000.0;
+            }
+
+            if (normalizado == NormalizarTextoDatosVisual("Menos de 5 millones"))
+            {
+                return 3500000.0;
+            }
+
+            if (normalizado == NormalizarTextoDatosVisual("Menos de 10 millones"))
+            {
+                return 7500000.0;
+            }
+
+            if (normalizado == NormalizarTextoDatosVisual("Menos de 20 millones"))
+            {
+                return 15000000.0;
+            }
+
+            if (normalizado == NormalizarTextoDatosVisual("Más de 20 millones"))
+            {
+                return 25000000.0;
+            }
+
+            return fallback;
+        }
+
+        private void RefrescarTextoPresupuestoManualDesdeClp()
+        {
+            if (cotizacion == null || txtPresupuestoCliente == null)
+            {
+                return;
+            }
+
+            if (cotizacion.PresupuestoCliente <= 0)
+            {
+                return;
+            }
+
+            txtPresupuestoCliente.TextChanged -= TxtPresupuestoCliente_TextChanged;
+            txtPresupuestoCliente.Text = FormatearNumeroPresupuestoEnMonedaActual((double)cotizacion.PresupuestoCliente);
+            txtPresupuestoCliente.TextChanged += TxtPresupuestoCliente_TextChanged;
+        }
+
+        private string FormatearNumeroPresupuestoEnMonedaActual(double valorCLP)
+        {
+            string moneda = string.IsNullOrWhiteSpace(monedaClienteSeleccionadaRapida)
+                ? "CLP"
+                : monedaClienteSeleccionadaRapida.Trim().ToUpperInvariant();
+
+            double valor = ConvertirDesdeCLP(valorCLP, moneda);
+            string formato = moneda == "CLP" || moneda == "JPY" ? "N0" : "N2";
+
+            return valor.ToString(formato, new System.Globalization.CultureInfo("es-CL"));
+        }
+
+        private FlowLayoutPanel CrearPanelDestinoUsoRapido()
+        {
+            panelDestinoUsoRapido.Controls.Clear();
+
+            panelDestinoUsoRapido.Dock = DockStyle.Fill;
+            panelDestinoUsoRapido.FlowDirection = FlowDirection.LeftToRight;
+            panelDestinoUsoRapido.WrapContents = true;
+            panelDestinoUsoRapido.AutoSize = true;
+            panelDestinoUsoRapido.MinimumSize = new Size(0, 34);
+            panelDestinoUsoRapido.Margin = new Padding(0, 2, 0, 6);
+            panelDestinoUsoRapido.Padding = new Padding(0);
+            panelDestinoUsoRapido.BackColor = Color.Transparent;
+
+            return panelDestinoUsoRapido;
+        }
+
+        private void CargarBotonesDestinoUsoGeneral()
+        {
+            panelDestinoUsoRapido.Controls.Clear();
+            destinosUsoSeleccionados.Clear();
+
+            foreach (string destino in BibliotecaProductos2D.ObtenerDestinosUsoGenerales())
+            {
+                Button btn = CrearBotonDestinoUso(destino);
+                panelDestinoUsoRapido.Controls.Add(btn);
+            }
+        }
+
+        private Button CrearBotonDestinoUso(string destino)
+        {
+            Button btn = new Button();
+
+            btn.Text = destino;
+            btn.Tag = destino;
+            btn.Height = 28;
+            btn.Width = Math.Max(105, Math.Min(180, destino.Length * 8 + 28));
+            btn.Margin = new Padding(0, 0, 8, 6);
+            btn.Font = new Font("Segoe UI", 8.5f, FontStyle.Bold);
+            btn.FlatStyle = FlatStyle.Flat;
+            btn.FlatAppearance.BorderSize = 1;
+            btn.FlatAppearance.BorderColor = Color.FromArgb(238, 30, 91);
+            btn.BackColor = Color.White;
+            btn.ForeColor = Color.FromArgb(40, 40, 40);
+            btn.Cursor = Cursors.Hand;
+            btn.UseVisualStyleBackColor = false;
+
+            btn.Click -= BtnDestinoUso_Click;
+            btn.Click += BtnDestinoUso_Click;
+
+            return btn;
+        }
+
+        private void BtnDestinoUso_Click(object sender, EventArgs e)
+        {
+            Button btn = sender as Button;
+
+            if (btn == null || btn.Tag == null)
+            {
+                return;
+            }
+
+            string destino = btn.Tag.ToString();
+
+            if (string.IsNullOrWhiteSpace(destino))
+            {
+                return;
+            }
+
+            destino = destino.Trim();
+
+            if (destinosUsoSeleccionados.Contains(destino))
+            {
+                destinosUsoSeleccionados.Remove(destino);
+            }
+            else
+            {
+                destinosUsoSeleccionados.Add(destino);
+            }
+
+            MarcarBotonesDestinoUso();
+
+            AplicarDatosDesdePantalla();
+            RefrescarResumen();
+            RefrescarPanelSiguientePasoDatos();
+        }
+
+        private void MarcarBotonesDestinoUso()
+        {
+            foreach (Control control in panelDestinoUsoRapido.Controls)
+            {
+                Button btn = control as Button;
+
+                if (btn == null || btn.Tag == null)
+                {
+                    continue;
+                }
+
+                string destino = btn.Tag.ToString();
+
+                bool activo = destinosUsoSeleccionados.Contains(destino);
+
+                if (activo)
+                {
+                    btn.BackColor = Color.FromArgb(238, 30, 91);
+                    btn.ForeColor = Color.White;
+                    btn.FlatAppearance.BorderColor = Color.FromArgb(238, 30, 91);
+                    btn.FlatAppearance.BorderSize = 2;
+                }
+                else
+                {
+                    btn.BackColor = Color.White;
+                    btn.ForeColor = Color.FromArgb(45, 45, 45);
+                    btn.FlatAppearance.BorderColor = Color.FromArgb(238, 30, 91);
+                    btn.FlatAppearance.BorderSize = 1;
+                }
+            }
+        }
+
+        private void MarcarBotonPresupuestoRapido(string modoActivo)
+        {
+            if (panelPresupuestoRapido == null)
+            {
+                return;
+            }
+
+            modoActivo = string.IsNullOrWhiteSpace(modoActivo)
+                ? "Sin informar"
+                : modoActivo.Trim();
+
+            foreach (Control control in panelPresupuestoRapido.Controls)
+            {
+                Button btn = control as Button;
+
+                if (btn == null || btn.Tag == null)
+                {
+                    continue;
+                }
+
+                PresupuestoRapidoTag tag = btn.Tag as PresupuestoRapidoTag;
+
+                if (tag == null)
+                {
+                    continue;
+                }
+
+                bool activo = tag.Modo == modoActivo;
+                Color colorBase = ObtenerColorBasePresupuesto(tag.Modo);
+
+                btn.FlatAppearance.BorderColor = colorBase;
+
+                if (activo)
+                {
+                    btn.BackColor = colorBase;
+                    btn.ForeColor = ObtenerColorTextoSobreFondo(colorBase);
+                    btn.FlatAppearance.BorderSize = 2;
+                }
+                else
+                {
+                    btn.BackColor = Color.FromArgb(252, 252, 252);
+                    btn.ForeColor = Color.FromArgb(45, 45, 45);
+                    btn.FlatAppearance.BorderSize = 1;
+                }
+            }
+        }
+
+        private void BtnPresupuestoRapido_MouseEnter(object sender, EventArgs e)
+        {
+            Button btn = sender as Button;
+
+            if (btn == null || btn.Tag == null)
+            {
+                return;
+            }
+
+            PresupuestoRapidoTag tag = btn.Tag as PresupuestoRapidoTag;
+
+            if (tag == null)
+            {
+                return;
+            }
+
+            if (tag.Modo == presupuestoClienteModo)
+            {
+                return;
+            }
+
+            Color colorBase = ObtenerColorBasePresupuesto(tag.Modo);
+
+            btn.BackColor = Color.FromArgb(230, 247, 242);
+            btn.ForeColor = Color.FromArgb(30, 30, 30);
+        }
+
+        private void BtnPresupuestoRapido_MouseLeave(object sender, EventArgs e)
+        {
+            MarcarBotonPresupuestoRapido(presupuestoClienteModo);
+        }
+
+        private Color ObtenerColorBasePresupuesto(string modo)
+        {
+            modo = string.IsNullOrWhiteSpace(modo)
+                ? ""
+                : modo.Trim().ToLowerInvariant();
+
+            if (modo.Contains("manual"))
+            {
+                return Color.FromArgb(40, 40, 40);
+            }
+
+            if (modo.Contains("sin"))
+            {
+                return Color.FromArgb(145, 150, 155);
+            }
+
+            return Color.FromArgb(83, 192, 166);
+        }
+
+        private void TxtPresupuestoCliente_TextChanged(object sender, EventArgs e)
+        {
+            if (presupuestoClienteModo == "Manual")
+            {
+                AplicarPresupuestoClienteDesdeSeleccion();
+                RefrescarResumen();
+            }
+
+            RefrescarPanelSiguientePasoDatos();
+            ActualizarResumenDatos();
+        }
+        private GroupBox ConstruirGrupoDatosCliente()
+        {
+            GroupBox grupo = new GroupBox();
+            grupo.Text = "1. Datos comerciales";
+            grupo.Dock = DockStyle.Top;
+            grupo.AutoSize = true;
+            grupo.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            grupo.Font = new Font("Segoe UI", 10, FontStyle.Bold);
+            grupo.ForeColor = Color.FromArgb(30, 30, 30);
+            grupo.Padding = new Padding(16, 14, 16, 16);
+            grupo.Margin = new Padding(0, 0, 0, 18);
+
+            TableLayoutPanel formulario = new TableLayoutPanel();
+            formulario.Dock = DockStyle.Top;
+            formulario.AutoSize = true;
+            formulario.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            formulario.ColumnCount = 2;
+            formulario.RowCount = 12;
+            formulario.Margin = new Padding(0);
+
+            formulario.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 180));
+            formulario.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 760));
+
+            for (int i = 0; i < formulario.RowCount; i++)
+            {
+                formulario.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            }
+
+            DatosConfigurarCalendariosCliente();
+
+            DatosAgregarFilaControl(
+                formulario,
+                "Moneda cotización:",
+                CrearPanelMonedasClienteRapidas(),
+                0
+            );
+            DatosAgregarFilaControl(
+    formulario,
+    "Presupuesto cliente:",
+    CrearPanelPresupuestoRapido(),
+    1
+);
+            DatosAgregarFilaControl(formulario, "Fecha inicio estimada:", dtpFechaInicioCliente, 2);
+            DatosAgregarFilaControl(formulario, "Fecha entrega objetivo:", dtpFechaEntregaCliente, 3);
+            DatosAgregarFilaControl(formulario, "Días hábiles estudio:", nudDiasHabilesEstudioSemana, 4);
+
+            // NUEVA FILA: BOTONES RÁPIDOS
+            DatosAgregarFilaControl(formulario, "Selección rápida:", CrearPanelPlazosRapidos(), 5);
+
+            DatosAgregarFilaControl(formulario, "Plazo declarado:", lblPlazoClienteCalculado, 6);
+            DatosAgregarFilaControl(formulario, "Cliente:", txtNombreCliente, 7);
+            DatosAgregarFilaControl(formulario, "Empresa / marca:", txtEmpresa, 8);
+            DatosAgregarFilaControl(formulario, "Email:", txtEmail, 9);
+            DatosAgregarFilaControl(formulario, "Nombre proyecto:", txtNombreProyecto, 10);
+            DatosAgregarFilaControl(formulario, "Descripción:", txtDescripcion, 11);
+
+            txtDescripcion.Multiline = true;
+            txtDescripcion.Height = 72;
+
+            txtNotas.Multiline = true;
+            txtDescripcion.Width = 420;
+            txtNotas.Height = 72;
+
+            txtDescripcion.Multiline = true;
+            txtDescripcion.Width = 620;
+            txtDescripcion.Height = 72;
+
+
+            grupo.Controls.Add(formulario);
+            return grupo;
+        }
+
+
+        private GroupBox ConstruirGrupoBriefProductoSegmentado()
+        {
+            GroupBox grupo = new GroupBox();
+            grupo.Text = "2. Contexto del proyecto";
+            grupo.Dock = DockStyle.Top;
+            grupo.AutoSize = true;
+            grupo.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            grupo.Font = new Font("Segoe UI", 10, FontStyle.Bold);
+            grupo.ForeColor = Color.FromArgb(30, 30, 30);
+            grupo.Padding = new Padding(16, 14, 16, 16);
+            grupo.Margin = new Padding(0);
+
+            TableLayoutPanel contenedor = new TableLayoutPanel();
+            contenedor.Dock = DockStyle.Top;
+            contenedor.AutoSize = true;
+            contenedor.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            contenedor.ColumnCount = 1;
+            contenedor.RowCount = 5;
+            contenedor.Margin = new Padding(0);
+
+            for (int i = 0; i < contenedor.RowCount; i++)
+            {
+                contenedor.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            }
+
+            TableLayoutPanel grillaContexto = new TableLayoutPanel();
+            grillaContexto.Dock = DockStyle.Top;
+            grillaContexto.AutoSize = true;
+            grillaContexto.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            grillaContexto.ColumnCount = 1;
+            grillaContexto.RowCount = 1;
+            grillaContexto.Margin = new Padding(0);
+
+            grillaContexto.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 820));
+
+            TableLayoutPanel columnaIzquierda = new TableLayoutPanel();
+            columnaIzquierda.Dock = DockStyle.Top;
+            columnaIzquierda.AutoSize = true;
+            columnaIzquierda.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            columnaIzquierda.ColumnCount = 2;
+            columnaIzquierda.RowCount = 4;
+            columnaIzquierda.Margin = new Padding(0);
+
+            columnaIzquierda.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 170));
+            columnaIzquierda.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 610));
+
+            for (int i = 0; i < columnaIzquierda.RowCount; i++)
+            {
+                columnaIzquierda.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            }
+
+            TableLayoutPanel columnaDerecha = new TableLayoutPanel();
+            columnaDerecha.Dock = DockStyle.Top;
+            columnaDerecha.AutoSize = true;
+            columnaDerecha.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            columnaDerecha.ColumnCount = 2;
+            columnaDerecha.RowCount = 0;
+            columnaDerecha.Margin = new Padding(20, 0, 0, 0);
+
+            columnaDerecha.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 140));
+            columnaDerecha.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 360));
+
+            DatosConfigurarComboProductosServicios();
+            DatosConfigurarCombosBriefSegmentado();
+
+            DatosAgregarFilaContextoSimple(
+    columnaIzquierda,
+    "Tipo solicitud *:",
+    cmbTipoProductoServicio,
+    0
+);
+
+            DatosAgregarFilaContextoSimple(
+                columnaIzquierda,
+                "Producto / servicio *:",
+                CrearPanelProductoServicioConPipeline(),
+                1
+            );
+
+            DatosAgregarFilaContextoSimple(
+                columnaIzquierda,
+                "Duración / tiempo *:",
+                CrearPanelDuracionProducto(),
+                2
+            );
+
+            DatosAgregarFilaContextoSimple(
+                columnaIzquierda,
+                "Cantidad global:",
+                CrearPanelCantidadGlobalProducto(),
+                3
+            );
+
+            // Oculto temporalmente.
+            // DatosAgregarFilaContextoSimple(columnaDerecha, "Destino / uso *:", CrearPanelDestinoUsoRapido(), 0);
+            // DatosAgregarFilaContextoSimple(columnaDerecha, "Formato entrega *:", CrearPanelFormatoEntregaRapido(), 1);
+
+            grillaContexto.Controls.Add(columnaIzquierda, 0, 0);
+            // grillaContexto.Controls.Add(columnaDerecha, 1, 0);
+
+            TableLayoutPanel filaReferencias = new TableLayoutPanel();
+            filaReferencias.Dock = DockStyle.Top;
+            filaReferencias.AutoSize = true;
+            filaReferencias.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            filaReferencias.ColumnCount = 2;
+            filaReferencias.RowCount = 1;
+            filaReferencias.Margin = new Padding(0, 10, 0, 0);
+
+            filaReferencias.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 170));
+            filaReferencias.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 760));
+
+            txtReferenciasVisuales.Multiline = true;
+            txtReferenciasVisuales.Width = 420;
+            txtReferenciasVisuales.Height = 54;
+
+            DatosAgregarFilaContextoSimple(
+                filaReferencias,
+                "Referencias:",
+                txtReferenciasVisuales,
+                0
+            );
+
+            Label ayuda = new Label();
+            ayuda.Text =
+                "Selecciona el producto o servicio solicitado. Luego ajusta las piezas 2D, cantidades y duración cuando corresponda.";
+            ayuda.AutoSize = true;
+            ayuda.ForeColor = Color.DimGray;
+            ayuda.Font = new Font("Segoe UI", 9);
+            ayuda.MaximumSize = new Size(940, 0);
+            ayuda.Margin = new Padding(0, 10, 0, 12);
+
+            GroupBox grupoEntregables = ConstruirGrupoEntregablesIndustria();
+            GroupBox grupoInsumos = ConstruirGrupoInsumosClienteSegmentado();
+
+            contenedor.Controls.Add(grillaContexto, 0, 0);
+            contenedor.Controls.Add(filaReferencias, 0, 1);
+            contenedor.Controls.Add(ayuda, 0, 2);
+            contenedor.Controls.Add(grupoEntregables, 0, 3);
+            contenedor.Controls.Add(grupoInsumos, 0, 4);
+
+            grupo.Controls.Add(contenedor);
+
+            if (cmbProductoServicio.Items.Count > 0 && cmbProductoServicio.SelectedIndex < 0)
+            {
+                cmbProductoServicio.SelectedIndex = 0;
+            }
+            else
+            {
+                RefrescarOpcionesSegunProducto();
+            }
+
+            return grupo;
+        }
+
+        private Control CrearPanelProductoServicioConPipeline()
+        {
+            FlowLayoutPanel panel = new FlowLayoutPanel();
+            panel.AutoSize = true;
+            panel.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            panel.FlowDirection = FlowDirection.LeftToRight;
+            panel.WrapContents = false;
+            panel.Margin = new Padding(0);
+
+            cmbProductoServicio.Width = 255;
+            cmbProductoServicio.Margin = new Padding(0, 0, 10, 0);
+
+            btnEditarPipelineProducto.Text = "Pipeline";
+            btnEditarPipelineProducto.Width = 104;
+            btnEditarPipelineProducto.Height = 30;
+            btnEditarPipelineProducto.Margin = new Padding(0, 0, 10, 0);
+            btnEditarPipelineProducto.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
+            btnEditarPipelineProducto.FlatStyle = FlatStyle.Flat;
+            btnEditarPipelineProducto.BackColor = Color.FromArgb(245, 245, 245);
+            btnEditarPipelineProducto.ForeColor = Color.FromArgb(25, 25, 25);
+            btnEditarPipelineProducto.FlatAppearance.BorderColor = Color.FromArgb(120, 120, 120);
+            btnEditarPipelineProducto.FlatAppearance.BorderSize = 1;
+            btnEditarPipelineProducto.Click -= BtnEditarPipelineProducto_Click;
+            btnEditarPipelineProducto.Click += BtnEditarPipelineProducto_Click;
+
+            Button btnEditarProductos = new Button();
+            btnEditarProductos.Text = "Productos";
+            btnEditarProductos.Width = 116;
+            btnEditarProductos.Height = 30;
+            btnEditarProductos.Margin = new Padding(0);
+            btnEditarProductos.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
+            btnEditarProductos.FlatStyle = FlatStyle.Flat;
+            btnEditarProductos.BackColor = Color.FromArgb(245, 245, 245);
+            btnEditarProductos.ForeColor = Color.FromArgb(25, 25, 25);
+            btnEditarProductos.FlatAppearance.BorderColor = Color.FromArgb(120, 120, 120);
+            btnEditarProductos.FlatAppearance.BorderSize = 1;
+            btnEditarProductos.Click += (s, e) =>
+            {
+                AbrirTabProductos2D(cmbProductoServicio.SelectedItem?.ToString() ?? "");
+            };
+
+            panel.Controls.Add(cmbProductoServicio);
+            panel.Controls.Add(btnEditarPipelineProducto);
+            panel.Controls.Add(btnEditarProductos);
+
+            return panel;
+        }
+
+        private void BtnEditarPipelineProducto_Click(object sender, EventArgs e)
+        {
+            string nombreProducto = cmbProductoServicio.SelectedItem?.ToString() ?? "";
+
+            if (string.IsNullOrWhiteSpace(nombreProducto))
+            {
+                MessageBox.Show(
+                    "Selecciona un producto antes de editar su pipeline.",
+                    "Pipeline de producto",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information
+                );
+                return;
+            }
+
+            Producto2DDefinicion producto = BibliotecaProductos2D.ObtenerProducto(nombreProducto);
+
+            if (producto == null)
+            {
+                return;
+            }
+
+            using (Form dialogo = new Form())
+            {
+                dialogo.Text = "Pipeline de producto - " + producto.Nombre;
+                dialogo.StartPosition = FormStartPosition.CenterParent;
+                dialogo.Width = 1180;
+                dialogo.Height = 720;
+                dialogo.MinimizeBox = false;
+                dialogo.MaximizeBox = true;
+                dialogo.BackColor = Color.FromArgb(245, 246, 248);
+                dialogo.Font = new Font("Segoe UI", 9.0f, FontStyle.Regular);
+
+                TableLayoutPanel layout = new TableLayoutPanel();
+                layout.Dock = DockStyle.Fill;
+                layout.ColumnCount = 1;
+                layout.RowCount = 3;
+                layout.BackColor = Color.FromArgb(245, 246, 248);
+                layout.Padding = new Padding(18, 16, 18, 16);
+                layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+                layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+                layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+                TableLayoutPanel encabezado = new TableLayoutPanel();
+                encabezado.Dock = DockStyle.Top;
+                encabezado.AutoSize = true;
+                encabezado.ColumnCount = 1;
+                encabezado.RowCount = 3;
+                encabezado.Margin = new Padding(0, 0, 0, 12);
+
+                Label titulo = new Label();
+                titulo.Text = "Pipeline de producto";
+                titulo.AutoSize = true;
+                titulo.Font = new Font("Segoe UI", 16.0f, FontStyle.Bold);
+                titulo.ForeColor = Color.FromArgb(22, 24, 29);
+                titulo.Margin = new Padding(0, 0, 0, 2);
+
+                Label subtitulo = new Label();
+                subtitulo.Text = producto.Nombre;
+                subtitulo.AutoSize = true;
+                subtitulo.Font = new Font("Segoe UI", 10.2f, FontStyle.Bold);
+                subtitulo.ForeColor = Color.FromArgb(41, 171, 135);
+                subtitulo.Margin = new Padding(0, 0, 0, 4);
+
+                Label ayuda = new Label();
+                ayuda.Text = "Edita la receta completa del producto: etapas, dependencias y piezas/subproductos definidos para este tipo de servicio.";
+                ayuda.AutoSize = true;
+                ayuda.MaximumSize = new Size(1060, 0);
+                ayuda.Font = new Font("Segoe UI", 9.2f, FontStyle.Regular);
+                ayuda.ForeColor = Color.FromArgb(85, 92, 105);
+                ayuda.Margin = new Padding(0, 0, 0, 0);
+
+                encabezado.Controls.Add(titulo, 0, 0);
+                encabezado.Controls.Add(subtitulo, 0, 1);
+                encabezado.Controls.Add(ayuda, 0, 2);
+
+                TabControl tabsPipeline = new TabControl();
+                tabsPipeline.Dock = DockStyle.Fill;
+                tabsPipeline.Margin = new Padding(0);
+
+                TabPage tabEtapas = new TabPage("Pipeline");
+                TabPage tabSubproductos = new TabPage("Subproductos / piezas");
+                TabPage tabCargosAsociados = new TabPage("Cargos asociados");
+                TabPage tabRevision = new TabPage("Revisión");
+                tabEtapas.BackColor = Color.FromArgb(245, 246, 248);
+                tabSubproductos.BackColor = Color.FromArgb(245, 246, 248);
+                tabCargosAsociados.BackColor = Color.FromArgb(245, 246, 248);
+                tabRevision.BackColor = Color.FromArgb(245, 246, 248);
+
+                DataGridView gridSubproductos = CrearGrillaSubproductosProducto(producto);
+
+                tabEtapas.Controls.Add(
+                    CrearVistaPipelineBloquesProducto(producto)
+                );
+                tabSubproductos.Controls.Add(
+                    CrearPanelEditorPipelineGrid(gridSubproductos, "subproducto")
+                );
+                tabCargosAsociados.Controls.Add(
+                    CrearPanelCargosAsociadosPipeline(
+                        gridSubproductos,
+                        () =>
+                        {
+                            dialogo.Tag = "";
+                            dialogo.DialogResult = DialogResult.Retry;
+                            dialogo.Close();
+                        }
+                    )
+                );
+                tabRevision.Controls.Add(
+                    CrearVistaRevisionPipelineProducto(producto)
+                );
+
+                tabsPipeline.TabPages.Add(tabEtapas);
+                tabsPipeline.TabPages.Add(tabSubproductos);
+                tabsPipeline.TabPages.Add(tabCargosAsociados);
+                tabsPipeline.TabPages.Add(tabRevision);
+                tabsPipeline.SelectedIndexChanged += (s, args) =>
+                {
+                    if (tabsPipeline.SelectedTab == tabCargosAsociados)
+                    {
+                        gridSubproductos.EndEdit();
+                        tabCargosAsociados.Controls.Clear();
+                        tabCargosAsociados.Controls.Add(
+                            CrearPanelCargosAsociadosPipeline(
+                                gridSubproductos,
+                                () =>
+                                {
+                                    dialogo.Tag = "";
+                                    dialogo.DialogResult = DialogResult.Retry;
+                                    dialogo.Close();
+                                }
+                            )
+                        );
+                        return;
+                    }
+
+                    if (tabsPipeline.SelectedTab != tabRevision)
+                    {
+                        return;
+                    }
+
+                    gridSubproductos.EndEdit();
+                    Producto2DDefinicion temporal =
+                        ConstruirProductoTemporalDesdeEditor(producto, gridSubproductos);
+                    tabRevision.Controls.Clear();
+                    tabRevision.Controls.Add(CrearVistaRevisionPipelineProducto(temporal));
+                };
+
+                TableLayoutPanel acciones = new TableLayoutPanel();
+                acciones.Dock = DockStyle.Top;
+                acciones.AutoSize = true;
+                acciones.ColumnCount = 3;
+                acciones.RowCount = 1;
+                acciones.BackColor = Color.FromArgb(245, 246, 248);
+                acciones.Padding = new Padding(0, 12, 0, 0);
+                acciones.Margin = new Padding(0);
+                acciones.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+                acciones.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+                acciones.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+
+                FlowLayoutPanel accionesDerecha = new FlowLayoutPanel();
+                accionesDerecha.AutoSize = true;
+                accionesDerecha.FlowDirection = FlowDirection.LeftToRight;
+                accionesDerecha.Margin = new Padding(0);
+                accionesDerecha.Padding = new Padding(0);
+
+                bool pipelineGuardado = false;
+
+                Button btnGuardar = new Button();
+                btnGuardar.Text = "Guardar cambios";
+                btnGuardar.Width = 142;
+                btnGuardar.Height = 32;
+                btnGuardar.Margin = new Padding(8, 0, 0, 0);
+                AplicarEstiloBotonPipelineDialogo(btnGuardar, true);
+                btnGuardar.Click += (s, args) =>
+                {
+                    try
+                    {
+                        ConfirmarEdicionGrillaPipeline(gridSubproductos);
+                        GuardarPipelineProductoDesdeGrilla(producto, gridSubproductos);
+                        pipelineGuardado = true;
+                        dialogo.DialogResult = DialogResult.OK;
+                        dialogo.Close();
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show(
+                            "No se pudo guardar el pipeline en productos2d.json.\n\n" +
+                            ex.Message,
+                            "Guardar pipeline",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Error
+                        );
+                    }
+                };
+
+                Button btnCancelar = new Button();
+                btnCancelar.Text = "Cancelar";
+                btnCancelar.Width = 108;
+                btnCancelar.Height = 32;
+                btnCancelar.Margin = new Padding(8, 0, 0, 0);
+                btnCancelar.DialogResult = DialogResult.Cancel;
+                AplicarEstiloBotonPipelineDialogo(btnCancelar, false);
+
+                Button btnPantallaCompleta = new Button();
+                btnPantallaCompleta.Text = "Pantalla completa";
+                btnPantallaCompleta.Width = 160;
+                btnPantallaCompleta.Height = 32;
+                btnPantallaCompleta.Margin = new Padding(0);
+                AplicarEstiloBotonPipelineDialogo(btnPantallaCompleta, false);
+                btnPantallaCompleta.Click += (s, args) =>
+                {
+                    dialogo.WindowState = dialogo.WindowState == FormWindowState.Maximized
+                        ? FormWindowState.Normal
+                        : FormWindowState.Maximized;
+                };
+
+                accionesDerecha.Controls.Add(btnGuardar);
+                accionesDerecha.Controls.Add(btnCancelar);
+                acciones.Controls.Add(btnPantallaCompleta, 0, 0);
+                acciones.Controls.Add(new Label(), 1, 0);
+                acciones.Controls.Add(accionesDerecha, 2, 0);
+
+                layout.Controls.Add(encabezado, 0, 0);
+                layout.Controls.Add(tabsPipeline, 0, 1);
+                layout.Controls.Add(acciones, 0, 2);
+
+                dialogo.Controls.Add(layout);
+                dialogo.AcceptButton = btnGuardar;
+                dialogo.CancelButton = btnCancelar;
+
+                DialogResult resultadoDialogo = dialogo.ShowDialog(this);
+
+                if (resultadoDialogo == DialogResult.Retry)
+                {
+                    ConfirmarEdicionGrillaPipeline(gridSubproductos);
+                    GuardarPipelineProductoDesdeGrilla(producto, gridSubproductos);
+                    AbrirTabEcuacionesProductivas(dialogo.Tag?.ToString() ?? "");
+                    return;
+                }
+
+                if (resultadoDialogo != DialogResult.OK || !pipelineGuardado)
+                {
+                    return;
+                }
+            }
+        }
+
+        private DataGridView CrearGrillaPipelineProducto(Producto2DDefinicion producto)
+        {
+            DataGridView grid = new DataGridView();
+            grid.Dock = DockStyle.Fill;
+            grid.AllowUserToAddRows = true;
+            grid.AllowUserToDeleteRows = true;
+            grid.RowHeadersVisible = false;
+            grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            grid.SelectionMode = DataGridViewSelectionMode.CellSelect;
+            grid.MultiSelect = false;
+
+            grid.Columns.Add(new DataGridViewCheckBoxColumn
+            {
+                Name = "Activa",
+                HeaderText = "Activa",
+                FillWeight = 55
+            });
+
+            grid.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "Orden",
+                HeaderText = "Orden",
+                FillWeight = 60
+            });
+
+            DataGridViewComboBoxColumn colEtapa = new DataGridViewComboBoxColumn();
+            colEtapa.Name = "ClaveEtapa";
+            colEtapa.HeaderText = "Etapa";
+            colEtapa.FlatStyle = FlatStyle.Flat;
+
+            foreach (EtapaDefinicion etapa in bibliotecaEtapas.OrderBy(e => e.Orden))
+            {
+                colEtapa.Items.Add(etapa.Clave);
+            }
+
+            grid.Columns.Add(colEtapa);
+
+            grid.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "NombreVisible",
+                HeaderText = "Nombre visible",
+                FillWeight = 130
+            });
+
+            grid.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "DependeDe",
+                HeaderText = "Depende de",
+                FillWeight = 130
+            });
+
+            grid.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "Nota",
+                HeaderText = "Nota",
+                FillWeight = 120
+            });
+
+            if (producto.Etapas == null || producto.Etapas.Count == 0)
+            {
+                producto.Etapas = CrearPipelineDesdeSubproductos(producto);
+            }
+
+            foreach (ProductoEtapaDefinicion etapa in producto.Etapas.OrderBy(e => e.Orden))
+            {
+                int rowIndex = grid.Rows.Add();
+                DataGridViewRow row = grid.Rows[rowIndex];
+
+                if (!colEtapa.Items.Contains(etapa.ClaveEtapa))
+                {
+                    colEtapa.Items.Add(etapa.ClaveEtapa);
+                }
+
+                row.Cells["Activa"].Value = etapa.Activa;
+                row.Cells["Orden"].Value = etapa.Orden;
+                row.Cells["ClaveEtapa"].Value = etapa.ClaveEtapa;
+                row.Cells["NombreVisible"].Value = etapa.NombreVisible;
+                row.Cells["DependeDe"].Value = etapa.DependeDe;
+                row.Cells["Nota"].Value = etapa.Nota;
+            }
+
+            return grid;
+        }
+
+        private Control CrearVistaPipelineBloquesProducto(Producto2DDefinicion producto)
+        {
+            Panel panel = new Panel();
+            panel.Dock = DockStyle.Fill;
+            panel.AutoScroll = true;
+            panel.Padding = new Padding(18);
+            panel.BackColor = Color.White;
+
+            TableLayoutPanel layout = new TableLayoutPanel();
+            layout.Dock = DockStyle.Top;
+            layout.AutoSize = true;
+            layout.ColumnCount = 1;
+            layout.RowCount = 3;
+
+            Label titulo = new Label();
+            titulo.Text = "Pipeline base del producto";
+            titulo.AutoSize = true;
+            titulo.Font = new Font("Segoe UI", 12.0f, FontStyle.Bold);
+            titulo.ForeColor = Color.FromArgb(35, 35, 35);
+            titulo.Margin = new Padding(0, 0, 0, 4);
+
+            Label ayuda = new Label();
+            ayuda.Text = "Esta vista no se edita directamente. Las etapas se derivan de las piezas configuradas y quedan encadenadas en orden productivo.";
+            ayuda.AutoSize = true;
+            ayuda.MaximumSize = new Size(900, 0);
+            ayuda.Font = new Font("Segoe UI", 9.2f, FontStyle.Regular);
+            ayuda.ForeColor = Color.FromArgb(85, 85, 85);
+            ayuda.Margin = new Padding(0, 0, 0, 16);
+
+            FlowLayoutPanel flujo = new FlowLayoutPanel();
+            flujo.Dock = DockStyle.Top;
+            flujo.AutoSize = true;
+            flujo.FlowDirection = FlowDirection.LeftToRight;
+            flujo.WrapContents = true;
+
+            List<ProductoEtapaDefinicion> etapas = ObtenerEtapasSecuencialesProducto(producto);
+
+            for (int i = 0; i < etapas.Count; i++)
+            {
+                ProductoEtapaDefinicion etapa = etapas[i];
+                flujo.Controls.Add(CrearBloquePipelineEtapa(etapa));
+
+                if (i < etapas.Count - 1)
+                {
+                    Label flecha = new Label();
+                    flecha.Text = "->";
+                    flecha.AutoSize = true;
+                    flecha.Font = new Font("Segoe UI", 16.0f, FontStyle.Bold);
+                    flecha.ForeColor = Color.FromArgb(95, 95, 95);
+                    flecha.Margin = new Padding(6, 34, 6, 0);
+                    flujo.Controls.Add(flecha);
+                }
+            }
+
+            layout.Controls.Add(titulo, 0, 0);
+            layout.Controls.Add(ayuda, 0, 1);
+            layout.Controls.Add(flujo, 0, 2);
+
+            panel.Controls.Add(layout);
+            return panel;
+        }
+
+        private Control CrearBloquePipelineEtapa(ProductoEtapaDefinicion etapa)
+        {
+            Color colorBase = ObtenerColorBaseEtapa(etapa.ClaveEtapa);
+
+            Panel bloque = new Panel();
+            bloque.Width = 185;
+            bloque.Height = 94;
+            bloque.BackColor = MezclarConBlanco(colorBase, 0.82);
+            bloque.BorderStyle = BorderStyle.FixedSingle;
+            bloque.Margin = new Padding(0, 0, 0, 12);
+            bloque.Padding = new Padding(10);
+
+            Label nombre = new Label();
+            nombre.Text = etapa.NombreVisible;
+            nombre.Dock = DockStyle.Top;
+            nombre.Height = 28;
+            nombre.Font = new Font("Segoe UI", 10.5f, FontStyle.Bold);
+            nombre.ForeColor = Color.Black;
+
+            Label depende = new Label();
+            depende.Text = string.IsNullOrWhiteSpace(etapa.DependeDe)
+                ? "Inicio del pipeline"
+                : "Depende de: " + etapa.DependeDe;
+            depende.Dock = DockStyle.Top;
+            depende.Height = 34;
+            depende.Font = new Font("Segoe UI", 8.7f, FontStyle.Regular);
+            depende.ForeColor = Color.FromArgb(55, 55, 55);
+
+            Label orden = new Label();
+            orden.Text = "Orden " + etapa.Orden.ToString();
+            orden.Dock = DockStyle.Bottom;
+            orden.Height = 20;
+            orden.Font = new Font("Segoe UI", 8.0f, FontStyle.Bold);
+            orden.ForeColor = ObtenerColorBordeEtapa(etapa.ClaveEtapa);
+
+            bloque.Controls.Add(orden);
+            bloque.Controls.Add(depende);
+            bloque.Controls.Add(nombre);
+
+            return bloque;
+        }
+
+        private Control CrearVistaRevisionPipelineProducto(Producto2DDefinicion producto)
+        {
+            Panel panel = new Panel();
+            panel.Dock = DockStyle.Fill;
+            panel.AutoScroll = true;
+            panel.Padding = new Padding(16);
+            panel.BackColor = Color.White;
+
+            TableLayoutPanel layout = new TableLayoutPanel();
+            layout.Dock = DockStyle.Top;
+            layout.AutoSize = true;
+            layout.ColumnCount = 1;
+
+            Label titulo = new Label();
+            titulo.Text = "Revisión de procesos";
+            titulo.AutoSize = true;
+            titulo.Font = new Font("Segoe UI", 12.0f, FontStyle.Bold);
+            titulo.ForeColor = Color.FromArgb(35, 35, 35);
+            titulo.Margin = new Padding(0, 0, 0, 10);
+            layout.Controls.Add(titulo);
+
+            List<string> alertas = ObtenerAlertasDependenciasPipeline(producto);
+            if (alertas.Count > 0)
+            {
+                layout.Controls.Add(CrearPanelAlertasDependenciasPipeline(alertas));
+            }
+
+            layout.Controls.Add(CrearRedRevisionProcesosProducto(producto));
+
+            panel.Controls.Add(layout);
+            return panel;
+        }
+
+        private Control CrearRedRevisionProcesosProducto(Producto2DDefinicion producto)
+        {
+            Panel bloque = new Panel();
+            bloque.Dock = DockStyle.Top;
+            bloque.AutoSize = true;
+            bloque.BackColor = Color.FromArgb(248, 248, 248);
+            bloque.BorderStyle = BorderStyle.FixedSingle;
+            bloque.Padding = new Padding(10);
+            bloque.Margin = new Padding(0, 0, 0, 10);
+
+            FlowLayoutPanel filas = new FlowLayoutPanel();
+            filas.Dock = DockStyle.Top;
+            filas.AutoSize = true;
+            filas.FlowDirection = FlowDirection.TopDown;
+            filas.WrapContents = false;
+            filas.Margin = new Padding(0, 4, 0, 0);
+
+            List<Subproducto2D> piezas = (producto.Subproductos ?? new List<Subproducto2D>())
+                .Where(s =>
+                    s != null &&
+                    s.RequeridoPorDefecto)
+                .OrderBy(s => s.Orden <= 0 ? int.MaxValue : s.Orden)
+                .ToList();
+
+            if (piezas.Count == 0)
+            {
+                filas.Controls.Add(CrearTarjetaRevisionPipeline("Sin procesos activos", "", false, ""));
+                bloque.Controls.Add(filas);
+                return bloque;
+            }
+
+            Dictionary<string, Subproducto2D> mapaPorNombre = piezas
+                .Where(p => !string.IsNullOrWhiteSpace(p.Nombre))
+                .GroupBy(p => NormalizarTextoDatosVisual(p.Nombre))
+                .ToDictionary(g => g.Key, g => g.First());
+
+            Dictionary<string, List<string>> dependenciasExplicitas =
+                ConstruirDependenciasExplicitasPipeline(piezas);
+
+            Dictionary<string, List<Subproducto2D>> hijosPorDependencia =
+                ConstruirHijosPorDependenciaPipeline(piezas, dependenciasExplicitas, mapaPorNombre);
+
+            List<Subproducto2D> raices = piezas
+                .Where(p =>
+                {
+                    string clave = NormalizarTextoDatosVisual(p.Nombre);
+                    return !dependenciasExplicitas.TryGetValue(clave, out List<string> deps) ||
+                        deps.Count == 0 ||
+                        ObtenerDependenciasFaltantesPipeline(deps, mapaPorNombre).Count == deps.Count;
+                })
+                .OrderBy(p => p.Orden <= 0 ? int.MaxValue : p.Orden)
+                .ToList();
+
+            if (raices.Count == 0)
+            {
+                raices = piezas;
+            }
+
+            HashSet<string> procesosDibujados = new HashSet<string>();
+            foreach (Subproducto2D raiz in raices)
+            {
+                string claveRaiz = NormalizarTextoDatosVisual(raiz.Nombre);
+                if (procesosDibujados.Contains(claveRaiz))
+                {
+                    continue;
+                }
+
+                Control fila = CrearFilaRevisionPipeline(
+                    raiz,
+                    hijosPorDependencia,
+                    dependenciasExplicitas,
+                    mapaPorNombre,
+                    procesosDibujados
+                );
+                filas.Controls.Add(fila);
+            }
+
+            foreach (Subproducto2D pieza in piezas)
+            {
+                string clavePieza = NormalizarTextoDatosVisual(pieza.Nombre);
+                if (procesosDibujados.Contains(clavePieza))
+                {
+                    continue;
+                }
+
+                filas.Controls.Add(CrearFilaRevisionPipeline(
+                    pieza,
+                    hijosPorDependencia,
+                    dependenciasExplicitas,
+                    mapaPorNombre,
+                    procesosDibujados
+                ));
+            }
+
+            bloque.Controls.Add(filas);
+            return bloque;
+        }
+
+        private Dictionary<string, List<Subproducto2D>> ConstruirHijosPorDependenciaPipeline(
+            List<Subproducto2D> piezas,
+            Dictionary<string, List<string>> dependenciasExplicitas,
+            Dictionary<string, Subproducto2D> mapaPorNombre
+        )
+        {
+            Dictionary<string, List<Subproducto2D>> resultado = new Dictionary<string, List<Subproducto2D>>();
+
+            foreach (Subproducto2D pieza in piezas ?? new List<Subproducto2D>())
+            {
+                if (pieza == null || string.IsNullOrWhiteSpace(pieza.Nombre))
+                {
+                    continue;
+                }
+
+                string clavePieza = NormalizarTextoDatosVisual(pieza.Nombre);
+                List<string> dependencias = dependenciasExplicitas.TryGetValue(clavePieza, out List<string> deps)
+                    ? deps
+                    : new List<string>();
+
+                foreach (string dependencia in dependencias)
+                {
+                    string claveDependencia = NormalizarTextoDatosVisual(dependencia);
+                    if (!mapaPorNombre.ContainsKey(claveDependencia))
+                    {
+                        continue;
+                    }
+
+                    if (!resultado.ContainsKey(claveDependencia))
+                    {
+                        resultado[claveDependencia] = new List<Subproducto2D>();
+                    }
+
+                    resultado[claveDependencia].Add(pieza);
+                }
+            }
+
+            foreach (List<Subproducto2D> hijos in resultado.Values)
+            {
+                hijos.Sort((a, b) =>
+                    (a.Orden <= 0 ? int.MaxValue : a.Orden)
+                    .CompareTo(b.Orden <= 0 ? int.MaxValue : b.Orden));
+            }
+
+            return resultado;
+        }
+
+        private Control CrearFilaRevisionPipeline(
+            Subproducto2D raiz,
+            Dictionary<string, List<Subproducto2D>> hijosPorDependencia,
+            Dictionary<string, List<string>> dependenciasExplicitas,
+            Dictionary<string, Subproducto2D> mapaPorNombre,
+            HashSet<string> procesosDibujados
+        )
+        {
+            FlowLayoutPanel fila = new FlowLayoutPanel();
+            fila.AutoSize = true;
+            fila.FlowDirection = FlowDirection.LeftToRight;
+            fila.WrapContents = false;
+            fila.Margin = new Padding(0, 0, 0, 8);
+
+            List<Subproducto2D> nivelActual = new List<Subproducto2D> { raiz };
+            HashSet<string> visitadosFila = new HashSet<string>();
+            bool primerNivel = true;
+
+            while (nivelActual.Count > 0)
+            {
+                List<Subproducto2D> nivelVisible = nivelActual
+                    .Where(p => p != null && !visitadosFila.Contains(NormalizarTextoDatosVisual(p.Nombre)))
+                    .OrderBy(p => p.Orden <= 0 ? int.MaxValue : p.Orden)
+                    .ToList();
+
+                if (nivelVisible.Count == 0)
+                {
+                    break;
+                }
+
+                if (!primerNivel)
+                {
+                    fila.Controls.Add(CrearFlechaRevisionPipeline());
+                }
+
+                FlowLayoutPanel columna = new FlowLayoutPanel();
+                columna.AutoSize = true;
+                columna.FlowDirection = FlowDirection.TopDown;
+                columna.WrapContents = false;
+                columna.Margin = new Padding(0, 0, 12, 0);
+
+                List<Subproducto2D> siguienteNivel = new List<Subproducto2D>();
+
+                foreach (Subproducto2D pieza in nivelVisible)
+                {
+                    string clavePieza = NormalizarTextoDatosVisual(pieza.Nombre);
+                    visitadosFila.Add(clavePieza);
+                    procesosDibujados.Add(clavePieza);
+
+                    List<string> dependencias = dependenciasExplicitas.TryGetValue(clavePieza, out List<string> deps)
+                        ? deps
+                        : new List<string>();
+                    bool serial = dependencias.Count > 0;
+                    List<string> dependenciasFaltantes = ObtenerDependenciasFaltantesPipeline(
+                        dependencias,
+                        mapaPorNombre
+                    );
+
+                    string detalle = dependenciasFaltantes.Count > 0
+                        ? "Falta: " + string.Join(", ", dependenciasFaltantes)
+                        : serial
+                            ? "Después de: " + string.Join("; ", dependencias)
+                            : "Puede iniciar";
+
+                    columna.Controls.Add(CrearTarjetaRevisionPipeline(
+                        pieza.Nombre,
+                        detalle,
+                        serial,
+                        ObtenerNombreVisibleEtapa(pieza.EtapaSugerida)
+                    ));
+
+                    if (hijosPorDependencia.TryGetValue(clavePieza, out List<Subproducto2D> hijos))
+                    {
+                        foreach (Subproducto2D hijo in hijos)
+                        {
+                            string claveHijo = NormalizarTextoDatosVisual(hijo.Nombre);
+                            if (!visitadosFila.Contains(claveHijo) && !procesosDibujados.Contains(claveHijo))
+                            {
+                                siguienteNivel.Add(hijo);
+                            }
+                        }
+                    }
+                }
+
+                fila.Controls.Add(columna);
+                nivelActual = siguienteNivel
+                    .GroupBy(p => NormalizarTextoDatosVisual(p.Nombre))
+                    .Select(g => g.First())
+                    .ToList();
+                primerNivel = false;
+            }
+
+            return fila;
+        }
+
+        private Control CrearPanelAlertasDependenciasPipeline(List<string> alertas)
+        {
+            Panel panel = new Panel();
+            panel.Dock = DockStyle.Top;
+            panel.AutoSize = true;
+            panel.BackColor = Color.FromArgb(255, 246, 224);
+            panel.BorderStyle = BorderStyle.FixedSingle;
+            panel.Padding = new Padding(10, 8, 10, 8);
+            panel.Margin = new Padding(0, 0, 0, 10);
+
+            Label titulo = new Label();
+            titulo.Text = "Revisar dependencias";
+            titulo.Dock = DockStyle.Top;
+            titulo.Height = 22;
+            titulo.Font = new Font("Segoe UI", 9.0f, FontStyle.Bold);
+            titulo.ForeColor = Color.FromArgb(120, 78, 0);
+
+            Label detalle = new Label();
+            detalle.Text = string.Join(Environment.NewLine, alertas.Select(a => "- " + a));
+            detalle.Dock = DockStyle.Top;
+            detalle.AutoSize = true;
+            detalle.MaximumSize = new Size(1200, 0);
+            detalle.Font = new Font("Segoe UI", 8.5f, FontStyle.Regular);
+            detalle.ForeColor = Color.FromArgb(70, 55, 25);
+
+            panel.Controls.Add(detalle);
+            panel.Controls.Add(titulo);
+            return panel;
+        }
+
+        private Dictionary<string, List<string>> ConstruirDependenciasExplicitasPipeline(List<Subproducto2D> piezas)
+        {
+            Dictionary<string, List<string>> resultado = new Dictionary<string, List<string>>();
+
+            foreach (Subproducto2D pieza in piezas ?? new List<Subproducto2D>())
+            {
+                if (pieza == null || string.IsNullOrWhiteSpace(pieza.Nombre))
+                {
+                    continue;
+                }
+
+                string clave = NormalizarTextoDatosVisual(pieza.Nombre);
+                resultado[clave] = SepararDependenciasPipeline(pieza.DependeDe);
+            }
+
+            return resultado;
+        }
+
+        private List<ProductoEtapaDefinicion> ObtenerEtapasRevisionPipeline(
+            Producto2DDefinicion producto
+        )
+        {
+            List<ProductoEtapaDefinicion> etapas = (producto?.Etapas ?? new List<ProductoEtapaDefinicion>())
+                .Where(e => e != null && e.Activa && !string.IsNullOrWhiteSpace(e.ClaveEtapa))
+                .OrderBy(e => e.Orden <= 0 ? ObtenerOrdenEtapaGeneral(e.ClaveEtapa) : e.Orden)
+                .ToList();
+
+            if (etapas.Count == 0 && producto != null)
+            {
+                etapas = CrearPipelineDesdeSubproductos(producto);
+            }
+
+            return etapas;
+        }
+
+        private ProductoEtapaDefinicion BuscarEtapaRevisionPipeline(
+            List<ProductoEtapaDefinicion> etapas,
+            string etapa
+        )
+        {
+            string clave = NormalizarTextoDatosVisual(etapa);
+
+            return (etapas ?? new List<ProductoEtapaDefinicion>())
+                .FirstOrDefault(e =>
+                    NormalizarTextoDatosVisual(e.ClaveEtapa) == clave ||
+                    NormalizarTextoDatosVisual(e.NombreVisible) == clave);
+        }
+
+        private List<string> ObtenerProcesosTerminalesEtapaPipeline(
+            List<Subproducto2D> piezas,
+            string etapa
+        )
+        {
+            string claveEtapa = NormalizarTextoDatosVisual(etapa);
+            List<Subproducto2D> piezasEtapa = (piezas ?? new List<Subproducto2D>())
+                .Where(p => p != null &&
+                    NormalizarTextoDatosVisual(p.EtapaSugerida) == claveEtapa)
+                .OrderBy(p => p.Orden <= 0 ? int.MaxValue : p.Orden)
+                .ToList();
+
+            if (piezasEtapa.Count == 0)
+            {
+                return new List<string>();
+            }
+
+            HashSet<string> nombresDependidos = new HashSet<string>();
+
+            foreach (Subproducto2D piezaEtapa in piezasEtapa)
+            {
+                foreach (string dependencia in SepararDependenciasPipeline(piezaEtapa.DependeDe))
+                {
+                    nombresDependidos.Add(NormalizarTextoDatosVisual(dependencia));
+                }
+            }
+
+            List<Subproducto2D> terminales = piezasEtapa
+                .Where(p => !nombresDependidos.Contains(NormalizarTextoDatosVisual(p.Nombre)))
+                .ToList();
+
+            if (terminales.Count == 0)
+            {
+                terminales.Add(piezasEtapa.Last());
+            }
+
+            return terminales
+                .Select(p => p.Nombre)
+                .Where(n => !string.IsNullOrWhiteSpace(n))
+                .Distinct()
+                .ToList();
+        }
+
+        private List<string> ObtenerAlertasDependenciasPipeline(Producto2DDefinicion producto)
+        {
+            List<Subproducto2D> piezas = (producto?.Subproductos ?? new List<Subproducto2D>())
+                .Where(s => s != null && s.RequeridoPorDefecto)
+                .OrderBy(s => s.Orden <= 0 ? int.MaxValue : s.Orden)
+                .ToList();
+
+            Dictionary<string, Subproducto2D> mapaPorNombre = piezas
+                .Where(p => !string.IsNullOrWhiteSpace(p.Nombre))
+                .GroupBy(p => NormalizarTextoDatosVisual(p.Nombre))
+                .ToDictionary(g => g.Key, g => g.First());
+
+            Dictionary<string, List<string>> dependenciasExplicitas =
+                ConstruirDependenciasExplicitasPipeline(piezas);
+
+            List<string> alertas = new List<string>();
+
+            foreach (Subproducto2D pieza in piezas)
+            {
+                if (pieza == null || string.IsNullOrWhiteSpace(pieza.Nombre))
+                {
+                    continue;
+                }
+
+                string clavePieza = NormalizarTextoDatosVisual(pieza.Nombre);
+                List<string> dependencias = dependenciasExplicitas.TryGetValue(clavePieza, out List<string> deps)
+                    ? deps
+                    : new List<string>();
+
+                foreach (string dependencia in dependencias)
+                {
+                    string claveDependencia = NormalizarTextoDatosVisual(dependencia);
+
+                    if (claveDependencia == clavePieza)
+                    {
+                        alertas.Add(pieza.Nombre + " no puede depender de sí mismo.");
+                        continue;
+                    }
+
+                    if (!mapaPorNombre.ContainsKey(claveDependencia))
+                    {
+                        alertas.Add(pieza.Nombre + " depende de '" + dependencia + "', pero ese proceso no existe o no está activo.");
+                        continue;
+                    }
+
+                    Subproducto2D piezaDependencia = mapaPorNombre[claveDependencia];
+                    int ordenPieza = pieza.Orden <= 0 ? int.MaxValue : pieza.Orden;
+                    int ordenDependencia = piezaDependencia.Orden <= 0 ? int.MaxValue : piezaDependencia.Orden;
+
+                    if (ordenDependencia > ordenPieza)
+                    {
+                        alertas.Add(pieza.Nombre + " depende de '" + piezaDependencia.Nombre + "', pero aparece antes en el orden.");
+                    }
+
+                    if (ExisteRutaDependenciaPipeline(
+                        piezaDependencia,
+                        clavePieza,
+                        mapaPorNombre,
+                        dependenciasExplicitas,
+                        new HashSet<string>()))
+                    {
+                        alertas.Add(pieza.Nombre + " y '" + piezaDependencia.Nombre + "' forman una dependencia circular.");
+                    }
+                }
+            }
+
+            return alertas.Distinct().ToList();
+        }
+
+        private List<string> ObtenerDependenciasFaltantesPipeline(
+            List<string> dependencias,
+            Dictionary<string, Subproducto2D> mapaPorNombre
+        )
+        {
+            List<string> faltantes = new List<string>();
+
+            foreach (string dependencia in dependencias ?? new List<string>())
+            {
+                string claveDependencia = NormalizarTextoDatosVisual(dependencia);
+
+                if (!mapaPorNombre.ContainsKey(claveDependencia))
+                {
+                    faltantes.Add(dependencia);
+                }
+            }
+
+            return faltantes;
+        }
+
+        private bool ExisteRutaDependenciaPipeline(
+            Subproducto2D origen,
+            string claveDestino,
+            Dictionary<string, Subproducto2D> mapaPorNombre,
+            Dictionary<string, List<string>> dependenciasExplicitas,
+            HashSet<string> visitados
+        )
+        {
+            if (origen == null || string.IsNullOrWhiteSpace(origen.Nombre))
+            {
+                return false;
+            }
+
+            string claveOrigen = NormalizarTextoDatosVisual(origen.Nombre);
+
+            if (!visitados.Add(claveOrigen))
+            {
+                return false;
+            }
+
+            List<string> dependencias = dependenciasExplicitas != null &&
+                dependenciasExplicitas.TryGetValue(claveOrigen, out List<string> deps)
+                    ? deps
+                    : SepararDependenciasPipeline(origen.DependeDe);
+
+            foreach (string dependencia in dependencias)
+            {
+                string claveDependencia = NormalizarTextoDatosVisual(dependencia);
+
+                if (claveDependencia == claveDestino)
+                {
+                    return true;
+                }
+
+                if (mapaPorNombre.TryGetValue(claveDependencia, out Subproducto2D siguiente) &&
+                    ExisteRutaDependenciaPipeline(
+                        siguiente,
+                        claveDestino,
+                        mapaPorNombre,
+                        dependenciasExplicitas,
+                        visitados))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private Control CrearFlechaRevisionPipeline()
+        {
+            Label flecha = new Label();
+            flecha.Text = "->";
+            flecha.AutoSize = true;
+            flecha.Font = new Font("Segoe UI", 16.0f, FontStyle.Bold);
+            flecha.ForeColor = Color.FromArgb(85, 85, 85);
+            flecha.Margin = new Padding(0, 28, 12, 0);
+            return flecha;
+        }
+
+        private int CalcularNivelSeriePipeline(
+            Subproducto2D pieza,
+            Dictionary<string, Subproducto2D> mapaPorNombre,
+            Dictionary<string, List<string>> dependenciasExplicitas,
+            Dictionary<string, int> cacheNivel,
+            HashSet<string> visitados
+        )
+        {
+            if (pieza == null || string.IsNullOrWhiteSpace(pieza.Nombre))
+            {
+                return 0;
+            }
+
+            string clavePieza = NormalizarTextoDatosVisual(pieza.Nombre);
+
+            if (cacheNivel.ContainsKey(clavePieza))
+            {
+                return cacheNivel[clavePieza];
+            }
+
+            if (visitados.Contains(clavePieza))
+            {
+                return 0;
+            }
+
+            visitados.Add(clavePieza);
+
+            List<string> dependencias = dependenciasExplicitas != null &&
+                dependenciasExplicitas.TryGetValue(clavePieza, out List<string> deps)
+                    ? deps
+                    : SepararDependenciasPipeline(pieza.DependeDe);
+
+            if (dependencias.Count == 0)
+            {
+                cacheNivel[clavePieza] = 0;
+                return 0;
+            }
+
+            int nivelMaximoDependencia = 0;
+
+            foreach (string dependencia in dependencias)
+            {
+                string claveDependencia = NormalizarTextoDatosVisual(dependencia);
+
+                if (!mapaPorNombre.ContainsKey(claveDependencia))
+                {
+                    nivelMaximoDependencia = Math.Max(nivelMaximoDependencia, 0);
+                    continue;
+                }
+
+                int nivelDependencia = CalcularNivelSeriePipeline(
+                    mapaPorNombre[claveDependencia],
+                    mapaPorNombre,
+                    dependenciasExplicitas,
+                    cacheNivel,
+                    new HashSet<string>(visitados)
+                );
+
+                nivelMaximoDependencia = Math.Max(nivelMaximoDependencia, nivelDependencia);
+            }
+
+            int nivel = nivelMaximoDependencia + 1;
+            cacheNivel[clavePieza] = nivel;
+
+            return nivel;
+        }
+
+        private Control CrearTarjetaRevisionPipeline(string titulo, string detalle, bool serial, string etapa)
+        {
+            Panel card = new Panel();
+            card.Width = 180;
+            card.Height = 92;
+            card.Margin = new Padding(0, 0, 0, 8);
+            card.Padding = new Padding(9);
+            card.BorderStyle = BorderStyle.FixedSingle;
+            card.BackColor = serial
+                ? Color.FromArgb(255, 247, 232)
+                : Color.FromArgb(232, 242, 255);
+
+            Label lblTitulo = new Label();
+            lblTitulo.Text = titulo;
+            lblTitulo.Dock = DockStyle.Top;
+            lblTitulo.Height = 38;
+            lblTitulo.Font = new Font("Segoe UI", 8.8f, FontStyle.Bold);
+            lblTitulo.ForeColor = Color.FromArgb(30, 30, 30);
+
+            Label lblDetalle = new Label();
+            lblDetalle.Text = detalle;
+            lblDetalle.Dock = DockStyle.Fill;
+            lblDetalle.Font = new Font("Segoe UI", 7.9f, FontStyle.Regular);
+            lblDetalle.ForeColor = Color.FromArgb(75, 75, 75);
+
+            Label lblEtapa = new Label();
+            lblEtapa.Text = etapa;
+            lblEtapa.Dock = DockStyle.Bottom;
+            lblEtapa.Height = 18;
+            lblEtapa.Font = new Font("Segoe UI", 7.8f, FontStyle.Bold);
+            lblEtapa.ForeColor = ObtenerColorBordeEtapa(etapa);
+
+            card.Controls.Add(lblDetalle);
+            card.Controls.Add(lblTitulo);
+            card.Controls.Add(lblEtapa);
+
+            return card;
+        }
+
+        private Control CrearPanelEditorPipelineGrid(DataGridView grid, string tipo)
+        {
+            TableLayoutPanel panel = new TableLayoutPanel();
+            panel.Dock = DockStyle.Fill;
+            panel.ColumnCount = 1;
+            panel.RowCount = 2;
+            panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            panel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+
+            FlowLayoutPanel acciones = new FlowLayoutPanel();
+            acciones.Dock = DockStyle.Top;
+            acciones.AutoSize = true;
+            acciones.FlowDirection = FlowDirection.LeftToRight;
+            acciones.Margin = new Padding(0, 0, 0, 6);
+
+            Button btnAgregar = new Button();
+            btnAgregar.Text = tipo == "etapa" ? "Agregar etapa" : "Agregar pieza";
+            btnAgregar.Width = 130;
+            btnAgregar.Height = 28;
+            btnAgregar.Click += (s, e) => AgregarFilaPipelineGrid(grid, tipo);
+
+            Button btnAgregarBiblioteca = new Button();
+            btnAgregarBiblioteca.Text = "Agregar desde biblioteca";
+            btnAgregarBiblioteca.Width = 180;
+            btnAgregarBiblioteca.Height = 28;
+            btnAgregarBiblioteca.Visible = tipo != "etapa";
+            btnAgregarBiblioteca.Click += (s, e) => AbrirSelectorSubproductosBiblioteca(grid);
+
+            Button btnQuitar = new Button();
+            btnQuitar.Text = tipo == "etapa" ? "Quitar etapa" : "Quitar pieza";
+            btnQuitar.Width = 120;
+            btnQuitar.Height = 28;
+            btnQuitar.Click += (s, e) => QuitarFilaPipelineGrid(grid);
+
+            Button btnEcuaciones = new Button();
+            btnEcuaciones.Text = "Editar ecuaciones";
+            btnEcuaciones.Width = 145;
+            btnEcuaciones.Height = 28;
+            btnEcuaciones.Visible = tipo != "etapa";
+            btnEcuaciones.Click += (s, e) => RedirigirAEcuacionesDesdePipeline(grid);
+
+            acciones.Controls.Add(btnAgregar);
+            acciones.Controls.Add(btnAgregarBiblioteca);
+            acciones.Controls.Add(btnQuitar);
+            acciones.Controls.Add(btnEcuaciones);
+
+            panel.Controls.Add(acciones, 0, 0);
+            panel.Controls.Add(grid, 0, 1);
+
+            return panel;
+        }
+
+        private void RedirigirAEcuacionesDesdePipeline(DataGridView grid)
+        {
+            string ecuacion = ObtenerEcuacionSeleccionadaPipeline(grid);
+            Form dialogo = grid?.FindForm();
+
+            if (dialogo == null)
+            {
+                AbrirTabEcuacionesProductivas(ecuacion);
+                return;
+            }
+
+            dialogo.Tag = ecuacion;
+            dialogo.DialogResult = DialogResult.Retry;
+            dialogo.Close();
+        }
+
+        private string ObtenerEcuacionSeleccionadaPipeline(DataGridView grid)
+        {
+            if (grid == null ||
+                grid.CurrentRow == null)
+            {
+                return "";
+            }
+
+            grid.EndEdit();
+            if (grid.Columns.Contains("EcuacionProductiva"))
+            {
+                AutorrellenarEcuacionPipelineDesdeFila(grid.CurrentRow, false);
+            }
+
+            return ConstruirBusquedaEcuacionDesdeFilaPipeline(grid.CurrentRow);
+        }
+
+        private string ConstruirBusquedaEcuacionDesdeFilaPipeline(DataGridViewRow row)
+        {
+            if (row == null || row.IsNewRow)
+            {
+                return "";
+            }
+
+            string ecuacion = ObtenerValorCeldaPipeline(row, "EcuacionProductiva");
+            string subEtapa = ObtenerValorCeldaPipeline(row, "SubEtapaSugerida");
+            string nombre = ObtenerValorCeldaPipeline(row, "Nombre");
+
+            if (!string.IsNullOrWhiteSpace(ecuacion))
+            {
+                return string.Join(" ",
+                    new[] { ecuacion, subEtapa, nombre }
+                        .Where(t => !string.IsNullOrWhiteSpace(t))
+                );
+            }
+
+            EcuacionProductivaDefinicion encontrada =
+                BibliotecaEcuacionesProductivasJsonService.BuscarMejorPara(
+                    ObtenerValorCeldaPipeline(row, "EtapaSugerida"),
+                    subEtapa,
+                    nombre,
+                    ObtenerValorCeldaPipeline(row, "CargosSugeridos")
+                );
+
+            if (encontrada != null)
+            {
+                return string.Join(" ",
+                    new[] { ObtenerTextoEcuacionPipeline(encontrada), subEtapa, nombre }
+                        .Where(t => !string.IsNullOrWhiteSpace(t))
+                );
+            }
+
+            return string.Join(" ",
+                new[] { subEtapa, nombre }
+                    .Where(t => !string.IsNullOrWhiteSpace(t))
+            );
+        }
+
+        private string ObtenerValorCeldaPipeline(DataGridViewRow row, string columna)
+        {
+            if (row == null ||
+                row.DataGridView == null ||
+                !row.DataGridView.Columns.Contains(columna))
+            {
+                return "";
+            }
+
+            return Convert.ToString(row.Cells[columna].Value) ?? "";
+        }
+
+        private void AgregarFilaPipelineGrid(DataGridView grid, string tipo)
+        {
+            if (grid == null)
+            {
+                return;
+            }
+
+            grid.EndEdit();
+
+            int rowIndex = grid.Rows.Add();
+            DataGridViewRow row = grid.Rows[rowIndex];
+            int orden = CalcularSiguienteOrdenPipeline(grid);
+
+            if (tipo == "etapa")
+            {
+                row.Cells["Activa"].Value = true;
+                row.Cells["Orden"].Value = orden;
+                row.Cells["ClaveEtapa"].Value = ObtenerPrimeraClaveEtapaDisponible();
+                row.Cells["NombreVisible"].Value = ObtenerNombreVisibleEtapa(
+                    Convert.ToString(row.Cells["ClaveEtapa"].Value)
+                );
+                row.Cells["DependeDe"].Value = "";
+                row.Cells["Nota"].Value = "";
+            }
+            else
+            {
+                row.Cells["RequeridoPorDefecto"].Value = true;
+                row.Cells["Orden"].Value = orden;
+                row.Cells["Categoria"].Value = "Producción";
+                row.Cells["Nombre"].Value = "Nueva pieza " + orden.ToString();
+                row.Cells["EtapaSugerida"].Value = ObtenerPrimeraClaveEtapaDisponible();
+                row.Cells["SubEtapaSugerida"].Value = "";
+                row.Cells["EcuacionProductiva"].Value = "";
+                row.Cells["VariablesEcuacion"].Value = "";
+                row.Cells["ImpactoEcuacion"].Value = "";
+                row.Cells["DependeDe"].Value = "";
+                row.Cells["CargosSugeridos"].Value = "";
+                row.Cells["EditarCargos"].Value = "...";
+                row.Cells["PuedeEntregarCliente"].Value = false;
+                row.Cells["Resolucion"].Value = "Interno";
+                row.Cells["Nota"].Value = "";
+            }
+
+            grid.CurrentCell = row.Cells[0];
+            row.Selected = true;
+        }
+
+        private void AbrirSelectorSubproductosBiblioteca(DataGridView gridDestino)
+        {
+            if (gridDestino == null)
+            {
+                return;
+            }
+
+            List<Producto2DDefinicion> productos = BibliotecaProductos2D.CrearBase();
+            List<SubproductoBibliotecaPipeline> opciones =
+                ObtenerSubproductosBibliotecaPipeline(productos);
+
+            using (Form dialogo = new Form())
+            {
+                dialogo.Text = "Agregar subproductos desde biblioteca";
+                dialogo.StartPosition = FormStartPosition.CenterParent;
+                dialogo.Width = 980;
+                dialogo.Height = 620;
+                dialogo.MinimizeBox = false;
+                dialogo.MaximizeBox = false;
+
+                TableLayoutPanel layout = new TableLayoutPanel();
+                layout.Dock = DockStyle.Fill;
+                layout.ColumnCount = 1;
+                layout.RowCount = 3;
+                layout.Padding = new Padding(14);
+                layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+                layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+                layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+                Label ayuda = new Label();
+                ayuda.Text = "Marca subproductos reutilizables. Vienen desde productos2d.json y se enlazan con subetapas.json/cargos.json cuando corresponde.";
+                ayuda.AutoSize = true;
+                ayuda.Margin = new Padding(0, 0, 0, 8);
+
+                DataGridView grid = new DataGridView();
+                grid.Dock = DockStyle.Fill;
+                grid.AllowUserToAddRows = false;
+                grid.AllowUserToDeleteRows = false;
+                grid.RowHeadersVisible = false;
+                grid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+                grid.MultiSelect = true;
+                grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
+                grid.BackgroundColor = Color.White;
+
+                grid.Columns.Add(new DataGridViewCheckBoxColumn
+                {
+                    Name = "Usar",
+                    HeaderText = "Usar",
+                    Width = 55
+                });
+
+                grid.Columns.Add(new DataGridViewTextBoxColumn
+                {
+                    Name = "Servicio",
+                    HeaderText = "Servicio origen",
+                    Width = 190,
+                    ReadOnly = true
+                });
+
+                grid.Columns.Add(new DataGridViewTextBoxColumn
+                {
+                    Name = "Nombre",
+                    HeaderText = "Subproducto",
+                    Width = 220,
+                    ReadOnly = true
+                });
+
+                grid.Columns.Add(new DataGridViewTextBoxColumn
+                {
+                    Name = "Etapa",
+                    HeaderText = "Etapa",
+                    Width = 120,
+                    ReadOnly = true
+                });
+
+                grid.Columns.Add(new DataGridViewTextBoxColumn
+                {
+                    Name = "SubEtapa",
+                    HeaderText = "Subetapa / trabajo",
+                    Width = 170,
+                    ReadOnly = true
+                });
+
+                grid.Columns.Add(new DataGridViewTextBoxColumn
+                {
+                    Name = "Cargos",
+                    HeaderText = "Cargos",
+                    Width = 260,
+                    ReadOnly = true
+                });
+
+                foreach (SubproductoBibliotecaPipeline opcion in opciones)
+                {
+                    int rowIndex = grid.Rows.Add(
+                        false,
+                        opcion.ServicioOrigen,
+                        opcion.Subproducto.Nombre,
+                        ObtenerNombreVisibleEtapa(opcion.Subproducto.EtapaSugerida),
+                        opcion.Subproducto.SubEtapaSugerida,
+                        opcion.Subproducto.CargosSugeridos
+                    );
+
+                    grid.Rows[rowIndex].Tag = opcion.Subproducto;
+                }
+
+                FlowLayoutPanel acciones = new FlowLayoutPanel();
+                acciones.Dock = DockStyle.Fill;
+                acciones.FlowDirection = FlowDirection.RightToLeft;
+                acciones.AutoSize = true;
+                acciones.Margin = new Padding(0, 10, 0, 0);
+
+                Button btnAgregar = new Button();
+                btnAgregar.Text = "Agregar";
+                btnAgregar.Width = 100;
+                btnAgregar.Height = 30;
+                btnAgregar.DialogResult = DialogResult.OK;
+
+                Button btnCancelar = new Button();
+                btnCancelar.Text = "Cancelar";
+                btnCancelar.Width = 100;
+                btnCancelar.Height = 30;
+                btnCancelar.DialogResult = DialogResult.Cancel;
+
+                acciones.Controls.Add(btnAgregar);
+                acciones.Controls.Add(btnCancelar);
+
+                layout.Controls.Add(ayuda, 0, 0);
+                layout.Controls.Add(grid, 0, 1);
+                layout.Controls.Add(acciones, 0, 2);
+
+                dialogo.Controls.Add(layout);
+                dialogo.AcceptButton = btnAgregar;
+                dialogo.CancelButton = btnCancelar;
+
+                if (dialogo.ShowDialog(this) != DialogResult.OK)
+                {
+                    return;
+                }
+
+                int agregados = 0;
+
+                foreach (DataGridViewRow row in grid.Rows)
+                {
+                    if (row == null || row.IsNewRow)
+                    {
+                        continue;
+                    }
+
+                    bool usar = ConvertirCeldaBoolEntregable(row.Cells["Usar"].Value);
+
+                    if (!usar)
+                    {
+                        continue;
+                    }
+
+                    Subproducto2D subproducto = row.Tag as Subproducto2D;
+
+                    if (subproducto == null)
+                    {
+                        continue;
+                    }
+
+                    if (AgregarSubproductoBibliotecaAGrilla(gridDestino, subproducto))
+                    {
+                        agregados++;
+                    }
+                }
+
+                if (agregados == 0)
+                {
+                    MessageBox.Show(
+                        "No se agregaron subproductos nuevos. Puede que ya existieran en este pipeline.",
+                        "Biblioteca de subproductos",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information
+                    );
+                }
+            }
+        }
+
+        private List<SubproductoBibliotecaPipeline> ObtenerSubproductosBibliotecaPipeline(
+            List<Producto2DDefinicion> productos
+        )
+        {
+            List<SubproductoBibliotecaPipeline> resultado = new List<SubproductoBibliotecaPipeline>();
+            HashSet<string> claves = new HashSet<string>();
+
+            foreach (Producto2DDefinicion producto in productos ?? new List<Producto2DDefinicion>())
+            {
+                foreach (Subproducto2D sub in producto.Subproductos ?? new List<Subproducto2D>())
+                {
+                    if (sub == null || string.IsNullOrWhiteSpace(sub.Nombre))
+                    {
+                        continue;
+                    }
+
+                    Subproducto2D copia = ClonarSubproductoPipeline(sub);
+
+                    string clave =
+                        NormalizarTextoDatosVisual(copia.Nombre) + "|" +
+                        NormalizarTextoDatosVisual(copia.EtapaSugerida) + "|" +
+                        NormalizarTextoDatosVisual(copia.SubEtapaSugerida);
+
+                    if (claves.Contains(clave))
+                    {
+                        continue;
+                    }
+
+                    claves.Add(clave);
+
+                    resultado.Add(new SubproductoBibliotecaPipeline
+                    {
+                        ServicioOrigen = producto.Nombre,
+                        Subproducto = copia
+                    });
+                }
+            }
+
+            return resultado
+                .OrderBy(o => ObtenerOrdenEtapaGeneral(o.Subproducto.EtapaSugerida))
+                .ThenBy(o => o.Subproducto.SubEtapaSugerida)
+                .ThenBy(o => o.Subproducto.Nombre)
+                .ToList();
+        }
+
+        private bool AgregarSubproductoBibliotecaAGrilla(
+            DataGridView grid,
+            Subproducto2D subproducto
+        )
+        {
+            subproducto = EnriquecerSubproductoDesdeBibliotecas(
+                subproducto,
+                subproducto == null ? "" : subproducto.EtapaSugerida,
+                subproducto == null ? "" : subproducto.Nombre
+            );
+
+            if (grid == null || subproducto == null)
+            {
+                return false;
+            }
+
+            string claveNueva =
+                NormalizarTextoDatosVisual(subproducto.Nombre) + "|" +
+                NormalizarTextoDatosVisual(subproducto.EtapaSugerida) + "|" +
+                NormalizarTextoDatosVisual(subproducto.SubEtapaSugerida);
+
+            foreach (DataGridViewRow row in grid.Rows)
+            {
+                if (row == null || row.IsNewRow)
+                {
+                    continue;
+                }
+
+                string claveExistente =
+                    NormalizarTextoDatosVisual(Convert.ToString(row.Cells["Nombre"].Value)) + "|" +
+                    NormalizarTextoDatosVisual(Convert.ToString(row.Cells["EtapaSugerida"].Value)) + "|" +
+                    NormalizarTextoDatosVisual(Convert.ToString(row.Cells["SubEtapaSugerida"].Value));
+
+                if (claveExistente == claveNueva)
+                {
+                    return false;
+                }
+            }
+
+            int rowIndex = grid.Rows.Add();
+            DataGridViewRow nueva = grid.Rows[rowIndex];
+            int orden = CalcularSiguienteOrdenPipeline(grid);
+            string subEtapa = ResolverSubEtapaPipeline(
+                subproducto.EtapaSugerida,
+                subproducto.SubEtapaSugerida,
+                subproducto.Nombre
+            );
+
+            nueva.Cells["RequeridoPorDefecto"].Value = subproducto.RequeridoPorDefecto;
+            nueva.Cells["Orden"].Value = orden;
+            nueva.Cells["Categoria"].Value = ObtenerNombreVisibleEtapa(subproducto.EtapaSugerida);
+            nueva.Cells["Nombre"].Value = subproducto.Nombre;
+            nueva.Cells["EtapaSugerida"].Value = subproducto.EtapaSugerida;
+            nueva.Cells["SubEtapaSugerida"].Value = subEtapa;
+            nueva.Cells["EcuacionProductiva"].Value = ResolverTextoEcuacionPipeline(
+                subproducto.EcuacionProductiva,
+                subproducto.EtapaSugerida,
+                subEtapa,
+                subproducto.Nombre,
+                subproducto.CargosSugeridos
+            );
+            nueva.Cells["VariablesEcuacion"].Value = subproducto.VariablesEcuacion;
+            nueva.Cells["ImpactoEcuacion"].Value = subproducto.ImpactoEcuacion;
+            nueva.Cells["DependeDe"].Value = "";
+            nueva.Cells["CargosSugeridos"].Value = subproducto.CargosSugeridos;
+            nueva.Cells["EditarCargos"].Value = "...";
+            nueva.Cells["PuedeEntregarCliente"].Value = subproducto.PuedeEntregarCliente;
+            nueva.Cells["Resolucion"].Value = string.IsNullOrWhiteSpace(subproducto.Resolucion)
+                ? "Interno"
+                : subproducto.Resolucion;
+            nueva.Cells["Nota"].Value = subproducto.Nota;
+
+            RefrescarOpcionesDependeDeSubproductos(grid);
+
+            return true;
+        }
+
+        private Subproducto2D ClonarSubproductoPipeline(Subproducto2D origen)
+        {
+            if (origen == null)
+            {
+                return new Subproducto2D();
+            }
+
+            return new Subproducto2D
+            {
+                Nombre = origen.Nombre,
+                Categoria = origen.Categoria,
+                Orden = origen.Orden,
+                RequeridoPorDefecto = origen.RequeridoPorDefecto,
+                PuedeEntregarCliente = origen.PuedeEntregarCliente,
+                EtapaSugerida = origen.EtapaSugerida,
+                SubEtapaSugerida = origen.SubEtapaSugerida,
+                DependeDe = origen.DependeDe,
+                CargosSugeridos = origen.CargosSugeridos,
+                EcuacionProductiva = origen.EcuacionProductiva,
+                VariablesEcuacion = origen.VariablesEcuacion,
+                ImpactoEcuacion = origen.ImpactoEcuacion,
+                Resolucion = origen.Resolucion,
+                Nota = origen.Nota
+            };
+        }
+
+        private class SubproductoBibliotecaPipeline
+        {
+            public string ServicioOrigen { get; set; } = "";
+            public Subproducto2D Subproducto { get; set; } = new Subproducto2D();
+        }
+
+        private void QuitarFilaPipelineGrid(DataGridView grid)
+        {
+            if (grid == null || grid.CurrentRow == null || grid.CurrentRow.IsNewRow)
+            {
+                return;
+            }
+
+            grid.Rows.Remove(grid.CurrentRow);
+        }
+
+        private int CalcularSiguienteOrdenPipeline(DataGridView grid)
+        {
+            int max = 0;
+
+            foreach (DataGridViewRow row in grid.Rows)
+            {
+                if (row == null || row.IsNewRow || !grid.Columns.Contains("Orden"))
+                {
+                    continue;
+                }
+
+                int valor = ParsearEnteroDatos(row.Cells["Orden"].Value, 0);
+
+                if (valor > max)
+                {
+                    max = valor;
+                }
+            }
+
+            return max + 10;
+        }
+
+        private string ObtenerPrimeraClaveEtapaDisponible()
+        {
+            EtapaDefinicion etapa = bibliotecaEtapas
+                .OrderBy(e => e.Orden)
+                .FirstOrDefault(e => e != null && e.Activa);
+
+            return etapa == null ? "Produccion" : etapa.Clave;
+        }
+
+        private void AplicarEstiloBotonPipelineDialogo(Button boton, bool primario)
+        {
+            if (boton == null)
+            {
+                return;
+            }
+
+            boton.FlatStyle = FlatStyle.Flat;
+            boton.Font = new Font("Segoe UI", 9.0f, FontStyle.Bold);
+            boton.BackColor = primario
+                ? Color.FromArgb(41, 171, 135)
+                : Color.White;
+            boton.ForeColor = primario
+                ? Color.White
+                : Color.FromArgb(28, 31, 36);
+            boton.FlatAppearance.BorderColor = primario
+                ? Color.FromArgb(32, 142, 112)
+                : Color.FromArgb(170, 178, 188);
+            boton.FlatAppearance.BorderSize = 1;
+            boton.Cursor = Cursors.Hand;
+        }
+
+        private void AplicarEstiloGrillaPipelineDialogo(DataGridView grid)
+        {
+            if (grid == null)
+            {
+                return;
+            }
+
+            grid.EnableHeadersVisualStyles = false;
+            grid.ColumnHeadersHeight = 34;
+            grid.RowTemplate.Height = 30;
+            grid.DefaultCellStyle.Font = new Font("Segoe UI", 9.0f, FontStyle.Regular);
+            grid.DefaultCellStyle.ForeColor = Color.FromArgb(26, 29, 34);
+            grid.DefaultCellStyle.BackColor = Color.White;
+            grid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(41, 171, 135);
+            grid.DefaultCellStyle.SelectionForeColor = Color.White;
+            grid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(248, 250, 252);
+            grid.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9.0f, FontStyle.Bold);
+            grid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(238, 241, 245);
+            grid.ColumnHeadersDefaultCellStyle.ForeColor = Color.FromArgb(22, 24, 29);
+            grid.ColumnHeadersDefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleLeft;
+        }
+
+        private Control CrearPanelCargosAsociadosPipeline(
+            DataGridView gridSubproductos,
+            Action abrirBibliotecaCargos
+        )
+        {
+            TableLayoutPanel panel = new TableLayoutPanel();
+            panel.Dock = DockStyle.Fill;
+            panel.ColumnCount = 1;
+            panel.RowCount = 1;
+            panel.Padding = new Padding(14);
+            panel.BackColor = Color.FromArgb(245, 246, 248);
+            panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+            Panel card = new Panel();
+            card.Dock = DockStyle.Fill;
+            card.Padding = new Padding(16);
+            card.BackColor = Color.White;
+            card.BorderStyle = BorderStyle.FixedSingle;
+
+            TableLayoutPanel cardLayout = new TableLayoutPanel();
+            cardLayout.Dock = DockStyle.Fill;
+            cardLayout.ColumnCount = 1;
+            cardLayout.RowCount = 3;
+            cardLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            cardLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            cardLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+
+            Label titulo = new Label();
+            titulo.Text = "Cargos asociados por pieza";
+            titulo.AutoSize = true;
+            titulo.Font = new Font("Segoe UI", 12.0f, FontStyle.Bold);
+            titulo.ForeColor = Color.FromArgb(22, 24, 29);
+            titulo.Margin = new Padding(0, 0, 0, 3);
+
+            Label ayuda = new Label();
+            ayuda.Text = "Edita los cargos asociados a cada pieza. Puedes escribir varios separados por punto y coma, o usar el selector para elegir desde la biblioteca filtrada por subetapa.";
+            ayuda.AutoSize = true;
+            ayuda.MaximumSize = new Size(1120, 0);
+            ayuda.Font = new Font("Segoe UI", 9.0f, FontStyle.Regular);
+            ayuda.ForeColor = Color.FromArgb(88, 96, 110);
+            ayuda.Margin = new Padding(0, 0, 0, 12);
+
+            TableLayoutPanel encabezado = new TableLayoutPanel();
+            encabezado.Dock = DockStyle.Top;
+            encabezado.AutoSize = true;
+            encabezado.ColumnCount = 1;
+            encabezado.RowCount = 2;
+            encabezado.Margin = new Padding(0);
+            encabezado.Controls.Add(titulo, 0, 0);
+            encabezado.Controls.Add(ayuda, 0, 1);
+
+            FlowLayoutPanel acciones = new FlowLayoutPanel();
+            acciones.Dock = DockStyle.Top;
+            acciones.AutoSize = true;
+            acciones.FlowDirection = FlowDirection.LeftToRight;
+            acciones.Margin = new Padding(0, 0, 0, 12);
+
+            Button btnBiblioteca = new Button();
+            btnBiblioteca.Text = "Revisar biblioteca de cargos";
+            btnBiblioteca.Width = 220;
+            btnBiblioteca.Height = 32;
+            AplicarEstiloBotonPipelineDialogo(btnBiblioteca, false);
+            btnBiblioteca.Click += (s, e) =>
+            {
+                abrirBibliotecaCargos?.Invoke();
+            };
+            acciones.Controls.Add(btnBiblioteca);
+
+            Panel panelGrilla = new Panel();
+            panelGrilla.Dock = DockStyle.Fill;
+            panelGrilla.Padding = new Padding(1);
+            panelGrilla.BackColor = Color.FromArgb(218, 223, 230);
+
+            DataGridView gridCargos = new DataGridView();
+            gridCargos.Dock = DockStyle.Fill;
+            gridCargos.AllowUserToAddRows = false;
+            gridCargos.AllowUserToDeleteRows = false;
+            gridCargos.RowHeadersVisible = false;
+            gridCargos.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
+            gridCargos.SelectionMode = DataGridViewSelectionMode.CellSelect;
+            gridCargos.MultiSelect = false;
+            gridCargos.EditMode = DataGridViewEditMode.EditOnEnter;
+            gridCargos.BackgroundColor = Color.White;
+            gridCargos.BorderStyle = BorderStyle.None;
+            gridCargos.GridColor = Color.FromArgb(226, 230, 236);
+            AplicarEstiloGrillaPipelineDialogo(gridCargos);
+
+            gridCargos.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "RowIndex",
+                HeaderText = "",
+                Visible = false
+            });
+            gridCargos.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "Pieza",
+                HeaderText = "Pieza / subproducto",
+                Width = 285,
+                ReadOnly = true
+            });
+            gridCargos.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "Etapa",
+                HeaderText = "Etapa",
+                Width = 160,
+                ReadOnly = true
+            });
+            gridCargos.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "SubEtapa",
+                HeaderText = "Subetapa / trabajo",
+                Width = 235,
+                ReadOnly = true
+            });
+            gridCargos.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "Cargos",
+                HeaderText = "Cargos asociados",
+                Width = 460
+            });
+            gridCargos.Columns.Add(new DataGridViewButtonColumn
+            {
+                Name = "Editar",
+                HeaderText = "",
+                Text = "...",
+                UseColumnTextForButtonValue = true,
+                Width = 54,
+                FlatStyle = FlatStyle.Flat
+            });
+            gridCargos.Columns["Editar"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+
+            void Refrescar()
+            {
+                gridSubproductos.EndEdit();
+                gridCargos.Rows.Clear();
+
+                if (gridSubproductos == null || gridSubproductos.IsDisposed)
+                {
+                    return;
+                }
+
+                for (int i = 0; i < gridSubproductos.Rows.Count; i++)
+                {
+                    DataGridViewRow origen = gridSubproductos.Rows[i];
+
+                    if (origen == null || origen.IsNewRow)
+                    {
+                        continue;
+                    }
+
+                    int rowIndex = gridCargos.Rows.Add();
+                    DataGridViewRow destino = gridCargos.Rows[rowIndex];
+                    destino.Cells["RowIndex"].Value = i;
+                    destino.Cells["Pieza"].Value = Convert.ToString(origen.Cells["Nombre"].Value) ?? "";
+                    destino.Cells["Etapa"].Value = Convert.ToString(origen.Cells["EtapaSugerida"].Value) ?? "";
+                    destino.Cells["SubEtapa"].Value = Convert.ToString(origen.Cells["SubEtapaSugerida"].Value) ?? "";
+                    destino.Cells["Cargos"].Value = Convert.ToString(origen.Cells["CargosSugeridos"].Value) ?? "";
+                    destino.Cells["Editar"].Value = "...";
+                }
+            }
+
+            int ObtenerIndiceOrigen(int rowIndex)
+            {
+                if (rowIndex < 0 || rowIndex >= gridCargos.Rows.Count)
+                {
+                    return -1;
+                }
+
+                return ParsearEnteroDatos(gridCargos.Rows[rowIndex].Cells["RowIndex"].Value, -1);
+            }
+
+            gridCargos.CellEndEdit += (s, e) =>
+            {
+                if (e.RowIndex < 0 || e.ColumnIndex < 0)
+                {
+                    return;
+                }
+
+                if (gridCargos.Columns[e.ColumnIndex].Name != "Cargos")
+                {
+                    return;
+                }
+
+                int indiceOrigen = ObtenerIndiceOrigen(e.RowIndex);
+
+                if (indiceOrigen < 0 || indiceOrigen >= gridSubproductos.Rows.Count)
+                {
+                    return;
+                }
+
+                string nuevoValor = Convert.ToString(gridCargos.Rows[e.RowIndex].Cells["Cargos"].Value) ?? "";
+                gridSubproductos.Rows[indiceOrigen].Cells["CargosSugeridos"].Value = nuevoValor.Trim();
+                AutorrellenarEcuacionPipelineDesdeFila(gridSubproductos.Rows[indiceOrigen], false);
+            };
+
+            gridCargos.CellContentClick += (s, e) =>
+            {
+                if (e.RowIndex < 0 || e.ColumnIndex < 0)
+                {
+                    return;
+                }
+
+                if (gridCargos.Columns[e.ColumnIndex].Name != "Editar")
+                {
+                    return;
+                }
+
+                int indiceOrigen = ObtenerIndiceOrigen(e.RowIndex);
+
+                if (indiceOrigen < 0 || indiceOrigen >= gridSubproductos.Rows.Count)
+                {
+                    return;
+                }
+
+                AbrirSelectorCargosPipeline(gridSubproductos, indiceOrigen);
+                Refrescar();
+            };
+
+            gridCargos.CellDoubleClick += (s, e) =>
+            {
+                if (e.RowIndex < 0 || e.ColumnIndex < 0)
+                {
+                    return;
+                }
+
+                if (gridCargos.Columns[e.ColumnIndex].Name != "Cargos")
+                {
+                    return;
+                }
+
+                int indiceOrigen = ObtenerIndiceOrigen(e.RowIndex);
+
+                if (indiceOrigen < 0 || indiceOrigen >= gridSubproductos.Rows.Count)
+                {
+                    return;
+                }
+
+                AbrirSelectorCargosPipeline(gridSubproductos, indiceOrigen);
+                Refrescar();
+            };
+
+            Refrescar();
+
+            panelGrilla.Controls.Add(gridCargos);
+            cardLayout.Controls.Add(encabezado, 0, 0);
+            cardLayout.Controls.Add(acciones, 0, 1);
+            cardLayout.Controls.Add(panelGrilla, 0, 2);
+            card.Controls.Add(cardLayout);
+            panel.Controls.Add(card, 0, 0);
+
+            return panel;
+        }
+
+        private DataGridView CrearGrillaSubproductosProducto(Producto2DDefinicion producto)
+        {
+            DataGridView grid = new DataGridView();
+            grid.Dock = DockStyle.Fill;
+            grid.AllowUserToAddRows = false;
+            grid.AllowUserToDeleteRows = true;
+            grid.RowHeadersVisible = false;
+            grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
+            grid.SelectionMode = DataGridViewSelectionMode.CellSelect;
+            grid.MultiSelect = false;
+            grid.EditMode = DataGridViewEditMode.EditOnEnter;
+            grid.BackgroundColor = Color.White;
+            grid.BorderStyle = BorderStyle.FixedSingle;
+            grid.GridColor = Color.FromArgb(210, 210, 210);
+
+            grid.Columns.Add(new DataGridViewCheckBoxColumn
+            {
+                Name = "RequeridoPorDefecto",
+                HeaderText = "Usar",
+                Width = 55
+            });
+
+            grid.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "Orden",
+                HeaderText = "Orden",
+                Width = 65
+            });
+
+            grid.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "Categoria",
+                HeaderText = "Categoría",
+                Width = 130,
+                Visible = false
+            });
+
+            grid.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "Nombre",
+                HeaderText = "Pieza / subproducto",
+                Width = 230
+            });
+
+            DataGridViewComboBoxColumn colEtapa = new DataGridViewComboBoxColumn();
+            colEtapa.Name = "EtapaSugerida";
+            colEtapa.HeaderText = "Etapa productiva";
+            colEtapa.Width = 155;
+            colEtapa.FlatStyle = FlatStyle.Flat;
+
+            foreach (EtapaDefinicion etapa in bibliotecaEtapas.OrderBy(e => e.Orden))
+            {
+                colEtapa.Items.Add(etapa.Clave);
+            }
+
+            grid.Columns.Add(colEtapa);
+
+            DataGridViewComboBoxColumn colSubEtapa = new DataGridViewComboBoxColumn();
+            colSubEtapa.Name = "SubEtapaSugerida";
+            colSubEtapa.HeaderText = "Subetapa / trabajo";
+            colSubEtapa.Width = 210;
+            colSubEtapa.FlatStyle = FlatStyle.Flat;
+            colSubEtapa.Items.Add("");
+
+            foreach (string subEtapa in ObtenerOpcionesSubEtapasPipeline())
+            {
+                if (!colSubEtapa.Items.Contains(subEtapa))
+                {
+                    colSubEtapa.Items.Add(subEtapa);
+                }
+            }
+
+            grid.Columns.Add(colSubEtapa);
+
+            DataGridViewComboBoxColumn colEcuacion = new DataGridViewComboBoxColumn();
+            colEcuacion.Name = "EcuacionProductiva";
+            colEcuacion.HeaderText = "Ecuación productiva";
+            colEcuacion.Width = 280;
+            colEcuacion.FlatStyle = FlatStyle.Flat;
+            colEcuacion.Items.Add("");
+
+            foreach (EcuacionProductivaDefinicion ecuacion in
+                BibliotecaEcuacionesProductivasJsonService.CargarEcuaciones()
+                    .Where(e => e != null && e.Activa)
+                    .OrderBy(e => e.NombreVisible))
+            {
+                string texto = ObtenerTextoEcuacionPipeline(ecuacion);
+                if (!colEcuacion.Items.Contains(texto))
+                {
+                    colEcuacion.Items.Add(texto);
+                }
+            }
+
+            grid.Columns.Add(colEcuacion);
+
+            grid.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "VariablesEcuacion",
+                HeaderText = "Variables",
+                Width = 270,
+                Visible = false
+            });
+
+            grid.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "ImpactoEcuacion",
+                HeaderText = "Impacto",
+                Width = 330,
+                Visible = false
+            });
+
+            grid.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "DependeDe",
+                HeaderText = "Depende de",
+                Width = 240
+            });
+
+            grid.Columns.Add(new DataGridViewButtonColumn
+            {
+                Name = "EditarDependencias",
+                HeaderText = "",
+                Text = "...",
+                UseColumnTextForButtonValue = true,
+                Width = 42
+            });
+
+            grid.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "CargosSugeridos",
+                HeaderText = "Cargos",
+                Width = 260,
+                ReadOnly = true
+            });
+
+            grid.Columns.Add(new DataGridViewButtonColumn
+            {
+                Name = "EditarCargos",
+                HeaderText = "",
+                Text = "...",
+                UseColumnTextForButtonValue = true,
+                Width = 42
+            });
+
+            grid.Columns.Add(new DataGridViewCheckBoxColumn
+            {
+                Name = "PuedeEntregarCliente",
+                HeaderText = "Cliente",
+                Width = 65,
+                Visible = false
+            });
+
+            DataGridViewComboBoxColumn colResolucion = new DataGridViewComboBoxColumn();
+            colResolucion.Name = "Resolucion";
+            colResolucion.HeaderText = "Resolución";
+            colResolucion.Width = 120;
+            colResolucion.Visible = false;
+            colResolucion.FlatStyle = FlatStyle.Flat;
+            colResolucion.Items.Add("Interno");
+            colResolucion.Items.Add("Cliente");
+            colResolucion.Items.Add("NoAplica");
+            grid.Columns.Add(colResolucion);
+
+            grid.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "Nota",
+                HeaderText = "Nota",
+                Width = 220
+            });
+
+            if (producto.Subproductos == null)
+            {
+                producto.Subproductos = new List<Subproducto2D>();
+            }
+
+            int ordenFallback = 10;
+
+            foreach (Subproducto2D subproductoOriginal in producto.Subproductos
+                .OrderBy(s => s.Orden <= 0 ? int.MaxValue : s.Orden))
+            {
+                Subproducto2D subproducto = EnriquecerSubproductoDesdeBibliotecas(
+                    subproductoOriginal,
+                    subproductoOriginal == null ? "" : subproductoOriginal.EtapaSugerida,
+                    subproductoOriginal == null ? "" : subproductoOriginal.Nombre
+                );
+                int rowIndex = grid.Rows.Add();
+                DataGridViewRow row = grid.Rows[rowIndex];
+
+                string etapa = subproducto.EtapaSugerida ?? "";
+
+                if (!string.IsNullOrWhiteSpace(etapa) && !colEtapa.Items.Contains(etapa))
+                {
+                    colEtapa.Items.Add(etapa);
+                }
+
+                row.Cells["RequeridoPorDefecto"].Value = subproducto.RequeridoPorDefecto;
+                row.Cells["Orden"].Value = subproducto.Orden <= 0 ? ordenFallback : subproducto.Orden;
+                row.Cells["Categoria"].Value = string.IsNullOrWhiteSpace(subproducto.Categoria)
+                    ? ObtenerNombreVisibleEtapa(etapa)
+                    : subproducto.Categoria;
+                row.Cells["Nombre"].Value = subproducto.Nombre;
+                row.Cells["EtapaSugerida"].Value = etapa;
+                string subEtapaResuelta = ResolverSubEtapaPipeline(
+                    etapa,
+                    subproducto.SubEtapaSugerida,
+                    subproducto.Nombre
+                );
+
+                if (!string.IsNullOrWhiteSpace(subEtapaResuelta) &&
+                    !colSubEtapa.Items.Contains(subEtapaResuelta))
+                {
+                    colSubEtapa.Items.Add(subEtapaResuelta);
+                }
+                row.Cells["SubEtapaSugerida"].Value = subEtapaResuelta;
+                string ecuacionTexto = ResolverTextoEcuacionPipeline(
+                    subproducto.EcuacionProductiva,
+                    etapa,
+                    subEtapaResuelta,
+                    subproducto.Nombre,
+                    subproducto.CargosSugeridos
+                );
+
+                if (!string.IsNullOrWhiteSpace(ecuacionTexto) &&
+                    !colEcuacion.Items.Contains(ecuacionTexto))
+                {
+                    colEcuacion.Items.Add(ecuacionTexto);
+                }
+
+                row.Cells["EcuacionProductiva"].Value = ecuacionTexto;
+                row.Cells["VariablesEcuacion"].Value = subproducto.VariablesEcuacion;
+                row.Cells["ImpactoEcuacion"].Value = subproducto.ImpactoEcuacion;
+                row.Cells["DependeDe"].Value = subproducto.DependeDe;
+                row.Cells["EditarDependencias"].Value = "...";
+                row.Cells["CargosSugeridos"].Value = subproducto.CargosSugeridos;
+                row.Cells["EditarCargos"].Value = "...";
+                row.Cells["PuedeEntregarCliente"].Value = subproducto.PuedeEntregarCliente;
+                row.Cells["Resolucion"].Value = string.IsNullOrWhiteSpace(subproducto.Resolucion)
+                    ? "Interno"
+                    : subproducto.Resolucion;
+                row.Cells["Nota"].Value = subproducto.Nota;
+
+                AutorrellenarCargosPipelineDesdeSubEtapa(row, false);
+                AutorrellenarEcuacionPipelineDesdeFila(row, false);
+
+                ordenFallback += 10;
+            }
+
+            grid.CellEndEdit += (s, e) =>
+            {
+                if (e.RowIndex < 0)
+                {
+                    return;
+                }
+
+                string columna = grid.Columns[e.ColumnIndex].Name;
+
+                if (columna == "Nombre")
+                {
+                    RefrescarOpcionesDependeDeSubproductos(grid);
+                    return;
+                }
+
+                if (columna == "SubEtapaSugerida" || columna == "EtapaSugerida")
+                {
+                    AutorrellenarCargosPipelineDesdeSubEtapa(grid.Rows[e.RowIndex], false);
+                    LimpiarDetalleEcuacionPipeline(grid.Rows[e.RowIndex]);
+                    AutorrellenarEcuacionPipelineDesdeFila(grid.Rows[e.RowIndex], true);
+                }
+
+                if (columna == "Nombre" || columna == "CargosSugeridos")
+                {
+                    AutorrellenarEcuacionPipelineDesdeFila(grid.Rows[e.RowIndex], false);
+                }
+
+                if (columna == "EcuacionProductiva")
+                {
+                    AplicarDetalleEcuacionPipeline(grid.Rows[e.RowIndex], true);
+                }
+            };
+
+            grid.CellContentClick += (s, e) =>
+            {
+                if (e.RowIndex < 0)
+                {
+                    return;
+                }
+
+                string columna = grid.Columns[e.ColumnIndex].Name;
+
+                if (columna == "EditarCargos")
+                {
+                    AbrirSelectorCargosPipeline(grid, e.RowIndex);
+                    return;
+                }
+
+                if (columna == "EditarDependencias")
+                {
+                    AbrirSelectorDependenciasPipeline(grid, e.RowIndex);
+                }
+            };
+
+            grid.CellDoubleClick -= DgvRecetaProducto_CellDoubleClick;
+            grid.CellDoubleClick += DgvRecetaProducto_CellDoubleClick;
+            grid.CellMouseEnter -= DgvRecetaProducto_CellMouseEnter;
+            grid.CellMouseEnter += DgvRecetaProducto_CellMouseEnter;
+            grid.CellMouseLeave -= DgvRecetaProducto_CellMouseLeave;
+            grid.CellMouseLeave += DgvRecetaProducto_CellMouseLeave;
+            grid.CellToolTipTextNeeded -= DgvRecetaProducto_CellToolTipTextNeeded;
+            grid.CellToolTipTextNeeded += DgvRecetaProducto_CellToolTipTextNeeded;
+
+            return grid;
+        }
+
+        private void DgvRecetaProducto_CellDoubleClick(object sender, DataGridViewCellEventArgs e)
+        {
+            try
+            {
+                if (!(sender is DataGridView grid) ||
+                    e.RowIndex < 0 ||
+                    e.ColumnIndex < 0 ||
+                    e.RowIndex >= grid.Rows.Count ||
+                    e.ColumnIndex >= grid.Columns.Count)
+                {
+                    return;
+                }
+
+                DataGridViewRow row = grid.Rows[e.RowIndex];
+                DataGridViewColumn column = grid.Columns[e.ColumnIndex];
+
+                if (row == null || row.IsNewRow || column == null)
+                {
+                    return;
+                }
+
+                string columna = NormalizarNombreColumna(column.Name + " " + column.HeaderText);
+                string valor = Convert.ToString(row.Cells[column.Name].Value) ?? "";
+
+                if (columna.Contains("ecuacionproductiva"))
+                {
+                    NavegarAEcuacionDesdeReceta(grid, row, valor);
+                    return;
+                }
+
+                if (columna.Contains("subetapasugerida") ||
+                    columna.Contains("subetapatrabajo") ||
+                    columna.Contains("subetapa"))
+                {
+                    string etapa = ObtenerValorCeldaPipeline(row, "EtapaSugerida");
+                    NavegarASubEtapaDesdeReceta(valor, etapa);
+                    return;
+                }
+
+                if (columna.Contains("etapasugerida") ||
+                    columna.Contains("etapaproductiva"))
+                {
+                    NavegarAEtapaDesdeReceta(valor);
+                    return;
+                }
+
+                if (columna.Contains("cargossugeridos") ||
+                    columna == "cargos")
+                {
+                    NavegarACargosDesdeReceta(valor);
+                    return;
+                }
+
+                if (columna.Contains("dependede"))
+                {
+                    SeleccionarDependenciaEnReceta(grid, valor);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(ex);
+                MessageBox.Show(
+                    "No pude navegar desde esta celda. El dato no se perdió; revisa la fila o usa el botón de edición correspondiente.",
+                    "Navegación contextual",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information
+                );
+            }
+        }
+
+        private void DgvRecetaProducto_CellMouseEnter(object sender, DataGridViewCellEventArgs e)
+        {
+            if (!(sender is DataGridView grid) ||
+                e.ColumnIndex < 0 ||
+                e.ColumnIndex >= grid.Columns.Count)
+            {
+                return;
+            }
+
+            DataGridViewColumn column = grid.Columns[e.ColumnIndex];
+            grid.Cursor = EsColumnaNavegableReceta(column) ? Cursors.Hand : Cursors.Default;
+        }
+
+        private void DgvRecetaProducto_CellMouseLeave(object sender, DataGridViewCellEventArgs e)
+        {
+            if (sender is DataGridView grid)
+            {
+                grid.Cursor = Cursors.Default;
+            }
+        }
+
+        private void DgvRecetaProducto_CellToolTipTextNeeded(
+            object sender,
+            DataGridViewCellToolTipTextNeededEventArgs e
+        )
+        {
+            if (!(sender is DataGridView grid) ||
+                e.ColumnIndex < 0 ||
+                e.ColumnIndex >= grid.Columns.Count ||
+                !EsColumnaNavegableReceta(grid.Columns[e.ColumnIndex]))
+            {
+                return;
+            }
+
+            string columna = NormalizarNombreColumna(
+                grid.Columns[e.ColumnIndex].Name + " " + grid.Columns[e.ColumnIndex].HeaderText
+            );
+
+            if (columna.Contains("dependede"))
+            {
+                e.ToolTipText = "Doble click: seleccionar el proceso requerido dentro de esta receta.";
+            }
+            else if (columna.Contains("cargos"))
+            {
+                e.ToolTipText = "Doble click: revisar personas o asignación de mano de obra para este cargo.";
+            }
+            else
+            {
+                e.ToolTipText = "Doble click: abrir la pestaña relacionada.";
+            }
+        }
+
+        private bool EsColumnaNavegableReceta(DataGridViewColumn column)
+        {
+            if (column == null)
+            {
+                return false;
+            }
+
+            string columna = NormalizarNombreColumna(column.Name + " " + column.HeaderText);
+
+            return columna.Contains("ecuacionproductiva") ||
+                columna.Contains("subetapasugerida") ||
+                columna.Contains("subetapatrabajo") ||
+                columna.Contains("etapasugerida") ||
+                columna.Contains("etapaproductiva") ||
+                columna.Contains("cargossugeridos") ||
+                columna == "cargos" ||
+                columna.Contains("dependede");
+        }
+
+        private string NormalizarNombreColumna(string texto)
+        {
+            return NormalizarTextoDatosVisual(texto)
+                .Replace(" ", "")
+                .Replace("/", "")
+                .Replace("_", "")
+                .Replace("-", "");
+        }
+
+        private string ExtraerClaveAntesPipe(string texto)
+        {
+            if (string.IsNullOrWhiteSpace(texto))
+            {
+                return "";
+            }
+
+            int pipe = texto.IndexOf('|');
+            return pipe >= 0 ? texto.Substring(0, pipe).Trim() : texto.Trim();
+        }
+
+        private TabPage FindTabByTextOrName(string textOrName)
+        {
+            if (string.IsNullOrWhiteSpace(textOrName))
+            {
+                return null;
+            }
+
+            List<TabPage> conocidas = new List<TabPage>
+            {
+                tabInicioPrincipal,
+                tabDatosPrincipal,
+                tabProductosPrincipal,
+                tabMonedaPrincipal,
+                tabDesgloseProductivoPrincipal,
+                tabRendimientosPrincipal,
+                tabEcuacionesPrincipal,
+                tabGestionesPrincipal,
+                tabValidacionJsonPrincipal,
+                tabPersonalPrincipal,
+                tabSubEtapasPrincipal,
+                tabRangosPrincipal,
+                tabCargosPrincipal,
+                tabManoObraPrincipal,
+                tabCostosPrincipal,
+                tabResultadosPrincipal,
+                tabInformePrincipal,
+                tabGuardarPrincipal
+            };
+
+            string buscada = NormalizarTextoDatosVisual(textOrName);
+
+            foreach (TabPage tab in conocidas.Where(t => t != null))
+            {
+                if (NormalizarTextoDatosVisual(tab.Name) == buscada ||
+                    NormalizarTextoDatosVisual(tab.Text) == buscada)
+                {
+                    return tab;
+                }
+            }
+
+            if (tabs != null)
+            {
+                foreach (TabPage tab in tabs.TabPages)
+                {
+                    if (tab != null &&
+                        (NormalizarTextoDatosVisual(tab.Name) == buscada ||
+                         NormalizarTextoDatosVisual(tab.Text) == buscada))
+                    {
+                        return tab;
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        private bool SelectTabIfExists(string textOrName, bool administrativa)
+        {
+            TabPage tab = FindTabByTextOrName(textOrName);
+
+            if (tab == null)
+            {
+                return false;
+            }
+
+            AbrirTabPrincipal(tab, administrativa);
+            return true;
+        }
+
+        private bool SelectGridRowByValue(DataGridView grid, string columnName, string value)
+        {
+            if (grid == null ||
+                grid.Columns.Count == 0 ||
+                string.IsNullOrWhiteSpace(value))
+            {
+                return false;
+            }
+
+            string buscado = NormalizarTextoDatosVisual(value);
+
+            foreach (DataGridViewRow row in grid.Rows)
+            {
+                if (row == null || row.IsNewRow)
+                {
+                    continue;
+                }
+
+                IEnumerable<DataGridViewCell> celdas;
+
+                if (!string.IsNullOrWhiteSpace(columnName) && grid.Columns.Contains(columnName))
+                {
+                    celdas = new[] { row.Cells[columnName] };
+                }
+                else
+                {
+                    celdas = row.Cells.Cast<DataGridViewCell>();
+                }
+
+                foreach (DataGridViewCell cell in celdas)
+                {
+                    string texto = NormalizarTextoDatosVisual(Convert.ToString(cell.Value) ?? "");
+
+                    if (texto == buscado || (!string.IsNullOrWhiteSpace(texto) && texto.Contains(buscado)))
+                    {
+                        grid.ClearSelection();
+                        row.Selected = true;
+                        grid.CurrentCell = cell;
+
+                        if (row.Index >= 0 && row.Index < grid.Rows.Count)
+                        {
+                            grid.FirstDisplayedScrollingRowIndex = row.Index;
+                        }
+
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        private void NavegarAEcuacionDesdeReceta(
+            DataGridView grid,
+            DataGridViewRow row,
+            string valor
+        )
+        {
+            string busqueda = ConstruirBusquedaEcuacionDesdeFilaPipeline(row);
+
+            if (string.IsNullOrWhiteSpace(busqueda))
+            {
+                busqueda = ExtraerClaveAntesPipe(valor);
+            }
+
+            if (string.IsNullOrWhiteSpace(busqueda))
+            {
+                MessageBox.Show(
+                    "Esta fila no tiene una ecuación productiva definida.",
+                    "Ecuación no definida",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information
+                );
+                return;
+            }
+
+            Form owner = grid == null ? null : grid.FindForm();
+
+            if (owner != null && !ReferenceEquals(owner, this))
+            {
+                RedirigirAEcuacionesDesdePipeline(grid);
+                return;
+            }
+
+            AbrirTabEcuacionesProductivas(busqueda);
+        }
+
+        private void NavegarASubEtapaDesdeReceta(string subEtapa, string etapa)
+        {
+            if (string.IsNullOrWhiteSpace(subEtapa))
+            {
+                MessageBox.Show(
+                    "Esta fila no tiene una subetapa/trabajo definido.",
+                    "Subetapa no definida",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information
+                );
+                return;
+            }
+
+            if (!SelectTabIfExists("Subetapas", true))
+            {
+                MessageBox.Show(
+                    "No encontré la pestaña Subetapas para abrirla.",
+                    "Subetapas",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information
+                );
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(etapa) &&
+                cmbFiltroEtapaSubEtapas != null &&
+                cmbFiltroEtapaSubEtapas.Items.Contains(etapa))
+            {
+                cmbFiltroEtapaSubEtapas.SelectedItem = etapa;
+            }
+
+            ProgramarRefrescoSubEtapas();
+            SelectGridRowByValue(dgvSubEtapas, "", subEtapa);
+        }
+
+        private void NavegarAEtapaDesdeReceta(string etapa)
+        {
+            if (string.IsNullOrWhiteSpace(etapa))
+            {
+                MessageBox.Show(
+                    "Esta fila no tiene una etapa productiva definida.",
+                    "Etapa no definida",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information
+                );
+                return;
+            }
+
+            if (!SelectTabIfExists("Subetapas", true))
+            {
+                MessageBox.Show(
+                    "No encontré una pestaña editable de etapas. Puedes revisar la etapa desde Subetapas o Productos.",
+                    "Etapa productiva",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information
+                );
+                return;
+            }
+
+            ProgramarRefrescoSubEtapas();
+            SelectGridRowByValue(dgvSubEtapas, "", etapa);
+        }
+
+        private void NavegarACargosDesdeReceta(string cargos)
+        {
+            List<string> listaCargos = SepararCargosPipeline(cargos);
+
+            if (listaCargos.Count == 0)
+            {
+                MessageBox.Show(
+                    "Esta fila no tiene cargos heredados desde la ecuación.",
+                    "Cargos no definidos",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information
+                );
+                return;
+            }
+
+            if (SelectTabIfExists("Mano de obra", false))
+            {
+                string cargo = listaCargos[0];
+                CargarFiltrosAsignacionManoObra();
+
+                if (cmbFiltroAsignacionCargo != null && cmbFiltroAsignacionCargo.Items.Contains(cargo))
+                {
+                    cmbFiltroAsignacionCargo.SelectedItem = cargo;
+                }
+
+                CargarTablaAsignacionManoObra();
+                return;
+            }
+
+            if (SelectTabIfExists("Personal", false))
+            {
+                MessageBox.Show(
+                    "Abrí Personal. Cargos de la fila: " + string.Join("; ", listaCargos),
+                    "Cargos asociados",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information
+                );
+            }
+        }
+
+        private void SeleccionarDependenciaEnReceta(DataGridView grid, string dependeDe)
+        {
+            List<string> dependencias = SepararDependenciasPipeline(dependeDe);
+            string dependencia = dependencias.FirstOrDefault(d => !string.IsNullOrWhiteSpace(d)) ?? "";
+
+            if (string.IsNullOrWhiteSpace(dependencia))
+            {
+                MessageBox.Show(
+                    "Esta fila no tiene un proceso previo definido.",
+                    "Dependencia no definida",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information
+                );
+                return;
+            }
+
+            if (SelectGridRowByValue(grid, "Nombre", dependencia))
+            {
+                return;
+            }
+
+            MessageBox.Show(
+                "No encontré '" + dependencia + "' dentro de esta receta. Revisa que el nombre esté escrito igual que la pieza/subproducto.",
+                "Dependencia no encontrada",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information
+            );
+        }
+
+        private void AbrirSelectorDependenciasPipeline(DataGridView grid, int rowIndex)
+        {
+            if (grid == null || rowIndex < 0 || rowIndex >= grid.Rows.Count)
+            {
+                return;
+            }
+
+            DataGridViewRow row = grid.Rows[rowIndex];
+
+            if (row == null || row.IsNewRow)
+            {
+                return;
+            }
+
+            string nombreActual = Convert.ToString(row.Cells["Nombre"].Value) ?? "";
+            string seleccionActual = Convert.ToString(row.Cells["DependeDe"].Value) ?? "";
+            List<string> opciones = ObtenerOpcionesDependenciasPipeline(grid, rowIndex);
+
+            using (Form dialogo = new Form())
+            {
+                dialogo.Text = "Seleccionar requisitos previos";
+                dialogo.StartPosition = FormStartPosition.CenterParent;
+                dialogo.Width = 520;
+                dialogo.Height = 520;
+                dialogo.MinimizeBox = false;
+                dialogo.MaximizeBox = false;
+
+                TableLayoutPanel layout = new TableLayoutPanel();
+                layout.Dock = DockStyle.Fill;
+                layout.ColumnCount = 1;
+                layout.RowCount = 3;
+                layout.Padding = new Padding(14);
+                layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+                layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+                layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+                Label ayuda = new Label();
+                ayuda.Text = string.IsNullOrWhiteSpace(nombreActual)
+                    ? "Marca uno o más procesos que deben estar listos antes de este."
+                    : "Marca uno o más procesos que deben estar listos antes de: " + nombreActual;
+                ayuda.AutoSize = true;
+                ayuda.MaximumSize = new Size(470, 0);
+                ayuda.Margin = new Padding(0, 0, 0, 8);
+
+                CheckedListBox lista = new CheckedListBox();
+                lista.Dock = DockStyle.Fill;
+                lista.CheckOnClick = true;
+                lista.Font = new Font("Segoe UI", 9.0f, FontStyle.Regular);
+
+                HashSet<string> seleccionados = SepararDependenciasPipeline(seleccionActual)
+                    .Select(NormalizarTextoDatosVisual)
+                    .ToHashSet();
+
+                foreach (string opcion in opciones)
+                {
+                    int index = lista.Items.Add(opcion);
+                    lista.SetItemChecked(index, seleccionados.Contains(NormalizarTextoDatosVisual(opcion)));
+                }
+
+                FlowLayoutPanel acciones = new FlowLayoutPanel();
+                acciones.Dock = DockStyle.Fill;
+                acciones.FlowDirection = FlowDirection.RightToLeft;
+                acciones.AutoSize = true;
+                acciones.Margin = new Padding(0, 10, 0, 0);
+
+                Button btnAceptar = new Button();
+                btnAceptar.Text = "Aceptar";
+                btnAceptar.Width = 100;
+                btnAceptar.Height = 30;
+                btnAceptar.DialogResult = DialogResult.OK;
+
+                Button btnCancelar = new Button();
+                btnCancelar.Text = "Cancelar";
+                btnCancelar.Width = 100;
+                btnCancelar.Height = 30;
+                btnCancelar.DialogResult = DialogResult.Cancel;
+
+                acciones.Controls.Add(btnAceptar);
+                acciones.Controls.Add(btnCancelar);
+
+                layout.Controls.Add(ayuda, 0, 0);
+                layout.Controls.Add(lista, 0, 1);
+                layout.Controls.Add(acciones, 0, 2);
+
+                dialogo.Controls.Add(layout);
+                dialogo.AcceptButton = btnAceptar;
+                dialogo.CancelButton = btnCancelar;
+
+                if (dialogo.ShowDialog(this) != DialogResult.OK)
+                {
+                    return;
+                }
+
+                List<string> nuevas = new List<string>();
+
+                foreach (object item in lista.CheckedItems)
+                {
+                    string texto = item?.ToString() ?? "";
+
+                    if (!string.IsNullOrWhiteSpace(texto))
+                    {
+                        nuevas.Add(texto.Trim());
+                    }
+                }
+
+                row.Cells["DependeDe"].Value = string.Join("; ", nuevas);
+            }
+        }
+
+        private List<string> ObtenerOpcionesDependenciasPipeline(DataGridView grid, int rowIndexActual)
+        {
+            List<string> opciones = new List<string>();
+
+            if (grid == null)
+            {
+                return opciones;
+            }
+
+            string nombreActual = "";
+            if (rowIndexActual >= 0 && rowIndexActual < grid.Rows.Count)
+            {
+                nombreActual = Convert.ToString(grid.Rows[rowIndexActual].Cells["Nombre"].Value) ?? "";
+            }
+
+            string claveActual = NormalizarTextoDatosVisual(nombreActual);
+            Dictionary<string, string> dependenciasPorNombre = new Dictionary<string, string>();
+
+            foreach (DataGridViewRow fila in grid.Rows)
+            {
+                if (fila == null || fila.IsNewRow)
+                {
+                    continue;
+                }
+
+                string nombre = Convert.ToString(fila.Cells["Nombre"].Value) ?? "";
+                string clave = NormalizarTextoDatosVisual(nombre);
+
+                if (!string.IsNullOrWhiteSpace(clave) && !dependenciasPorNombre.ContainsKey(clave))
+                {
+                    dependenciasPorNombre[clave] = Convert.ToString(fila.Cells["DependeDe"].Value) ?? "";
+                }
+            }
+
+            for (int i = 0; i < grid.Rows.Count; i++)
+            {
+                if (i == rowIndexActual)
+                {
+                    continue;
+                }
+
+                DataGridViewRow row = grid.Rows[i];
+
+                if (row == null || row.IsNewRow)
+                {
+                    continue;
+                }
+
+                string nombre = Convert.ToString(row.Cells["Nombre"].Value) ?? "";
+                string claveOpcion = NormalizarTextoDatosVisual(nombre);
+
+                if (!string.IsNullOrWhiteSpace(claveActual) &&
+                    ExisteRutaDependenciaPipeline(
+                        claveOpcion,
+                        claveActual,
+                        dependenciasPorNombre,
+                        new HashSet<string>()))
+                {
+                    continue;
+                }
+
+                if (!string.IsNullOrWhiteSpace(nombre) && !opciones.Contains(nombre.Trim()))
+                {
+                    opciones.Add(nombre.Trim());
+                }
+            }
+
+            return opciones;
+        }
+
+        private bool ExisteRutaDependenciaPipeline(
+            string claveOrigen,
+            string claveDestino,
+            Dictionary<string, string> dependenciasPorNombre,
+            HashSet<string> visitados
+        )
+        {
+            if (string.IsNullOrWhiteSpace(claveOrigen) ||
+                string.IsNullOrWhiteSpace(claveDestino) ||
+                dependenciasPorNombre == null)
+            {
+                return false;
+            }
+
+            if (!visitados.Add(claveOrigen))
+            {
+                return false;
+            }
+
+            if (!dependenciasPorNombre.TryGetValue(claveOrigen, out string dependencias))
+            {
+                return false;
+            }
+
+            foreach (string dependencia in SepararDependenciasPipeline(dependencias))
+            {
+                string claveDependencia = NormalizarTextoDatosVisual(dependencia);
+
+                if (claveDependencia == claveDestino)
+                {
+                    return true;
+                }
+
+                if (ExisteRutaDependenciaPipeline(
+                    claveDependencia,
+                    claveDestino,
+                    dependenciasPorNombre,
+                    visitados))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private void AbrirSelectorCargosPipeline(DataGridView grid, int rowIndex)
+        {
+            if (grid == null || rowIndex < 0 || rowIndex >= grid.Rows.Count)
+            {
+                return;
+            }
+
+            DataGridViewRow row = grid.Rows[rowIndex];
+
+            if (row == null || row.IsNewRow)
+            {
+                return;
+            }
+
+            string etapa = Convert.ToString(row.Cells["EtapaSugerida"].Value) ?? "";
+            string subEtapa = Convert.ToString(row.Cells["SubEtapaSugerida"].Value) ?? "";
+            string seleccionActual = Convert.ToString(row.Cells["CargosSugeridos"].Value) ?? "";
+            List<string> opciones = ObtenerOpcionesCargosPipeline(etapa, subEtapa);
+
+            using (Form dialogo = new Form())
+            {
+                dialogo.Text = "Cargos heredados de la ecuacion";
+                dialogo.StartPosition = FormStartPosition.CenterParent;
+                dialogo.Width = 760;
+                dialogo.Height = 650;
+                dialogo.MinimumSize = new Size(640, 520);
+                dialogo.MinimizeBox = false;
+                dialogo.MaximizeBox = true;
+
+                TableLayoutPanel layout = new TableLayoutPanel();
+                layout.Dock = DockStyle.Fill;
+                layout.ColumnCount = 1;
+                layout.RowCount = 4;
+                layout.Padding = new Padding(14);
+                layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+                layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+                layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+                layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+                Label ayuda = new Label();
+                ayuda.Text =
+                    "Estos cargos se heredan desde la ecuacion productiva/subetapa vinculada. " +
+                    "No se editan desde el pipeline; para cambiarlos abre la ecuacion que gobierna esta pieza.";
+                ayuda.AutoSize = true;
+                ayuda.MaximumSize = new Size(700, 0);
+                ayuda.Margin = new Padding(0, 0, 0, 8);
+
+                Button btnEditarEcuacion = new Button();
+                btnEditarEcuacion.Text = "Editar ecuacion / subetapa";
+                btnEditarEcuacion.Width = 220;
+                btnEditarEcuacion.Height = 30;
+                btnEditarEcuacion.Margin = new Padding(0, 0, 0, 8);
+                btnEditarEcuacion.DialogResult = DialogResult.Retry;
+                btnEditarEcuacion.Click += (s, e) =>
+                {
+                    dialogo.DialogResult = DialogResult.Retry;
+                    dialogo.Close();
+                };
+
+                CheckedListBox lista = new CheckedListBox();
+                lista.Dock = DockStyle.Fill;
+                lista.CheckOnClick = false;
+                lista.Font = new Font("Segoe UI", 9.0f, FontStyle.Regular);
+                lista.HorizontalScrollbar = true;
+                lista.IntegralHeight = false;
+                lista.ItemCheck += (s, e) => e.NewValue = e.CurrentValue;
+
+                HashSet<string> seleccionados = SepararCargosPipeline(seleccionActual)
+                    .ToHashSet();
+
+                List<string> cargosVisibles = seleccionados.Count > 0
+                    ? seleccionados.OrderBy(c => c).ToList()
+                    : opciones;
+
+                if (cargosVisibles.Count == 0)
+                {
+                    cargosVisibles.Add("Sin cargos definidos en la ecuacion/subetapa vinculada.");
+                }
+
+                foreach (string opcion in cargosVisibles)
+                {
+                    int index = lista.Items.Add(opcion);
+                    lista.SetItemChecked(index, !opcion.StartsWith("Sin cargos definidos", StringComparison.OrdinalIgnoreCase));
+                }
+
+                FlowLayoutPanel acciones = new FlowLayoutPanel();
+                acciones.Dock = DockStyle.Fill;
+                acciones.FlowDirection = FlowDirection.RightToLeft;
+                acciones.AutoSize = true;
+                acciones.Margin = new Padding(0, 10, 0, 0);
+
+                Button btnAceptar = new Button();
+                btnAceptar.Text = "Cerrar";
+                btnAceptar.Width = 100;
+                btnAceptar.Height = 30;
+                btnAceptar.DialogResult = DialogResult.OK;
+
+                Button btnCancelar = new Button();
+                btnCancelar.Text = "Cancelar";
+                btnCancelar.Width = 100;
+                btnCancelar.Height = 30;
+                btnCancelar.DialogResult = DialogResult.Cancel;
+
+                acciones.Controls.Add(btnAceptar);
+                acciones.Controls.Add(btnCancelar);
+
+                layout.Controls.Add(ayuda, 0, 0);
+                layout.Controls.Add(btnEditarEcuacion, 0, 1);
+                layout.Controls.Add(lista, 0, 2);
+                layout.Controls.Add(acciones, 0, 3);
+
+                dialogo.Controls.Add(layout);
+                dialogo.AcceptButton = btnAceptar;
+                dialogo.CancelButton = btnCancelar;
+
+                DialogResult resultado = dialogo.ShowDialog(this);
+
+                if (resultado == DialogResult.Retry)
+                {
+                    RedirigirAEcuacionesDesdePipeline(grid);
+                    return;
+                }
+            }
+        }
+
+        private List<string> ObtenerOpcionesCargosPipeline(string etapa)
+        {
+            return ObtenerOpcionesCargosPipeline(etapa, "");
+        }
+
+        private string ResolverTextoEcuacionPipeline(
+            string ecuacionActual,
+            string etapa,
+            string subEtapa,
+            string nombre,
+            string cargos
+        )
+        {
+            if (!string.IsNullOrWhiteSpace(ecuacionActual))
+            {
+                return ecuacionActual;
+            }
+
+            EcuacionProductivaDefinicion ecuacion =
+                BibliotecaEcuacionesProductivasJsonService.BuscarMejorPara(
+                    etapa,
+                    subEtapa,
+                    nombre,
+                    cargos
+                );
+
+            return ObtenerTextoEcuacionPipeline(ecuacion);
+        }
+
+        private string ObtenerTextoEcuacionPipeline(EcuacionProductivaDefinicion ecuacion)
+        {
+            if (ecuacion == null)
+            {
+                return "";
+            }
+
+            if (string.IsNullOrWhiteSpace(ecuacion.Clave))
+            {
+                return ecuacion.NombreVisible ?? "";
+            }
+
+            if (string.IsNullOrWhiteSpace(ecuacion.NombreVisible))
+            {
+                return ecuacion.Clave;
+            }
+
+            return ecuacion.Clave + " | " + ecuacion.NombreVisible;
+        }
+
+        private Subproducto2D EnriquecerSubproductoDesdeBibliotecas(
+            Subproducto2D origen,
+            string categoria,
+            string nombre
+        )
+        {
+            Subproducto2D resultado = ClonarSubproductoPipeline(origen);
+
+            if (string.IsNullOrWhiteSpace(resultado.Nombre))
+            {
+                resultado.Nombre = nombre ?? "";
+            }
+
+            if (string.IsNullOrWhiteSpace(resultado.EtapaSugerida))
+            {
+                resultado.EtapaSugerida = categoria ?? "";
+            }
+
+            resultado.SubEtapaSugerida = ResolverSubEtapaPipeline(
+                resultado.EtapaSugerida,
+                resultado.SubEtapaSugerida,
+                resultado.Nombre
+            );
+
+            EcuacionProductivaDefinicion ecuacion =
+                BibliotecaEcuacionesProductivasJsonService.BuscarMejorPara(
+                    resultado.EtapaSugerida,
+                    resultado.SubEtapaSugerida,
+                    resultado.Nombre,
+                    resultado.CargosSugeridos
+                );
+
+            if (ecuacion != null)
+            {
+                if (string.IsNullOrWhiteSpace(resultado.EcuacionProductiva))
+                {
+                    resultado.EcuacionProductiva = ObtenerTextoEcuacionPipeline(ecuacion);
+                }
+
+                if (string.IsNullOrWhiteSpace(resultado.VariablesEcuacion))
+                {
+                    resultado.VariablesEcuacion = ecuacion.Variables;
+                }
+
+                if (string.IsNullOrWhiteSpace(resultado.ImpactoEcuacion))
+                {
+                    resultado.ImpactoEcuacion = ecuacion.Impacto;
+                }
+
+                if (string.IsNullOrWhiteSpace(resultado.CargosSugeridos))
+                {
+                    resultado.CargosSugeridos = ecuacion.CargosPermitidos;
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(resultado.CargosSugeridos))
+            {
+                List<string> cargosSubEtapa = ObtenerCargosSugeridosDesdeSubEtapaPipeline(
+                    resultado.EtapaSugerida,
+                    resultado.SubEtapaSugerida
+                );
+
+                if (cargosSubEtapa.Count > 0)
+                {
+                    resultado.CargosSugeridos = string.Join("; ", cargosSubEtapa);
+                }
+            }
+
+            return resultado;
+        }
+
+        private EcuacionProductivaDefinicion ObtenerEcuacionPipelinePorTexto(string texto)
+        {
+            if (string.IsNullOrWhiteSpace(texto))
+            {
+                return null;
+            }
+
+            string normalizado = NormalizarTextoDatosVisual(texto);
+
+            return BibliotecaEcuacionesProductivasJsonService.CargarEcuaciones()
+                .FirstOrDefault(e =>
+                    e != null &&
+                    (
+                        NormalizarTextoDatosVisual(e.Clave) == normalizado ||
+                        NormalizarTextoDatosVisual(e.NombreVisible) == normalizado ||
+                        NormalizarTextoDatosVisual(ObtenerTextoEcuacionPipeline(e)) == normalizado
+                    )
+                );
+        }
+
+        private void AutorrellenarEcuacionPipelineDesdeFila(DataGridViewRow row, bool sobrescribir)
+        {
+            if (row == null || row.IsNewRow || !row.DataGridView.Columns.Contains("EcuacionProductiva"))
+            {
+                return;
+            }
+
+            string ecuacionActual = Convert.ToString(row.Cells["EcuacionProductiva"].Value) ?? "";
+            string variablesActuales = Convert.ToString(row.Cells["VariablesEcuacion"].Value) ?? "";
+            string impactoActual = Convert.ToString(row.Cells["ImpactoEcuacion"].Value) ?? "";
+
+            if (!sobrescribir &&
+                !string.IsNullOrWhiteSpace(ecuacionActual) &&
+                !string.IsNullOrWhiteSpace(variablesActuales) &&
+                !string.IsNullOrWhiteSpace(impactoActual))
+            {
+                return;
+            }
+
+            string etapa = Convert.ToString(row.Cells["EtapaSugerida"].Value) ?? "";
+            string subEtapa = Convert.ToString(row.Cells["SubEtapaSugerida"].Value) ?? "";
+            string nombre = Convert.ToString(row.Cells["Nombre"].Value) ?? "";
+            string cargos = Convert.ToString(row.Cells["CargosSugeridos"].Value) ?? "";
+
+            if (string.IsNullOrWhiteSpace(subEtapa) &&
+                NormalizarTextoDatosVisual(nombre).StartsWith("nueva pieza", StringComparison.OrdinalIgnoreCase))
+            {
+                LimpiarDetalleEcuacionPipeline(row);
+                return;
+            }
+
+            EcuacionProductivaDefinicion ecuacion =
+                BibliotecaEcuacionesProductivasJsonService.BuscarMejorPara(
+                    etapa,
+                    subEtapa,
+                    nombre,
+                    cargos
+                );
+
+            if (ecuacion == null)
+            {
+                return;
+            }
+
+            string texto = ObtenerTextoEcuacionPipeline(ecuacion);
+            DataGridViewComboBoxCell celda = row.Cells["EcuacionProductiva"] as DataGridViewComboBoxCell;
+            if (celda != null && !celda.Items.Contains(texto))
+            {
+                celda.Items.Add(texto);
+            }
+
+            if (sobrescribir || string.IsNullOrWhiteSpace(ecuacionActual))
+            {
+                row.Cells["EcuacionProductiva"].Value = texto;
+            }
+
+            if (sobrescribir || string.IsNullOrWhiteSpace(variablesActuales))
+            {
+                row.Cells["VariablesEcuacion"].Value = ecuacion.Variables;
+            }
+
+            if (sobrescribir || string.IsNullOrWhiteSpace(impactoActual))
+            {
+                row.Cells["ImpactoEcuacion"].Value = ecuacion.Impacto;
+            }
+        }
+
+        private void LimpiarDetalleEcuacionPipeline(DataGridViewRow row)
+        {
+            if (row == null || row.IsNewRow || row.DataGridView == null)
+            {
+                return;
+            }
+
+            if (row.DataGridView.Columns.Contains("EcuacionProductiva"))
+            {
+                row.Cells["EcuacionProductiva"].Value = "";
+            }
+
+            if (row.DataGridView.Columns.Contains("VariablesEcuacion"))
+            {
+                row.Cells["VariablesEcuacion"].Value = "";
+            }
+
+            if (row.DataGridView.Columns.Contains("ImpactoEcuacion"))
+            {
+                row.Cells["ImpactoEcuacion"].Value = "";
+            }
+        }
+
+        private void AplicarDetalleEcuacionPipeline(DataGridViewRow row, bool sobrescribir)
+        {
+            if (row == null || row.IsNewRow)
+            {
+                return;
+            }
+
+            EcuacionProductivaDefinicion ecuacion = ObtenerEcuacionPipelinePorTexto(
+                Convert.ToString(row.Cells["EcuacionProductiva"].Value) ?? ""
+            );
+
+            if (ecuacion == null)
+            {
+                return;
+            }
+
+            if (sobrescribir || string.IsNullOrWhiteSpace(Convert.ToString(row.Cells["VariablesEcuacion"].Value)))
+            {
+                row.Cells["VariablesEcuacion"].Value = ecuacion.Variables;
+            }
+
+            if (sobrescribir || string.IsNullOrWhiteSpace(Convert.ToString(row.Cells["ImpactoEcuacion"].Value)))
+            {
+                row.Cells["ImpactoEcuacion"].Value = ecuacion.Impacto;
+            }
+        }
+
+        private List<string> ObtenerOpcionesCargosPipeline(string etapa, string subEtapa)
+        {
+            List<string> sugeridosSubEtapa = ObtenerCargosSugeridosDesdeSubEtapaPipeline(
+                etapa,
+                subEtapa
+            );
+
+            if (sugeridosSubEtapa.Count > 0)
+            {
+                return sugeridosSubEtapa;
+            }
+
+            return Cargos.CrearBibliotecaPorBloque(etapa)
+                .Where(c => c != null && !string.IsNullOrWhiteSpace(c.Nombre))
+                .GroupBy(c => ObtenerTextoCargoPipeline(c))
+                .Select(g => g.Key)
+                .OrderBy(t => t)
+                .ToList();
+        }
+
+        private void AutorrellenarCargosPipelineDesdeSubEtapa(
+            DataGridViewRow row,
+            bool sobrescribir
+        )
+        {
+            if (row == null || row.IsNewRow)
+            {
+                return;
+            }
+
+            string actual = Convert.ToString(row.Cells["CargosSugeridos"].Value) ?? "";
+
+            if (!sobrescribir && !string.IsNullOrWhiteSpace(actual))
+            {
+                return;
+            }
+
+            string etapa = Convert.ToString(row.Cells["EtapaSugerida"].Value) ?? "";
+            string subEtapa = Convert.ToString(row.Cells["SubEtapaSugerida"].Value) ?? "";
+            subEtapa = ResolverSubEtapaPipeline(
+                etapa,
+                subEtapa,
+                Convert.ToString(row.Cells["Nombre"].Value) ?? ""
+            );
+            List<string> sugeridos = ObtenerCargosSugeridosDesdeSubEtapaPipeline(etapa, subEtapa);
+
+            if (sugeridos.Count == 0)
+            {
+                return;
+            }
+
+            row.Cells["CargosSugeridos"].Value = string.Join("; ", sugeridos);
+        }
+
+        private List<string> ObtenerCargosSugeridosDesdeSubEtapaPipeline(
+            string etapa,
+            string subEtapa
+        )
+        {
+            SubEtapaProyecto definicion = ObtenerSubEtapaPipeline(etapa, subEtapa);
+
+            if (definicion == null || string.IsNullOrWhiteSpace(definicion.CargosSugeridos))
+            {
+                return new List<string>();
+            }
+
+            List<string> nombresSugeridos = SepararCargosPipeline(definicion.CargosSugeridos);
+            List<CategoriaTrabajador> cargosEtapa = Cargos.CrearBibliotecaPorBloque(
+                string.IsNullOrWhiteSpace(definicion.EtapaPadre)
+                    ? etapa
+                    : definicion.EtapaPadre
+            );
+
+            cargosEtapa.AddRange(Cargos.CrearBibliotecaGenerales());
+
+            List<string> resultado = new List<string>();
+
+            foreach (string nombreSugerido in nombresSugeridos)
+            {
+                List<CategoriaTrabajador> coincidenciasExactas = cargosEtapa
+                    .Where(c => c != null && !string.IsNullOrWhiteSpace(c.Nombre))
+                    .Where(c => CargoPipelineCoincideConSugerido(c.Nombre, nombreSugerido, true))
+                    .ToList();
+
+                CategoriaTrabajador cargo = ElegirMejorCargoPipeline(coincidenciasExactas);
+
+                if (cargo == null)
+                {
+                    List<CategoriaTrabajador> coincidenciasFlexibles = cargosEtapa
+                        .Where(c => c != null && !string.IsNullOrWhiteSpace(c.Nombre))
+                        .Where(c => CargoPipelineCoincideConSugerido(c.Nombre, nombreSugerido, false))
+                        .ToList();
+
+                    cargo = ElegirMejorCargoPipeline(coincidenciasFlexibles);
+                }
+
+                resultado.Add(cargo == null
+                    ? nombreSugerido.Trim()
+                    : ObtenerTextoCargoPipeline(cargo));
+            }
+
+            return resultado
+                .Where(t => !string.IsNullOrWhiteSpace(t))
+                .Distinct()
+                .OrderBy(t => t)
+                .ToList();
+        }
+
+        private string ObtenerCargosSugeridosParaSubproducto(Subproducto2D subproducto)
+        {
+            if (subproducto == null)
+            {
+                return "";
+            }
+
+            if (!string.IsNullOrWhiteSpace(subproducto.CargosSugeridos))
+            {
+                return subproducto.CargosSugeridos;
+            }
+
+            string subEtapa = ResolverSubEtapaPipeline(
+                subproducto.EtapaSugerida,
+                subproducto.SubEtapaSugerida,
+                subproducto.Nombre
+            );
+
+            List<string> cargos = ObtenerCargosSugeridosDesdeSubEtapaPipeline(
+                subproducto.EtapaSugerida,
+                subEtapa
+            );
+
+            return string.Join("; ", cargos);
+        }
+
+        private CategoriaTrabajador ElegirMejorCargoPipeline(List<CategoriaTrabajador> cargos)
+        {
+            if (cargos == null || cargos.Count == 0)
+            {
+                return null;
+            }
+
+            CategoriaTrabajador tipico = cargos.FirstOrDefault(c =>
+                c != null &&
+                NormalizarTextoDatosVisual(c.Nivel).Contains("tipico"));
+
+            if (tipico != null)
+            {
+                return tipico;
+            }
+
+            CategoriaTrabajador general = cargos.FirstOrDefault(c =>
+                c != null &&
+                NormalizarTextoDatosVisual(c.Nivel).Contains("general"));
+
+            if (general != null)
+            {
+                return general;
+            }
+
+            return cargos
+                .Where(c => c != null)
+                .OrderBy(c => c.Id)
+                .FirstOrDefault();
+        }
+
+        private bool CargoPipelineCoincideConSugerido(
+            string cargoBiblioteca,
+            string cargoSugerido,
+            bool exacto
+        )
+        {
+            string biblioteca = NormalizarTextoDatosVisual(cargoBiblioteca);
+            string sugerido = NormalizarTextoDatosVisual(cargoSugerido);
+
+            if (string.IsNullOrWhiteSpace(biblioteca) || string.IsNullOrWhiteSpace(sugerido))
+            {
+                return false;
+            }
+
+            if (exacto)
+            {
+                return biblioteca == sugerido;
+            }
+
+            if (biblioteca.Contains(sugerido) || sugerido.Contains(biblioteca))
+            {
+                return true;
+            }
+
+            if (sugerido.Contains("director") && biblioteca.Contains("director"))
+            {
+                if (sugerido.Contains("arte") || sugerido.Contains("art"))
+                {
+                    return biblioteca.Contains("arte") || biblioteca.Contains("art");
+                }
+
+                if (sugerido.Contains("creativ"))
+                {
+                    return biblioteca.Contains("creativ");
+                }
+
+                return true;
+            }
+
+            if ((sugerido.Contains("project") || sugerido.Contains("productor")) &&
+                (biblioteca.Contains("project") || biblioteca.Contains("productor")))
+            {
+                return true;
+            }
+
+            if ((sugerido.Contains("editor") || sugerido.Contains("edicion")) &&
+                (biblioteca.Contains("editor") || biblioteca.Contains("edicion")))
+            {
+                return true;
+            }
+
+            if ((sugerido.Contains("animador") || sugerido.Contains("animation")) &&
+                (biblioteca.Contains("animador") || biblioteca.Contains("animacion")))
+            {
+                return true;
+            }
+
+            if ((sugerido.Contains("background") || sugerido.Contains("fondo")) &&
+                (biblioteca.Contains("background") || biblioteca.Contains("fondo")))
+            {
+                return true;
+            }
+
+            if ((sugerido.Contains("character") || sugerido.Contains("personaje")) &&
+                (biblioteca.Contains("character") || biblioteca.Contains("personaje")))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        private SubEtapaProyecto ObtenerSubEtapaPipeline(string etapa, string subEtapa)
+        {
+            if (string.IsNullOrWhiteSpace(subEtapa))
+            {
+                return null;
+            }
+
+            if (bibliotecaSubEtapas == null || bibliotecaSubEtapas.Count == 0)
+            {
+                bibliotecaSubEtapas = BibliotecaSubEtapasJsonService.CargarSubEtapas();
+            }
+
+            string subNormalizada = NormalizarTextoDatosVisual(subEtapa);
+            string etapaNormalizada = NormalizarNombreEtapa(etapa);
+
+            SubEtapaProyecto exacta = (bibliotecaSubEtapas ?? new List<SubEtapaProyecto>())
+                .FirstOrDefault(s =>
+                    s != null &&
+                    NormalizarTextoDatosVisual(s.Nombre) == subNormalizada &&
+                    NormalizarNombreEtapa(s.EtapaPadre) == etapaNormalizada);
+
+            if (exacta != null)
+            {
+                return exacta;
+            }
+
+            return (bibliotecaSubEtapas ?? new List<SubEtapaProyecto>())
+                .FirstOrDefault(s =>
+                    s != null &&
+                    NormalizarTextoDatosVisual(s.Nombre) == subNormalizada);
+        }
+
+        private string ResolverSubEtapaPipeline(
+            string etapa,
+            string subEtapa,
+            string nombrePieza
+        )
+        {
+            if (bibliotecaSubEtapas == null || bibliotecaSubEtapas.Count == 0)
+            {
+                bibliotecaSubEtapas = BibliotecaSubEtapasJsonService.CargarSubEtapas();
+            }
+
+            SubEtapaProyecto exacta = ObtenerSubEtapaPipeline(etapa, subEtapa);
+
+            if (exacta != null)
+            {
+                return exacta.Nombre;
+            }
+
+            string etapaNormalizada = NormalizarNombreEtapa(etapa);
+            string texto = NormalizarTextoDatosVisual((subEtapa ?? "") + " " + (nombrePieza ?? ""));
+
+            List<SubEtapaProyecto> candidatas = (bibliotecaSubEtapas ?? new List<SubEtapaProyecto>())
+                .Where(s => s != null)
+                .Where(s => NormalizarNombreEtapa(s.EtapaPadre) == etapaNormalizada)
+                .ToList();
+
+            if (candidatas.Count == 0)
+            {
+                return subEtapa ?? "";
+            }
+
+            SubEtapaProyecto porPalabraClave = candidatas.FirstOrDefault(s =>
+                SepararCargosPipeline(s.PalabrasClaveActivacion)
+                    .Any(p => texto.Contains(NormalizarTextoDatosVisual(p))));
+
+            if (porPalabraClave != null)
+            {
+                return porPalabraClave.Nombre;
+            }
+
+            if (texto.Contains("rough"))
+            {
+                return ObtenerNombreSubEtapaSiExiste(candidatas, "Rough animation", subEtapa);
+            }
+
+            if (texto.Contains("clean"))
+            {
+                return ObtenerNombreSubEtapaSiExiste(candidatas, "Clean up", subEtapa);
+            }
+
+            if (texto.Contains("color"))
+            {
+                return ObtenerNombreSubEtapaSiExiste(candidatas, "Color", subEtapa);
+            }
+
+            if (texto.Contains("asset") || texto.Contains("personajebase") || texto.Contains("preparacion"))
+            {
+                return ObtenerNombreSubEtapaSiExiste(candidatas, "Preparación de assets", subEtapa);
+            }
+
+            if (texto.Contains("export") || texto.Contains("entrega"))
+            {
+                return ObtenerNombreSubEtapaSiExiste(candidatas, "Entrega final", subEtapa);
+            }
+
+            return subEtapa ?? "";
+        }
+
+        private string ObtenerNombreSubEtapaSiExiste(
+            List<SubEtapaProyecto> candidatas,
+            string nombre,
+            string fallback
+        )
+        {
+            SubEtapaProyecto encontrada = candidatas.FirstOrDefault(s =>
+                s != null &&
+                NormalizarTextoDatosVisual(s.Nombre) == NormalizarTextoDatosVisual(nombre));
+
+            return encontrada == null ? fallback ?? "" : encontrada.Nombre;
+        }
+
+        private void AbrirTabCargosDesdePipeline()
+        {
+            AbrirTabPrincipal(tabCargosPrincipal, true);
+        }
+
+        private List<string> ObtenerOpcionesSubEtapasPipeline()
+        {
+            if (bibliotecaSubEtapas == null || bibliotecaSubEtapas.Count == 0)
+            {
+                bibliotecaSubEtapas = BibliotecaSubEtapasJsonService.CargarSubEtapas();
+            }
+
+            return (bibliotecaSubEtapas ?? new List<SubEtapaProyecto>())
+                .Where(s => s != null && !string.IsNullOrWhiteSpace(s.Nombre))
+                .OrderBy(s => ObtenerOrdenEtapaGeneral(s.EtapaPadre))
+                .ThenBy(s => s.Orden)
+                .ThenBy(s => s.Nombre)
+                .Select(s => s.Nombre.Trim())
+                .Distinct()
+                .ToList();
+        }
+
+        private string ObtenerTextoCargoPipeline(CategoriaTrabajador cargo)
+        {
+            if (cargo == null)
+            {
+                return "";
+            }
+
+            if (string.IsNullOrWhiteSpace(cargo.Nivel))
+            {
+                return cargo.Nombre.Trim();
+            }
+
+            return cargo.Nombre.Trim() + " (" + cargo.Nivel.Trim() + ")";
+        }
+
+        private List<string> SepararCargosPipeline(string texto)
+        {
+            return (texto ?? "")
+                .Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(t => t.Trim())
+                .Where(t => !string.IsNullOrWhiteSpace(t))
+                .Distinct()
+                .ToList();
+        }
+
+        private List<string> SepararDependenciasPipeline(string texto)
+        {
+            return (texto ?? "")
+                .Replace(" y ", ";")
+                .Split(new[] { ';', '|', ',' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(t => t.Trim())
+                .Where(t => !string.IsNullOrWhiteSpace(t))
+                .Distinct()
+                .ToList();
+        }
+
+        private void RefrescarOpcionesDependeDeSubproductos(DataGridView grid)
+        {
+            // La columna ahora es texto + selector múltiple. Se deja este método como
+            // punto de extensión para refrescos antiguos sin romper llamadas existentes.
+        }
+
+        private List<ProductoEtapaDefinicion> CrearPipelineDesdeSubproductos(
+            Producto2DDefinicion producto
+        )
+        {
+            List<ProductoEtapaDefinicion> etapas = new List<ProductoEtapaDefinicion>();
+            string etapaAnterior = "";
+
+            foreach (string etapa in (producto.Subproductos ?? new List<Subproducto2D>())
+                .Where(s => s != null && !string.IsNullOrWhiteSpace(s.EtapaSugerida))
+                .Select(s => s.EtapaSugerida)
+                .Distinct()
+                .OrderBy(ObtenerOrdenEtapaGeneral))
+            {
+                etapas.Add(new ProductoEtapaDefinicion
+                {
+                    ClaveEtapa = etapa,
+                    NombreVisible = ObtenerNombreVisibleEtapa(etapa),
+                    Orden = ObtenerOrdenEtapaGeneral(etapa),
+                    Activa = true,
+                    DependeDe = etapaAnterior
+                });
+
+                etapaAnterior = etapa;
+            }
+
+            return etapas;
+        }
+
+        private List<ProductoEtapaDefinicion> ObtenerEtapasSecuencialesProducto(
+            Producto2DDefinicion producto
+        )
+        {
+            List<ProductoEtapaDefinicion> etapas = CrearPipelineDesdeSubproductos(producto);
+            string anterior = "";
+
+            foreach (ProductoEtapaDefinicion etapa in etapas.OrderBy(e => e.Orden))
+            {
+                etapa.DependeDe = anterior;
+                etapa.Activa = true;
+                anterior = etapa.ClaveEtapa;
+            }
+
+            return etapas;
+        }
+
+        private void GuardarPipelineProductoDesdeGrilla(
+            Producto2DDefinicion productoEditado,
+            DataGridView gridSubproductos
+        )
+        {
+            ConfirmarEdicionGrillaPipeline(gridSubproductos);
+
+            productoEditado.Subproductos = LeerSubproductosProductoDesdeGrilla(gridSubproductos);
+            productoEditado.Etapas = ObtenerEtapasSecuencialesProducto(productoEditado);
+
+            List<Producto2DDefinicion> productos =
+                BibliotecaProductos2DJsonService.CargarProductos();
+
+            Producto2DDefinicion destino = productos.FirstOrDefault(p =>
+                NormalizarTextoDatosVisual(p.Nombre) ==
+                NormalizarTextoDatosVisual(productoEditado.Nombre)
+            );
+
+            if (destino == null)
+            {
+                destino = new Producto2DDefinicion
+                {
+                    Nombre = productoEditado.Nombre,
+                    Industria = productoEditado.Industria,
+                    Categoria = productoEditado.Categoria,
+                    UnidadCantidadSugerida = productoEditado.UnidadCantidadSugerida,
+                    UnidadDuracionSugerida = productoEditado.UnidadDuracionSugerida,
+                    DuracionSugerida = productoEditado.DuracionSugerida,
+                    Nota = productoEditado.Nota
+                };
+
+                productos.Add(destino);
+            }
+
+            destino.Etapas = productoEditado.Etapas;
+            destino.Subproductos = productoEditado.Subproductos;
+            BibliotecaProductos2DJsonService.GuardarProductos(productos);
+
+            if (cotizacion != null)
+            {
+                cotizacion.DesgloseProductivo = null;
+            }
+
+            RefrescarOpcionesSegunProducto();
+        }
+
+        private void ConfirmarEdicionGrillaPipeline(DataGridView grid)
+        {
+            if (grid == null)
+            {
+                return;
+            }
+
+            try
+            {
+                if (grid.IsCurrentCellDirty)
+                {
+                    grid.CommitEdit(DataGridViewDataErrorContexts.Commit);
+                }
+            }
+            catch
+            {
+                // Algunas celdas ComboBox no permiten CommitEdit fuera del ciclo normal;
+                // EndEdit de abajo cubre el caso sin romper el flujo de guardado.
+            }
+
+            try
+            {
+                grid.EndEdit(DataGridViewDataErrorContexts.Commit);
+            }
+            catch
+            {
+                grid.EndEdit();
+            }
+
+            CurrencyManager manager = null;
+
+            try
+            {
+                if (grid.DataSource != null)
+                {
+                    manager = BindingContext[grid.DataSource] as CurrencyManager;
+                }
+            }
+            catch
+            {
+                manager = null;
+            }
+
+            manager?.EndCurrentEdit();
+        }
+
+        private List<Subproducto2D> LeerSubproductosProductoDesdeGrilla(DataGridView grid)
+        {
+            ConfirmarEdicionGrillaPipeline(grid);
+
+            List<Subproducto2D> subproductos = new List<Subproducto2D>();
+
+            foreach (DataGridViewRow row in grid.Rows)
+            {
+                if (row == null || row.IsNewRow)
+                {
+                    continue;
+                }
+
+                string nombre = Convert.ToString(row.Cells["Nombre"].Value) ?? "";
+
+                if (string.IsNullOrWhiteSpace(nombre))
+                {
+                    continue;
+                }
+
+                string etapa = Convert.ToString(row.Cells["EtapaSugerida"].Value) ?? "";
+                string categoria = ObtenerNombreVisibleEtapa(etapa);
+
+                Subproducto2D subproducto = EnriquecerSubproductoDesdeBibliotecas(
+                    new Subproducto2D
+                    {
+                        Nombre = nombre.Trim(),
+                        Categoria = categoria,
+                        Orden = ParsearEnteroDatos(row.Cells["Orden"].Value, subproductos.Count * 10 + 10),
+                        RequeridoPorDefecto = ConvertirCeldaBoolEntregable(row.Cells["RequeridoPorDefecto"].Value),
+                        PuedeEntregarCliente = ConvertirCeldaBoolEntregable(row.Cells["PuedeEntregarCliente"].Value),
+                        EtapaSugerida = etapa.Trim(),
+                        SubEtapaSugerida = Convert.ToString(row.Cells["SubEtapaSugerida"].Value) ?? "",
+                        DependeDe = Convert.ToString(row.Cells["DependeDe"].Value) ?? "",
+                        CargosSugeridos = Convert.ToString(row.Cells["CargosSugeridos"].Value) ?? "",
+                        EcuacionProductiva = Convert.ToString(row.Cells["EcuacionProductiva"].Value) ?? "",
+                        VariablesEcuacion = Convert.ToString(row.Cells["VariablesEcuacion"].Value) ?? "",
+                        ImpactoEcuacion = Convert.ToString(row.Cells["ImpactoEcuacion"].Value) ?? "",
+                        Resolucion = Convert.ToString(row.Cells["Resolucion"].Value) ?? "Interno",
+                        Nota = Convert.ToString(row.Cells["Nota"].Value) ?? ""
+                    },
+                    etapa,
+                    nombre
+                );
+
+                subproductos.Add(subproducto);
+            }
+
+            return subproductos;
+        }
+
+        private Producto2DDefinicion ConstruirProductoTemporalDesdeEditor(
+            Producto2DDefinicion productoBase,
+            DataGridView gridSubproductos
+        )
+        {
+            Producto2DDefinicion temporal = new Producto2DDefinicion
+            {
+                Nombre = productoBase == null ? "" : productoBase.Nombre,
+                Industria = productoBase == null ? "" : productoBase.Industria,
+                Categoria = productoBase == null ? "" : productoBase.Categoria,
+                UnidadCantidadSugerida = productoBase == null
+                    ? "piezas"
+                    : productoBase.UnidadCantidadSugerida,
+                UnidadDuracionSugerida = productoBase == null
+                    ? "segundos"
+                    : productoBase.UnidadDuracionSugerida,
+                DuracionSugerida = productoBase == null ? 0.0 : productoBase.DuracionSugerida,
+                Nota = productoBase == null ? "" : productoBase.Nota,
+                Subproductos = LeerSubproductosProductoDesdeGrilla(gridSubproductos)
+            };
+
+            temporal.Etapas = ObtenerEtapasSecuencialesProducto(temporal);
+            return temporal;
+        }
+
+        private int ParsearEnteroDatos(object valor, int fallback)
+        {
+            int resultado;
+
+            if (int.TryParse(Convert.ToString(valor), out resultado))
+            {
+                return resultado;
+            }
+
+            return fallback;
+        }
+
+        private FlowLayoutPanel CrearPanelDuracionProducto()
+        {
+            FlowLayoutPanel panel = new FlowLayoutPanel();
+            panel.Dock = DockStyle.None;
+            panel.FlowDirection = FlowDirection.LeftToRight;
+            panel.WrapContents = false;
+            panel.AutoSize = true;
+            panel.Height = 34;
+            panel.Margin = new Padding(0);
+            panel.Padding = new Padding(0);
+
+            txtDuracionProductoValor.Width = 80;
+            txtDuracionProductoValor.Height = 30;
+            txtDuracionProductoValor.Margin = new Padding(0, 2, 8, 0);
+            txtDuracionProductoValor.Font = new Font("Segoe UI", 9.5f, FontStyle.Regular);
+
+            cmbDuracionProductoUnidad.DropDownStyle = ComboBoxStyle.DropDownList;
+            cmbDuracionProductoUnidad.Width = 110;
+            cmbDuracionProductoUnidad.Height = 30;
+            cmbDuracionProductoUnidad.Margin = new Padding(0, 2, 0, 0);
+            cmbDuracionProductoUnidad.Font = new Font("Segoe UI", 9.5f, FontStyle.Regular);
+
+            cmbDuracionProductoUnidad.Items.Clear();
+            cmbDuracionProductoUnidad.Items.Add("segundos");
+            cmbDuracionProductoUnidad.Items.Add("minutos");
+
+            if (cmbDuracionProductoUnidad.SelectedIndex < 0)
+            {
+                cmbDuracionProductoUnidad.SelectedItem = "segundos";
+            }
+
+            if (string.IsNullOrWhiteSpace(txtDuracionProductoValor.Text))
+            {
+                txtDuracionProductoValor.Text = "30";
+            }
+
+            txtDuracionProductoValor.TextChanged -= DuracionProducto_ValueChanged;
+            cmbDuracionProductoUnidad.SelectedIndexChanged -= DuracionProducto_ValueChanged;
+
+            txtDuracionProductoValor.TextChanged += DuracionProducto_ValueChanged;
+            cmbDuracionProductoUnidad.SelectedIndexChanged += DuracionProducto_ValueChanged;
+
+            panel.Controls.Add(txtDuracionProductoValor);
+            panel.Controls.Add(cmbDuracionProductoUnidad);
+
+            return panel;
+        }
+
+        private FlowLayoutPanel CrearPanelCantidadGlobalProducto()
+        {
+            FlowLayoutPanel panel = new FlowLayoutPanel();
+            panel.Dock = DockStyle.None;
+            panel.FlowDirection = FlowDirection.LeftToRight;
+            panel.WrapContents = false;
+            panel.AutoSize = true;
+            panel.Height = 34;
+            panel.Margin = new Padding(0);
+            panel.Padding = new Padding(0);
+
+            nudCantidadPiezas.Minimum = 1;
+            nudCantidadPiezas.Maximum = 999;
+            nudCantidadPiezas.Value = 1;
+            nudCantidadPiezas.Width = 80;
+            nudCantidadPiezas.Height = 30;
+            nudCantidadPiezas.Margin = new Padding(0, 2, 8, 0);
+            nudCantidadPiezas.Font = new Font("Segoe UI", 9.5f, FontStyle.Regular);
+
+            btnAplicarCantidadGlobalProducto.Text = "Aplicar a piezas";
+            btnAplicarCantidadGlobalProducto.Width = 125;
+            btnAplicarCantidadGlobalProducto.Height = 30;
+            btnAplicarCantidadGlobalProducto.Margin = new Padding(0, 2, 0, 0);
+            btnAplicarCantidadGlobalProducto.Font = new Font("Segoe UI", 9.0f, FontStyle.Bold);
+            btnAplicarCantidadGlobalProducto.FlatStyle = FlatStyle.Flat;
+
+            nudCantidadPiezas.ValueChanged -= CantidadGlobalProducto_ValueChanged;
+            btnAplicarCantidadGlobalProducto.Click -= BtnAplicarCantidadGlobalProducto_Click;
+
+            nudCantidadPiezas.ValueChanged += CantidadGlobalProducto_ValueChanged;
+            btnAplicarCantidadGlobalProducto.Click += BtnAplicarCantidadGlobalProducto_Click;
+
+            panel.Controls.Add(nudCantidadPiezas);
+            panel.Controls.Add(btnAplicarCantidadGlobalProducto);
+
+            return panel;
+        }
+
+        private int ObtenerCantidadGlobalProductoActual()
+        {
+            if (nudCantidadPiezas != null && nudCantidadPiezas.Value >= 1)
+            {
+                return (int)nudCantidadPiezas.Value;
+            }
+
+            if (cotizacion != null && cotizacion.BriefProducto != null)
+            {
+                if (cotizacion.BriefProducto.CantidadGlobalProducto > 0)
+                {
+                    return cotizacion.BriefProducto.CantidadGlobalProducto;
+                }
+
+                if (cotizacion.BriefProducto.CantidadPiezas > 0)
+                {
+                    return cotizacion.BriefProducto.CantidadPiezas;
+                }
+            }
+
+            return 1;
+        }
+
+
+        private GroupBox ConstruirGrupoInsumosClienteSegmentado()
+        {
+            GroupBox grupo = new GroupBox();
+            grupo.Text = "4. Insumos que entrega el cliente";
+            grupo.Dock = DockStyle.Top;
+            grupo.AutoSize = false;
+            grupo.Height = 130;
+            grupo.Padding = new Padding(12);
+            grupo.Margin = new Padding(0, 6, 0, 0);
+            grupo.Font = new Font("Segoe UI", 9.25f, FontStyle.Bold);
+            grupo.ForeColor = Color.FromArgb(35, 35, 35);
+
+            panelInsumosClienteBrief.Controls.Clear();
+            panelInsumosClienteBrief.Dock = DockStyle.Fill;
+            panelInsumosClienteBrief.AutoScroll = true;
+            panelInsumosClienteBrief.WrapContents = true;
+            panelInsumosClienteBrief.FlowDirection = FlowDirection.LeftToRight;
+            panelInsumosClienteBrief.Padding = new Padding(4, 6, 4, 6);
+            panelInsumosClienteBrief.Margin = new Padding(0);
+
+            PrepararCheck(chkClienteEntregaGuion, "Guion");
+            PrepararCheck(chkClienteEntregaEstilo, "Estilo / referencias");
+            PrepararCheck(chkClienteEntregaStoryboard, "Storyboard");
+            PrepararCheck(chkClienteEntregaAnimatic, "Animatic");
+            PrepararCheck(chkClienteEntregaPersonajes, "Personajes");
+            PrepararCheck(chkClienteEntregaFondos, "Fondos");
+            PrepararCheck(chkClienteEntregaProps, "Props");
+            PrepararCheck(chkClienteEntregaAnimacion, "Animación");
+            PrepararCheck(chkClienteEntregaAudio, "Audio");
+            PrepararCheck(chkClienteEntregaAssetsEditables, "Assets editables");
+            PrepararCheck(chkClienteEntregaMaterialGrabado, "Material grabado");
+
+            panelInsumosClienteBrief.Controls.Add(chkClienteEntregaGuion);
+            panelInsumosClienteBrief.Controls.Add(chkClienteEntregaEstilo);
+            panelInsumosClienteBrief.Controls.Add(chkClienteEntregaStoryboard);
+            panelInsumosClienteBrief.Controls.Add(chkClienteEntregaAnimatic);
+            panelInsumosClienteBrief.Controls.Add(chkClienteEntregaPersonajes);
+            panelInsumosClienteBrief.Controls.Add(chkClienteEntregaFondos);
+            panelInsumosClienteBrief.Controls.Add(chkClienteEntregaProps);
+            panelInsumosClienteBrief.Controls.Add(chkClienteEntregaAnimacion);
+            panelInsumosClienteBrief.Controls.Add(chkClienteEntregaAudio);
+            panelInsumosClienteBrief.Controls.Add(chkClienteEntregaAssetsEditables);
+            panelInsumosClienteBrief.Controls.Add(chkClienteEntregaMaterialGrabado);
+
+            grupo.Controls.Clear();
+            grupo.Controls.Add(panelInsumosClienteBrief);
+
+            return grupo;
+        }
+
+        private void DatosConfigurarComboProductosServicios()
+        {
+            cmbTipoProductoServicio.DropDownStyle = ComboBoxStyle.DropDownList;
+            cmbTipoProductoServicio.Items.Clear();
+            cmbTipoProductoServicio.Items.Add("Producto final");
+            cmbTipoProductoServicio.Items.Add("Servicio / etapa");
+
+            if (cmbTipoProductoServicio.SelectedIndex < 0)
+            {
+                cmbTipoProductoServicio.SelectedIndex = 0;
+            }
+
+            cmbTipoProductoServicio.SelectedIndexChanged -= CmbTipoProductoServicio_SelectedIndexChanged;
+            cmbTipoProductoServicio.SelectedIndexChanged += CmbTipoProductoServicio_SelectedIndexChanged;
+            cmbTipoProductoServicio.SelectionChangeCommitted -= CmbTipoProductoServicio_SelectionChangeCommitted;
+            cmbTipoProductoServicio.SelectionChangeCommitted += CmbTipoProductoServicio_SelectionChangeCommitted;
+
+            cmbProductoServicio.DropDownStyle = ComboBoxStyle.DropDownList;
+            cmbProductoServicio.Items.Clear();
+
+            cmbProductoServicio.SelectedIndexChanged -= CmbProductoServicio_SelectedIndexChanged;
+            cmbProductoServicio.SelectedIndexChanged += CmbProductoServicio_SelectedIndexChanged;
+            cmbProductoServicio.SelectionChangeCommitted -= CmbProductoServicio_SelectionChangeCommitted;
+            cmbProductoServicio.SelectionChangeCommitted += CmbProductoServicio_SelectionChangeCommitted;
+
+            CargarProductosServiciosSegunTipo();
+        }
+
+        private void CmbTipoProductoServicio_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            CargarProductosServiciosSegunTipo();
+
+            if (reiniciarBriefEnProximoCambioProducto || cmbTipoProductoServicio.Focused)
+            {
+                ResetearBriefProductoParaNuevaSeleccion();
+                reiniciarBriefEnProximoCambioProducto = false;
+            }
+
+            RefrescarOpcionesSegunProducto();
+        }
+
+        private void CmbTipoProductoServicio_SelectionChangeCommitted(object sender, EventArgs e)
+        {
+            reiniciarBriefEnProximoCambioProducto = true;
+        }
+
+        private void CmbProductoServicio_SelectionChangeCommitted(object sender, EventArgs e)
+        {
+            reiniciarBriefEnProximoCambioProducto = true;
+        }
+
+        private void CargarProductosServiciosSegunTipo()
+        {
+            if (cmbProductoServicio == null)
+            {
+                return;
+            }
+
+            string seleccionAnterior = cmbProductoServicio.SelectedItem?.ToString() ?? "";
+
+            cmbProductoServicio.SelectedIndexChanged -= CmbProductoServicio_SelectedIndexChanged;
+            cmbProductoServicio.Items.Clear();
+
+            List<string> productosBiblioteca = BibliotecaProductos2D.ObtenerProductos()
+                .Where(p => !string.IsNullOrWhiteSpace(p))
+                .ToList();
+
+            HashSet<string> yaAgregados = new HashSet<string>();
+
+            foreach (string nombreProducto in productosBiblioteca)
+            {
+                string normalizado = NormalizarTextoDatosVisual(nombreProducto);
+
+                if (string.IsNullOrWhiteSpace(normalizado) ||
+                    yaAgregados.Contains(normalizado))
+                {
+                    continue;
+                }
+
+                cmbProductoServicio.Items.Add(nombreProducto);
+                yaAgregados.Add(normalizado);
+            }
+
+            int indiceAnterior = -1;
+
+            if (!string.IsNullOrWhiteSpace(seleccionAnterior))
+            {
+                for (int i = 0; i < cmbProductoServicio.Items.Count; i++)
+                {
+                    string item = cmbProductoServicio.Items[i]?.ToString() ?? "";
+
+                    if (NormalizarTextoDatosVisual(item) ==
+                        NormalizarTextoDatosVisual(seleccionAnterior))
+                    {
+                        indiceAnterior = i;
+                        break;
+                    }
+                }
+            }
+
+            if (indiceAnterior >= 0)
+            {
+                cmbProductoServicio.SelectedIndex = indiceAnterior;
+            }
+            else if (cmbProductoServicio.Items.Count > 0)
+            {
+                cmbProductoServicio.SelectedIndex = 0;
+            }
+            else
+            {
+                cmbProductoServicio.SelectedIndex = -1;
+                cmbProductoServicio.Text = "";
+            }
+
+            cmbProductoServicio.SelectedIndexChanged += CmbProductoServicio_SelectedIndexChanged;
+        }
+
+        private void DatosConfigurarCombosBriefSegmentado()
+        {
+            cmbDestinoUso.DropDownStyle = ComboBoxStyle.DropDownList;
+
+            cmbEstiloVisual.DropDownStyle = ComboBoxStyle.DropDownList;
+            cmbEstiloVisual.Items.Clear();
+            cmbEstiloVisual.Items.Add("Cartoon");
+            cmbEstiloVisual.Items.Add("Anime");
+            cmbEstiloVisual.Items.Add("Pixel art");
+            cmbEstiloVisual.Items.Add("Motion graphics");
+            cmbEstiloVisual.Items.Add("Cut-out");
+            cmbEstiloVisual.Items.Add("Frame by frame");
+            cmbEstiloVisual.Items.Add("Vectorial");
+            cmbEstiloVisual.Items.Add("Técnico / explicativo");
+            cmbEstiloVisual.Items.Add("Cinemático");
+            cmbEstiloVisual.Items.Add("Otro");
+
+            cmbEstiloVisual.SelectedIndex = -1;
+            cmbEstiloVisual.Text = "";
+
+            cmbNivelAcabado.DropDownStyle = ComboBoxStyle.DropDownList;
+            cmbNivelAcabado.Items.Clear();
+            cmbNivelAcabado.Items.Add("Boceto / rough");
+            cmbNivelAcabado.Items.Add("Estándar");
+            cmbNivelAcabado.Items.Add("Pulido");
+            cmbNivelAcabado.Items.Add("Premium");
+
+            cmbNivelAcabado.SelectedIndex = -1;
+            cmbNivelAcabado.Text = "";
+
+            cmbFormatoEntregaBrief.DropDownStyle = ComboBoxStyle.DropDownList;
+            cmbFormatoEntregaBrief.Items.Clear();
+            cmbFormatoEntregaBrief.Items.Add("MP4");
+            cmbFormatoEntregaBrief.Items.Add("MOV");
+            cmbFormatoEntregaBrief.Items.Add("PNG sequence");
+            cmbFormatoEntregaBrief.Items.Add("Spritesheet");
+            cmbFormatoEntregaBrief.Items.Add("GIF");
+            cmbFormatoEntregaBrief.Items.Add("Archivos editables");
+            cmbFormatoEntregaBrief.Items.Add("Paquete de assets");
+            cmbFormatoEntregaBrief.Items.Add("Otro");
+
+            cmbFormatoEntregaBrief.SelectedIndex = -1;
+            cmbFormatoEntregaBrief.Text = "";
+
+            cmbRelacionAspecto.DropDownStyle = ComboBoxStyle.DropDownList;
+            cmbRelacionAspecto.Items.Clear();
+            cmbRelacionAspecto.Items.Add("16:9");
+            cmbRelacionAspecto.Items.Add("9:16");
+            cmbRelacionAspecto.Items.Add("1:1");
+            cmbRelacionAspecto.Items.Add("4:5");
+            cmbRelacionAspecto.Items.Add("21:9");
+            cmbRelacionAspecto.Items.Add("Personalizado");
+
+            cmbRelacionAspecto.SelectedIndex = -1;
+            cmbRelacionAspecto.Text = "";
+
+            cmbResolucionEntrega.DropDownStyle = ComboBoxStyle.DropDownList;
+            cmbResolucionEntrega.Items.Clear();
+            cmbResolucionEntrega.Items.Add("1080p");
+            cmbResolucionEntrega.Items.Add("2K");
+            cmbResolucionEntrega.Items.Add("4K");
+            cmbResolucionEntrega.Items.Add("Mobile / juego");
+            cmbResolucionEntrega.Items.Add("Asset variable");
+            cmbResolucionEntrega.Items.Add("Personalizada");
+
+            if (cmbResolucionEntrega.Items.Count > 0)
+            {
+                cmbResolucionEntrega.SelectedIndex = 0;
+            }
+
+            txtReferenciasVisuales.Multiline = true;
+            txtReferenciasVisuales.Height = 54;
+        }
+
+        private void ResetearBriefProductoParaNuevaSeleccion()
+        {
+            if (cotizacion != null)
+            {
+                BriefProductoProyecto brief = ObtenerBriefProductoSeguro();
+
+                brief.EntregablesSeleccionados.Clear();
+                brief.ClavesEntregablesSeleccionados.Clear();
+                brief.Piezas2DSeleccionGuardadas.Clear();
+                brief.SeleccionarTodosEntregablesActivo = false;
+
+                brief.CantidadGlobalProducto = 1;
+                brief.CantidadPiezas = 1;
+                brief.ReferenciasVisuales = "";
+                brief.NotasBrief = "";
+                brief.EstiloVisual = "";
+                brief.NivelAcabado = "";
+                brief.FormatoEntrega = "";
+                brief.RelacionAspecto = "";
+                brief.ResolucionEntrega = "";
+            }
+
+            bloqueandoEventosCantidadGlobalProducto = true;
+            try
+            {
+                if (nudCantidadPiezas != null)
+                {
+                    nudCantidadPiezas.Value = Math.Max(nudCantidadPiezas.Minimum, 1);
+                }
+            }
+            finally
+            {
+                bloqueandoEventosCantidadGlobalProducto = false;
+            }
+
+            if (txtReferenciasVisuales != null)
+            {
+                txtReferenciasVisuales.Text = "";
+            }
+
+            if (txtNotasBrief != null)
+            {
+                txtNotasBrief.Text = "";
+            }
+
+            if (cmbEstiloVisual != null)
+            {
+                cmbEstiloVisual.SelectedIndex = -1;
+                cmbEstiloVisual.Text = "";
+            }
+
+            if (cmbNivelAcabado != null)
+            {
+                cmbNivelAcabado.SelectedIndex = -1;
+                cmbNivelAcabado.Text = "";
+            }
+
+            if (cmbFormatoEntregaBrief != null)
+            {
+                cmbFormatoEntregaBrief.SelectedIndex = -1;
+                cmbFormatoEntregaBrief.Text = "";
+            }
+
+            if (cmbRelacionAspecto != null)
+            {
+                cmbRelacionAspecto.SelectedIndex = -1;
+                cmbRelacionAspecto.Text = "";
+            }
+
+            if (cmbResolucionEntrega != null && cmbResolucionEntrega.Items.Count > 0)
+            {
+                cmbResolucionEntrega.SelectedIndex = 0;
+            }
+
+            if (dgvEntregablesIndustria != null)
+            {
+                actualizandoEntregablesPorLote = true;
+                try
+                {
+                    foreach (DataGridViewRow fila in dgvEntregablesIndustria.Rows)
+                    {
+                        if (fila == null || fila.IsNewRow || EsFilaCategoriaEntregables(fila))
+                        {
+                            continue;
+                        }
+
+                        fila.Cells["Usar"].Value = false;
+                        fila.Cells["Cantidad"].Value = 1;
+                    }
+                }
+                finally
+                {
+                    actualizandoEntregablesPorLote = false;
+                }
+            }
+
+            InvalidarDesgloseProductivoPorCambioDeBrief();
+        }
+
+        private void CmbProductoServicio_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (reiniciarBriefEnProximoCambioProducto || cmbProductoServicio.Focused)
+            {
+                ResetearBriefProductoParaNuevaSeleccion();
+                reiniciarBriefEnProximoCambioProducto = false;
+            }
+
+            AplicarDuracionSugeridaDelProductoSeleccionado();
+            RefrescarOpcionesSegunProducto();
+        }
+
+        private void DuracionProducto_ValueChanged(object sender, EventArgs e)
+        {
+            if (bloqueandoEventosDuracionProducto)
+            {
+                return;
+            }
+
+            ActualizarDuracionEnFilasDependientesDelTiempo();
+            AplicarDatosDesdePantalla();
+            RefrescarResumen();
+            RefrescarPanelSiguientePasoDatos();
+        }
+
+        private void CantidadGlobalProducto_ValueChanged(object sender, EventArgs e)
+        {
+            if (bloqueandoEventosCantidadGlobalProducto)
+            {
+                return;
+            }
+
+            AplicarCantidadGlobalProductoAFilas();
+        }
+
+        private void BtnAplicarCantidadGlobalProducto_Click(object sender, EventArgs e)
+        {
+            AplicarCantidadGlobalProductoAFilas();
+        }
+
+        private void AplicarCantidadGlobalProductoAFilas()
+        {
+            if (dgvEntregablesIndustria == null)
+            {
+                return;
+            }
+
+            int cantidad = (int)nudCantidadPiezas.Value;
+
+            bool hayFilasMarcadas = dgvEntregablesIndustria.Rows
+                .Cast<DataGridViewRow>()
+                .Any(fila => EsFilaProductoEntregableUsada(fila));
+
+            bool estadoAnteriorLote = actualizandoEntregablesPorLote;
+            actualizandoEntregablesPorLote = true;
+
+            try
+            {
+                foreach (DataGridViewRow fila in dgvEntregablesIndustria.Rows)
+                {
+                    if (fila == null || fila.IsNewRow || EsFilaCategoriaEntregables(fila))
+                    {
+                        continue;
+                    }
+
+                    if (hayFilasMarcadas && !EsFilaProductoEntregableUsada(fila))
+                    {
+                        continue;
+                    }
+
+                    fila.Cells["Cantidad"].Value = cantidad;
+                }
+            }
+            finally
+            {
+                actualizandoEntregablesPorLote = estadoAnteriorLote;
+            }
+
+            if (cotizacion != null)
+            {
+                BriefProductoProyecto brief = ObtenerBriefProductoSeguro();
+                brief.CantidadGlobalProducto = cantidad;
+            }
+
+            AplicarDatosDesdePantalla();
+            RefrescarResumen();
+            RefrescarPanelSiguientePasoDatos();
+        }
+
+        private bool EsFilaProductoEntregableUsada(DataGridViewRow fila)
+        {
+            if (fila == null || fila.IsNewRow || EsFilaCategoriaEntregables(fila))
+            {
+                return false;
+            }
+
+            object valor = fila.Cells["Usar"].Value;
+
+            if (valor is bool usado)
+            {
+                return usado;
+            }
+
+            return valor != null && bool.TryParse(valor.ToString(), out usado) && usado;
+        }
+
+        private void AplicarDuracionSugeridaDelProductoSeleccionado()
+        {
+            string nombreProducto = cmbProductoServicio.SelectedItem?.ToString() ?? "";
+
+            if (string.IsNullOrWhiteSpace(nombreProducto))
+            {
+                return;
+            }
+
+            Producto2DDefinicion producto = BibliotecaProductos2D.ObtenerProducto(nombreProducto);
+
+            if (producto == null)
+            {
+                return;
+            }
+
+            bloqueandoEventosDuracionProducto = true;
+
+            if (producto.DuracionSugerida > 0.0)
+            {
+                txtDuracionProductoValor.Text = producto.DuracionSugerida.ToString("0.##");
+            }
+            else
+            {
+                txtDuracionProductoValor.Text = "0";
+            }
+
+            string unidad = producto.UnidadDuracionSugerida ?? "segundos";
+
+            if (unidad.Trim().ToLowerInvariant() == "minutos")
+            {
+                cmbDuracionProductoUnidad.SelectedItem = "minutos";
+            }
+            else
+            {
+                cmbDuracionProductoUnidad.SelectedItem = "segundos";
+            }
+
+            bloqueandoEventosDuracionProducto = false;
+        }
+
+        private double ObtenerDuracionProductoValor()
+        {
+            string texto = txtDuracionProductoValor.Text ?? "";
+
+            if (string.IsNullOrWhiteSpace(texto))
+            {
+                return 0.0;
+            }
+
+            texto = texto.Trim()
+                .Replace(".", "")
+                .Replace(",", ".");
+
+            double valor = 0.0;
+
+            if (!double.TryParse(
+                texto,
+                System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out valor
+            ))
+            {
+                return 0.0;
+            }
+
+            if (valor < 0.0)
+            {
+                return 0.0;
+            }
+
+            return valor;
+        }
+
+        private string ObtenerDuracionProductoUnidad()
+        {
+            string unidad = cmbDuracionProductoUnidad.SelectedItem?.ToString() ?? "segundos";
+
+            unidad = unidad.Trim().ToLowerInvariant();
+
+            if (unidad == "minutos")
+            {
+                return "minutos";
+            }
+
+            return "segundos";
+        }
+
+        private void ActualizarDuracionEnFilasDependientesDelTiempo()
+        {
+            if (dgvEntregablesIndustria == null)
+            {
+                return;
+            }
+
+            double duracion = ObtenerDuracionProductoValor();
+            string unidad = ObtenerDuracionProductoUnidad();
+
+            AsegurarValorEnComboGrid(5, unidad);
+
+            foreach (DataGridViewRow fila in dgvEntregablesIndustria.Rows)
+            {
+                if (fila == null || fila.IsNewRow)
+                {
+                    continue;
+                }
+
+                string categoria = fila.Cells[1].Value?.ToString() ?? "";
+                string pieza = fila.Cells[2].Value?.ToString() ?? "";
+
+                if (!EsFilaDependienteDelTiempo(categoria, pieza))
+                {
+                    continue;
+                }
+
+                fila.Cells[4].Value = duracion;
+                fila.Cells[5].Value = unidad;
+            }
+        }
+
+        private bool EsFilaDependienteDelTiempo(string categoria, string pieza)
+        {
+            categoria = NormalizarTextoDatosVisual(categoria);
+            pieza = NormalizarTextoDatosVisual(pieza);
+
+            string texto = categoria + " " + pieza;
+
+            /*
+             * Regla simple:
+             * Toda pieza temporal del audiovisual hereda la duración final.
+             * Esto incluye Animatic aunque sea Preproducción.
+             */
+
+            if (texto.Contains("animatic"))
+            {
+                return true;
+            }
+
+            if (texto.Contains("rough"))
+            {
+                return true;
+            }
+
+            if (texto.Contains("animacion"))
+            {
+                return true;
+            }
+
+            if (texto.Contains("clean"))
+            {
+                return true;
+            }
+
+            if (texto.Contains("color"))
+            {
+                return true;
+            }
+
+            if (texto.Contains("composicion"))
+            {
+                return true;
+            }
+
+            if (texto.Contains("compositing"))
+            {
+                return true;
+            }
+
+            if (texto.Contains("musica"))
+            {
+                return true;
+            }
+
+            if (texto.Contains("ambiente"))
+            {
+                return true;
+            }
+
+            if (texto.Contains("locucion"))
+            {
+                return true;
+            }
+
+            if (texto.Contains("dialogo"))
+            {
+                return true;
+            }
+
+            if (texto.Contains("audio"))
+            {
+                return true;
+            }
+
+            if (texto.Contains("sonido"))
+            {
+                return true;
+            }
+
+            if (texto.Contains("sonoro"))
+            {
+                return true;
+            }
+
+            if (texto.Contains("sincronizacion"))
+            {
+                return true;
+            }
+
+            if (texto.Contains("mezcla"))
+            {
+                return true;
+            }
+
+            if (texto.Contains("edicion final"))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        private void RefrescarOpcionesSegunProducto()
+        {
+            string producto = cmbProductoServicio.SelectedItem?.ToString() ?? "";
+
+            // Oculto temporalmente: no cargamos botones visuales de destino/uso.
+            // CargarBotonesDestinoUsoGeneral();
+
+            // Valores internos por defecto para evitar errores en lógica antigua.
+            destinosUsoSeleccionados.Clear();
+            destinosUsoSeleccionados.Add("General");
+
+            formatosEntregaSeleccionados.Clear();
+            formatosEntregaSeleccionados.Add("MP4");
+
+            CargarEntregablesProducto(producto);
+
+            RefrescarResumen();
+            RefrescarPanelSiguientePasoDatos();
+        }
+
+
+
+        private void CargarEntregablesProducto(string nombreProducto)
+        {
+            if (dgvEntregablesIndustria == null)
+            {
+                return;
+            }
+
+            dgvEntregablesIndustria.Rows.Clear();
+            indiceEntregablesPorCategoria.Clear();
+
+            if (string.IsNullOrWhiteSpace(nombreProducto))
+            {
+                RefrescarBotonesCategoriaEntregables();
+                return;
+            }
+
+            Producto2DDefinicion producto = BibliotecaProductos2D.ObtenerProducto(nombreProducto);
+
+            if (producto == null)
+            {
+                RefrescarBotonesCategoriaEntregables();
+                return;
+            }
+
+            if (producto.Etapas == null || producto.Etapas.Count == 0)
+            {
+                producto.Etapas = CrearPipelineDesdeSubproductos(producto);
+            }
+
+            HashSet<string> etapasActivasProducto = new HashSet<string>(
+                producto.Etapas
+                    .Where(e => e != null && e.Activa)
+                    .Select(e => NormalizarTextoDatosVisual(e.ClaveEtapa))
+            );
+
+            List<Subproducto2D> subproductos = (producto.Subproductos ?? new List<Subproducto2D>())
+                .Where(s =>
+                    s != null &&
+                    (
+                        etapasActivasProducto.Count == 0 ||
+                        etapasActivasProducto.Contains(NormalizarTextoDatosVisual(s.EtapaSugerida))
+                    ))
+                .OrderBy(s => s.Orden <= 0 ? int.MaxValue : s.Orden)
+                .ToList();
+
+            if (subproductos.Count == 0 && producto.Subproductos != null && producto.Subproductos.Count > 0)
+            {
+                subproductos = producto.Subproductos
+                    .Where(s => s != null)
+                    .OrderBy(s => s.Orden <= 0 ? int.MaxValue : s.Orden)
+                    .ToList();
+            }
+
+            double duracionProducto = ObtenerDuracionProductoValor();
+            string unidadDuracionProducto = ObtenerDuracionProductoUnidad();
+
+            AsegurarValorEnComboGrid(5, "no aplica");
+            AsegurarValorEnComboGrid(5, "segundos");
+            AsegurarValorEnComboGrid(5, "minutos");
+            AsegurarValorEnComboGrid(6, producto.UnidadCantidadSugerida ?? "unidades");
+
+            foreach (Subproducto2D subproducto in subproductos)
+            {
+                string categoria = ObtenerCategoriaVisualEntregable(subproducto, producto);
+                string nombrePieza = subproducto.Nombre ?? "";
+
+                int cantidad = ObtenerCantidadGlobalProductoActual();
+
+                double duracion = 0.0;
+                string unidadDuracion = "no aplica";
+                string unidadCantidad = ObtenerUnidadCantidadSubproducto(subproducto, producto);
+
+                if (EsSubproductoDependienteDelTiempo(subproducto))
+                {
+                    duracion = duracionProducto;
+                    unidadDuracion = unidadDuracionProducto;
+                }
+
+                string nota = "";
+
+                if (subproducto.PuedeEntregarCliente)
+                {
+                    nota = "Puede entregarlo el cliente";
+                }
+
+                int rowIndex = dgvEntregablesIndustria.Rows.Add(
+                    false,
+                    categoria,
+                    nombrePieza,
+                    cantidad,
+                    duracion,
+                    unidadDuracion,
+                    unidadCantidad,
+                    nota
+                );
+
+                DataGridViewRow row = dgvEntregablesIndustria.Rows[rowIndex];
+                row.Tag = subproducto;
+            }
+
+            ConstruirIndiceEntregablesPorCategoria();
+            RestaurarSeleccionEntregablesDesdeBriefActual();
+            RefrescarBotonesCategoriaEntregables();
+        }
+
+        private void RestaurarSeleccionEntregablesDesdeBriefActual()
+        {
+            if (cotizacion == null || cotizacion.BriefProducto == null)
+            {
+                return;
+            }
+
+            if (cotizacion.BriefProducto.EntregablesSeleccionados == null ||
+                cotizacion.BriefProducto.EntregablesSeleccionados.Count == 0)
+            {
+                if (!cotizacion.BriefProducto.SeleccionarTodosEntregablesActivo &&
+                    (cotizacion.BriefProducto.ClavesEntregablesSeleccionados == null ||
+                     cotizacion.BriefProducto.ClavesEntregablesSeleccionados.Count == 0) &&
+                    (cotizacion.BriefProducto.Piezas2DSeleccionGuardadas == null ||
+                     cotizacion.BriefProducto.Piezas2DSeleccionGuardadas.Count == 0))
+                {
+                    return;
+                }
+            }
+
+            MarcarEntregablesSeleccionadosEnPantalla(cotizacion.BriefProducto);
+        }
+
+        private string CrearClaveEntregableDatos(string categoria, string nombre)
+        {
+            return NormalizarTextoDatosVisual(categoria) + "|" +
+                   NormalizarTextoDatosVisual(nombre);
+        }
+
+
+        private string ObtenerUnidadCantidadSubproducto(
+    Subproducto2D subproducto,
+    Producto2DDefinicion producto
+)
+        {
+            if (subproducto == null)
+            {
+                return "piezas";
+            }
+
+            string nombre = NormalizarTextoDatosVisual(subproducto.Nombre ?? "");
+            string subEtapa = NormalizarTextoDatosVisual(subproducto.SubEtapaSugerida ?? "");
+            string texto = nombre + " " + subEtapa;
+
+            if (texto.Contains("personaje"))
+            {
+                return "personajes";
+            }
+
+            if (texto.Contains("fondo") ||
+                texto.Contains("background"))
+            {
+                return "fondos";
+            }
+
+            if (texto.Contains("prop") ||
+                texto.Contains("objeto"))
+            {
+                return "props";
+            }
+
+            if (texto.Contains("audio") ||
+                texto.Contains("sonido") ||
+                texto.Contains("musica") ||
+                texto.Contains("ambiente") ||
+                texto.Contains("locucion") ||
+                texto.Contains("dialogo"))
+            {
+                return "piezas";
+            }
+
+            if (texto.Contains("storyboard"))
+            {
+                return "piezas";
+            }
+
+            if (texto.Contains("animatic"))
+            {
+                return "piezas";
+            }
+
+            if (texto.Contains("rough") ||
+                texto.Contains("animacion") ||
+                texto.Contains("clean") ||
+                texto.Contains("color") ||
+                texto.Contains("composicion") ||
+                texto.Contains("edicion") ||
+                texto.Contains("export") ||
+                texto.Contains("entrega"))
+            {
+                return "piezas";
+            }
+
+            return "piezas";
+        }
+        private bool EsSubproductoDependienteDelTiempo(Subproducto2D subproducto)
+        {
+            if (subproducto == null)
+            {
+                return false;
+            }
+
+            string etapa = NormalizarTextoDatosVisual(subproducto.EtapaSugerida ?? "");
+            string nombre = NormalizarTextoDatosVisual(subproducto.Nombre ?? "");
+            string subEtapa = NormalizarTextoDatosVisual(subproducto.SubEtapaSugerida ?? "");
+
+            string texto = etapa + " " + nombre + " " + subEtapa;
+
+            /*
+             * Regla simple:
+             * Si la pieza representa tiempo audiovisual, hereda duración del producto final.
+             * No importa si está en Preproducción, Producción o Postproducción.
+             */
+
+            if (texto.Contains("animatic"))
+            {
+                return true;
+            }
+
+            if (texto.Contains("rough"))
+            {
+                return true;
+            }
+
+            if (texto.Contains("animacion"))
+            {
+                return true;
+            }
+
+            if (texto.Contains("clean"))
+            {
+                return true;
+            }
+
+            if (texto.Contains("color"))
+            {
+                return true;
+            }
+
+            if (texto.Contains("composicion"))
+            {
+                return true;
+            }
+
+            if (texto.Contains("compositing"))
+            {
+                return true;
+            }
+
+            if (texto.Contains("musica"))
+            {
+                return true;
+            }
+
+            if (texto.Contains("ambiente"))
+            {
+                return true;
+            }
+
+            if (texto.Contains("locucion"))
+            {
+                return true;
+            }
+
+            if (texto.Contains("dialogo"))
+            {
+                return true;
+            }
+
+            if (texto.Contains("audio"))
+            {
+                return true;
+            }
+
+            if (texto.Contains("sonido"))
+            {
+                return true;
+            }
+
+            if (texto.Contains("sonoro"))
+            {
+                return true;
+            }
+
+            if (texto.Contains("sincronizacion"))
+            {
+                return true;
+            }
+
+            if (texto.Contains("mezcla"))
+            {
+                return true;
+            }
+
+            if (texto.Contains("edicion"))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        private string ObtenerCategoriaVisualEntregable(Subproducto2D subproducto)
+        {
+            return ObtenerCategoriaVisualEntregable(subproducto, null);
+        }
+
+        private string ObtenerCategoriaVisualEntregable(
+            Subproducto2D subproducto,
+            Producto2DDefinicion producto
+        )
+        {
+            if (subproducto == null)
+            {
+                return "Produccion";
+            }
+
+            string etapa = subproducto.EtapaSugerida ?? "";
+
+            if (string.IsNullOrWhiteSpace(etapa))
+            {
+                return "Produccion";
+            }
+
+            etapa = etapa.Trim();
+
+            if (producto != null && producto.Etapas != null)
+            {
+                ProductoEtapaDefinicion etapaProducto = producto.Etapas.FirstOrDefault(e =>
+                    e != null &&
+                    NormalizarTextoDatosVisual(e.ClaveEtapa) ==
+                    NormalizarTextoDatosVisual(etapa)
+                );
+
+                if (etapaProducto != null &&
+                    !string.IsNullOrWhiteSpace(etapaProducto.NombreVisible))
+                {
+                    return etapaProducto.NombreVisible;
+                }
+            }
+
+            if (etapa == "Desarrollo")
+            {
+                return "Desarrollo";
+            }
+
+            if (etapa == "Preproduccion")
+            {
+                return "Preproduccion";
+            }
+
+            if (etapa == "Produccion")
+            {
+                return "Produccion";
+            }
+
+            if (etapa == "Postproduccion")
+            {
+                return "Postproduccion";
+            }
+
+            return "Produccion";
+        }
+
+        private void AsegurarValorEnComboGrid(int indiceColumna, string valor)
+        {
+            if (string.IsNullOrWhiteSpace(valor))
+            {
+                return;
+            }
+
+            if (dgvEntregablesIndustria == null)
+            {
+                return;
+            }
+
+            if (indiceColumna < 0 || indiceColumna >= dgvEntregablesIndustria.Columns.Count)
+            {
+                return;
+            }
+
+            DataGridViewComboBoxColumn columnaCombo =
+                dgvEntregablesIndustria.Columns[indiceColumna] as DataGridViewComboBoxColumn;
+
+            if (columnaCombo == null)
+            {
+                return;
+            }
+
+            if (!columnaCombo.Items.Contains(valor))
+            {
+                columnaCombo.Items.Add(valor);
+            }
+        }
+
+        private void DatosConfigurarCalendariosCliente()
+        {
+            dtpFechaInicioCliente.Format = DateTimePickerFormat.Short;
+            dtpFechaInicioCliente.ShowCheckBox = true;
+            dtpFechaInicioCliente.Checked = false;
+            dtpFechaInicioCliente.Width = 180;
+
+            dtpFechaEntregaCliente.Format = DateTimePickerFormat.Short;
+            dtpFechaEntregaCliente.ShowCheckBox = true;
+            dtpFechaEntregaCliente.Checked = false;
+            dtpFechaEntregaCliente.Width = 180;
+
+            dtpFechaInicioCliente.ValueChanged -= CalendarioCliente_ValueChanged;
+            dtpFechaInicioCliente.ValueChanged += CalendarioCliente_ValueChanged;
+
+            dtpFechaEntregaCliente.ValueChanged -= CalendarioCliente_ValueChanged;
+            dtpFechaEntregaCliente.ValueChanged += CalendarioCliente_ValueChanged;
+
+            nudDiasHabilesEstudioSemana.Minimum = 1;
+            nudDiasHabilesEstudioSemana.Maximum = 7;
+            nudDiasHabilesEstudioSemana.DecimalPlaces = 1;
+            nudDiasHabilesEstudioSemana.Increment = 0.5m;
+            nudDiasHabilesEstudioSemana.Width = 90;
+
+            decimal diasHabiles = 5.0m;
+
+            if (cotizacion != null && cotizacion.DiasHabilesEstudioPorSemana > 0.0)
+            {
+                diasHabiles = Convert.ToDecimal(cotizacion.DiasHabilesEstudioPorSemana);
+            }
+
+            if (diasHabiles < nudDiasHabilesEstudioSemana.Minimum)
+            {
+                diasHabiles = nudDiasHabilesEstudioSemana.Minimum;
+            }
+
+            if (diasHabiles > nudDiasHabilesEstudioSemana.Maximum)
+            {
+                diasHabiles = nudDiasHabilesEstudioSemana.Maximum;
+            }
+
+            nudDiasHabilesEstudioSemana.Value = diasHabiles;
+            nudDiasHabilesEstudioSemana.ValueChanged -= NudDiasHabilesEstudioSemana_ValueChanged;
+            nudDiasHabilesEstudioSemana.ValueChanged += NudDiasHabilesEstudioSemana_ValueChanged;
+
+            lblPlazoClienteCalculado.AutoSize = true;
+            lblPlazoClienteCalculado.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
+            lblPlazoClienteCalculado.ForeColor = Color.FromArgb(40, 40, 40);
+            lblPlazoClienteCalculado.Text = "No informado";
+        }
+
+        private void NudDiasHabilesEstudioSemana_ValueChanged(object sender, System.EventArgs e)
+        {
+            if (cotizacion != null)
+            {
+                cotizacion.DiasHabilesEstudioPorSemana =
+                    Convert.ToDouble(nudDiasHabilesEstudioSemana.Value);
+            }
+
+            RefrescarPlazoClienteCalculado();
+        }
+
+        private void CalendarioCliente_ValueChanged(object sender, System.EventArgs e)
+        {
+            RefrescarPlazoClienteCalculado();
+            RefrescarPanelSiguientePasoDatos();
+        }
+
+        private void RefrescarPlazoClienteCalculado()
+        {
+            if (lblPlazoClienteCalculado == null)
+            {
+                return;
+            }
+
+            if (!dtpFechaInicioCliente.Checked || !dtpFechaEntregaCliente.Checked)
+            {
+                lblPlazoClienteCalculado.Text = "No informado";
+                lblPlazoClienteCalculado.ForeColor = Color.DimGray;
+                return;
+            }
+
+            DateTime inicio = dtpFechaInicioCliente.Value.Date;
+            DateTime entrega = dtpFechaEntregaCliente.Value.Date;
+
+            if (entrega <= inicio)
+            {
+                lblPlazoClienteCalculado.Text = "Fecha inválida: entrega debe ser posterior al inicio.";
+                lblPlazoClienteCalculado.ForeColor = Color.Firebrick;
+                return;
+            }
+
+            double dias = (entrega - inicio).TotalDays;
+            double semanas = dias / 7.0;
+
+            lblPlazoClienteCalculado.Text =
+                $"{dias:N0} días corridos / {semanas:N1} semanas disponibles";
+
+            if (semanas < 2.0)
+            {
+                lblPlazoClienteCalculado.ForeColor = Color.Firebrick;
+            }
+            else if (semanas < 4.0)
+            {
+                lblPlazoClienteCalculado.ForeColor = Color.DarkOrange;
+            }
+            else
+            {
+                lblPlazoClienteCalculado.ForeColor = Color.FromArgb(30, 120, 60);
+            }
+        }
+        
+
+        private void PrepararCheck(CheckBox check, string texto)
+        {
+            check.Text = texto;
+            check.AutoSize = true;
+            check.Font = new Font("Segoe UI", 9);
+            check.Margin = new Padding(0, 0, 22, 10);
+            check.Padding = new Padding(0);
+            check.ForeColor = Color.Black;
+        }
+
+        private void DatosConfigurarComboMonedas()
+        {
+            cmbMoneda.DropDownStyle = ComboBoxStyle.DropDownList;
+            cmbMoneda.Items.Clear();
+            cmbMoneda.Items.Add("CLP");
+            cmbMoneda.Items.Add("USD");
+            cmbMoneda.Items.Add("EUR");
+            cmbMoneda.Items.Add("JPY");
+            cmbMoneda.Items.Add("KRW");
+            cmbMoneda.Items.Add("UF");
+
+            if (cmbMoneda.Items.Count > 0 && cmbMoneda.SelectedIndex < 0)
+            {
+                cmbMoneda.SelectedIndex = 0;
+            }
+        }
+
+        private FlowLayoutPanel CrearPanelPlazosRapidos()
+        {
+            panelPlazosRapidos.Controls.Clear();
+
+            panelPlazosRapidos.Dock = DockStyle.Fill;
+            panelPlazosRapidos.FlowDirection = FlowDirection.LeftToRight;
+            panelPlazosRapidos.WrapContents = true;
+            panelPlazosRapidos.AutoSize = true;
+            panelPlazosRapidos.MinimumSize = new Size(0, 36);
+            panelPlazosRapidos.Margin = new Padding(0, 4, 0, 8);
+            panelPlazosRapidos.Padding = new Padding(0);
+
+            ConfigurarBotonPlazoRapido(btnPlazoMedioMes, "1/2 mes", 15);
+            ConfigurarBotonPlazoRapido(btnPlazoUnMes, "1 mes", 30);
+            ConfigurarBotonPlazoRapido(btnPlazoTresMeses, "3 meses", 90);
+            ConfigurarBotonPlazoRapido(btnPlazoSeisMeses, "6 meses", 180);
+            ConfigurarBotonPlazoRapido(btnPlazoUnAno, "1 año", 365);
+
+            panelPlazosRapidos.Controls.Add(btnPlazoMedioMes);
+            panelPlazosRapidos.Controls.Add(btnPlazoUnMes);
+            panelPlazosRapidos.Controls.Add(btnPlazoTresMeses);
+            panelPlazosRapidos.Controls.Add(btnPlazoSeisMeses);
+            panelPlazosRapidos.Controls.Add(btnPlazoUnAno);
+
+            return panelPlazosRapidos;
+        }
+
+        private void ConfigurarBotonPlazoRapido(Button boton, string texto, int dias)
+        {
+            boton.Text = texto;
+            boton.Width = 95;
+            boton.Height = 30;
+            boton.Margin = new Padding(0, 0, 8, 6);
+            boton.Font = new Font("Segoe UI", 8.7f, FontStyle.Bold);
+            boton.BackColor = Color.FromArgb(245, 245, 245);
+            boton.ForeColor = Color.FromArgb(35, 35, 35);
+            boton.FlatStyle = FlatStyle.Flat;
+            boton.FlatAppearance.BorderColor = Color.FromArgb(150, 150, 150);
+            boton.FlatAppearance.BorderSize = 1;
+            boton.UseVisualStyleBackColor = false;
+            boton.Tag = dias;
+
+            boton.Click -= BtnPlazoRapido_Click;
+            boton.Click += BtnPlazoRapido_Click;
+        }
+
+        private void BtnPlazoRapido_Click(object sender, EventArgs e)
+        {
+            Button boton = sender as Button;
+
+            if (boton == null || boton.Tag == null)
+            {
+                return;
+            }
+
+            int dias = Convert.ToInt32(boton.Tag);
+
+            DateTime fechaInicio;
+
+            if (dtpFechaInicioCliente.Checked)
+            {
+                fechaInicio = dtpFechaInicioCliente.Value.Date;
+            }
+            else
+            {
+                fechaInicio = DateTime.Today;
+                dtpFechaInicioCliente.Value = fechaInicio;
+                dtpFechaInicioCliente.Checked = true;
+            }
+
+            DateTime fechaEntrega = fechaInicio.AddDays(dias);
+
+            dtpFechaEntregaCliente.Value = fechaEntrega;
+            dtpFechaEntregaCliente.Checked = true;
+
+            ActualizarPlazoClienteCalculadoDesdeFechas();
+
+            AplicarDatosDesdePantalla();
+
+            RefrescarPanelSiguientePasoDatos();
+            RefrescarResumen();
+        }
+
+        private void ActualizarPlazoClienteCalculadoDesdeFechas()
+        {
+            if (lblPlazoClienteCalculado == null)
+            {
+                return;
+            }
+
+            if (!dtpFechaInicioCliente.Checked || !dtpFechaEntregaCliente.Checked)
+            {
+                lblPlazoClienteCalculado.Text = "Sin plazo declarado";
+                lblPlazoClienteCalculado.ForeColor = Color.FromArgb(120, 120, 120);
+                return;
+            }
+
+            DateTime inicio = dtpFechaInicioCliente.Value.Date;
+            DateTime entrega = dtpFechaEntregaCliente.Value.Date;
+
+            double dias = (entrega - inicio).TotalDays;
+
+            if (dias < 0.0)
+            {
+                lblPlazoClienteCalculado.Text = "La fecha de entrega es anterior al inicio.";
+                lblPlazoClienteCalculado.ForeColor = Color.FromArgb(180, 40, 40);
+                return;
+            }
+
+            double semanas = dias / 7.0;
+            double meses = dias / 30.0;
+
+            lblPlazoClienteCalculado.Text =
+                dias.ToString("0") +
+                " días corridos / " +
+                semanas.ToString("0.#") +
+                " semanas disponibles / " +
+                meses.ToString("0.##") +
+                " meses aprox.";
+
+            lblPlazoClienteCalculado.ForeColor = Color.FromArgb(35, 130, 65);
+        }
+
+
+
+        private void DatosConfigurarComboTipoProducto()
+        {
+            cmbTipoProducto.DropDownStyle = ComboBoxStyle.DropDownList;
+            cmbTipoProducto.Items.Clear();
+
+            foreach (string tipo in BibliotecaTiposProducto.CrearTiposBase())
+            {
+                cmbTipoProducto.Items.Add(tipo);
+            }
+
+            if (cmbTipoProducto.Items.Count > 0 && cmbTipoProducto.SelectedIndex < 0)
+            {
+                cmbTipoProducto.SelectedIndex = 0;
+            }
+        }
+
+        private void DatosConfigurarComboUnidades()
+        {
+            cmbDuracionProductoUnidad.DropDownStyle = ComboBoxStyle.DropDownList;
+            cmbDuracionProductoUnidad.Items.Clear();
+
+            foreach (string unidad in BibliotecaTiposProducto.CrearUnidadesDuracion())
+            {
+                cmbDuracionProductoUnidad.Items.Add(unidad);
+            }
+
+            if (cmbDuracionProductoUnidad.Items.Count > 0)
+            {
+                cmbDuracionProductoUnidad.SelectedItem = "segundos";
+
+                if (cmbDuracionProductoUnidad.SelectedIndex < 0)
+                {
+                    cmbDuracionProductoUnidad.SelectedIndex = 0;
+                }
+            }
+        }
+
+        private void DatosAgregarFilaContextoSimple(
+    TableLayoutPanel tabla,
+    string etiqueta,
+    Control control,
+    int fila
+)
+        {
+            Label lbl = new Label();
+            lbl.Text = etiqueta;
+            lbl.Dock = DockStyle.Fill;
+            lbl.TextAlign = ContentAlignment.MiddleLeft;
+            lbl.Font = new Font("Segoe UI", 9.5f, FontStyle.Regular);
+            lbl.ForeColor = etiqueta.Contains("*")
+                ? Color.Firebrick
+                : Color.Black;
+            lbl.Margin = new Padding(0, 4, 10, 8);
+            lbl.AutoSize = false;
+            lbl.Height = 34;
+
+            control.Dock = DockStyle.None;
+            control.Anchor = AnchorStyles.Left;
+            control.Font = new Font("Segoe UI", 9.5f, FontStyle.Regular);
+            control.Margin = new Padding(0, 2, 0, 8);
+
+            if (control is ComboBox combo)
+            {
+                combo.IntegralHeight = false;
+                combo.Width = 240;
+                combo.Height = 30;
+            }
+            else if (control is FlowLayoutPanel panel)
+            {
+                panel.Dock = DockStyle.None;
+                panel.Anchor = AnchorStyles.Left;
+                panel.Width = 640;
+                panel.MinimumSize = new Size(640, 34);
+            }
+            else if (control is TextBox tb)
+            {
+                tb.Width = 420;
+
+                if (tb.Multiline)
+                {
+                    tb.Height = 54;
+                }
+                else
+                {
+                    tb.Height = 30;
+                }
+            }
+
+            tabla.Controls.Add(lbl, 0, fila);
+            tabla.Controls.Add(control, 1, fila);
+        }
+
+
+        private FlowLayoutPanel CrearPanelFormatoEntregaRapido()
+        {
+            panelFormatoEntregaRapido.Controls.Clear();
+
+            panelFormatoEntregaRapido.Dock = DockStyle.None;
+            panelFormatoEntregaRapido.FlowDirection = FlowDirection.LeftToRight;
+            panelFormatoEntregaRapido.WrapContents = true;
+            panelFormatoEntregaRapido.AutoSize = true;
+            panelFormatoEntregaRapido.MinimumSize = new Size(360, 34);
+            panelFormatoEntregaRapido.Margin = new Padding(0, 2, 0, 6);
+            panelFormatoEntregaRapido.Padding = new Padding(0);
+            panelFormatoEntregaRapido.BackColor = Color.Transparent;
+
+            string[] formatos =
+            {
+        "MP4",
+        "MOV",
+        "PNG seq.",
+        "Spritesheet",
+        "GIF",
+        "Editables",
+        "Assets"
+    };
+
+            foreach (string formato in formatos)
+            {
+                panelFormatoEntregaRapido.Controls.Add(CrearBotonFormatoEntrega(formato));
+            }
+
+            MarcarBotonesFormatoEntrega();
+
+            return panelFormatoEntregaRapido;
+        }
+
+        private Button CrearBotonFormatoEntrega(string formato)
+        {
+            Button btn = new Button();
+
+            btn.Text = formato;
+            btn.Tag = formato;
+            btn.Height = 28;
+            btn.Width = Math.Max(74, Math.Min(125, formato.Length * 8 + 24));
+            btn.Margin = new Padding(0, 0, 8, 6);
+            btn.Font = new Font("Segoe UI", 8.5f, FontStyle.Bold);
+            btn.FlatStyle = FlatStyle.Flat;
+            btn.FlatAppearance.BorderSize = 1;
+            btn.FlatAppearance.BorderColor = Color.FromArgb(83, 192, 166);
+            btn.BackColor = Color.White;
+            btn.ForeColor = Color.FromArgb(45, 45, 45);
+            btn.Cursor = Cursors.Hand;
+            btn.UseVisualStyleBackColor = false;
+
+            btn.Click -= BtnFormatoEntrega_Click;
+            btn.Click += BtnFormatoEntrega_Click;
+
+            return btn;
+        }
+
+        private void BtnFormatoEntrega_Click(object sender, EventArgs e)
+        {
+            Button btn = sender as Button;
+
+            if (btn == null || btn.Tag == null)
+            {
+                return;
+            }
+
+            string formato = btn.Tag.ToString();
+
+            if (string.IsNullOrWhiteSpace(formato))
+            {
+                return;
+            }
+
+            formato = formato.Trim();
+
+            if (formatosEntregaSeleccionados.Contains(formato))
+            {
+                formatosEntregaSeleccionados.Remove(formato);
+            }
+            else
+            {
+                formatosEntregaSeleccionados.Add(formato);
+            }
+
+            MarcarBotonesFormatoEntrega();
+
+            AplicarDatosDesdePantalla();
+            RefrescarResumen();
+            RefrescarPanelSiguientePasoDatos();
+        }
+
+        private void MarcarBotonesFormatoEntrega()
+        {
+            foreach (Control control in panelFormatoEntregaRapido.Controls)
+            {
+                Button btn = control as Button;
+
+                if (btn == null || btn.Tag == null)
+                {
+                    continue;
+                }
+
+                string formato = btn.Tag.ToString();
+                bool activo = formatosEntregaSeleccionados.Contains(formato);
+
+                if (activo)
+                {
+                    btn.BackColor = Color.FromArgb(83, 192, 166);
+                    btn.ForeColor = Color.White;
+                    btn.FlatAppearance.BorderColor = Color.FromArgb(83, 192, 166);
+                    btn.FlatAppearance.BorderSize = 2;
+                }
+                else
+                {
+                    btn.BackColor = Color.White;
+                    btn.ForeColor = Color.FromArgb(45, 45, 45);
+                    btn.FlatAppearance.BorderColor = Color.FromArgb(83, 192, 166);
+                    btn.FlatAppearance.BorderSize = 1;
+                }
+            }
+        }
+
+        private void DatosAgregarFilaControl(
+    TableLayoutPanel tabla,
+    string etiqueta,
+    Control control,
+    int fila
+)
+        {
+            Label lbl = new Label();
+            lbl.Text = etiqueta;
+            lbl.Dock = DockStyle.Fill;
+            lbl.TextAlign = ContentAlignment.MiddleLeft;
+            lbl.Font = new Font("Segoe UI", 9.5f, FontStyle.Regular);
+            lbl.ForeColor = Color.Black;
+            lbl.Margin = new Padding(0, 4, 12, 6);
+            lbl.AutoSize = false;
+            lbl.Height = 34;
+
+            control.Font = new Font("Segoe UI", 9.5f, FontStyle.Regular);
+            control.Margin = new Padding(0, 2, 0, 6);
+
+            // Por defecto, los controles NO llenan toda la fila.
+            control.Dock = DockStyle.None;
+            control.Anchor = AnchorStyles.Left;
+
+            if (control is FlowLayoutPanel)
+            {
+                control.Dock = DockStyle.Left;
+                int altoPanel = Math.Max(34, control.MinimumSize.Height);
+                if (control.Height > altoPanel)
+                {
+                    altoPanel = control.Height;
+                }
+
+                control.MinimumSize = new Size(0, altoPanel);
+                control.Height = altoPanel;
+                control.Width = 760;
+            }
+            else if (control is DateTimePicker dtp)
+            {
+                dtp.Width = 220;
+                dtp.Height = 30;
+            }
+            else if (control is ComboBox combo)
+            {
+                combo.IntegralHeight = false;
+                combo.Width = 280;
+                combo.Height = 30;
+            }
+            else if (control is TextBox tb)
+            {
+                tb.Width = 420;
+                tb.MinimumSize = new Size(0, 30);
+
+                if (tb.Multiline)
+                {
+                    tb.Height = 72;
+                }
+                else
+                {
+                    tb.Height = 30;
+                }
+            }
+            else if (control is Label label)
+            {
+                label.AutoSize = true;
+                label.Dock = DockStyle.None;
+                label.Anchor = AnchorStyles.Left;
+            }
+
+            tabla.Controls.Add(lbl, 0, fila);
+            tabla.Controls.Add(control, 1, fila);
+        }
+
+        private void DatosAgregarFilaControl4(
+    TableLayoutPanel tabla,
+    string etiqueta1,
+    Control control1,
+    string etiqueta2,
+    Control control2,
+    int fila
+)
+        {
+            Label lbl1 = new Label();
+            lbl1.Text = etiqueta1;
+            lbl1.Dock = DockStyle.Fill;
+            lbl1.TextAlign = ContentAlignment.MiddleLeft;
+            lbl1.Font = new Font("Segoe UI", 9.5f, FontStyle.Regular);
+            lbl1.ForeColor = Color.Black;
+            lbl1.Margin = new Padding(0, 6, 12, 8);
+            lbl1.AutoSize = true;
+
+            Label lbl2 = new Label();
+            lbl2.Text = etiqueta2;
+            lbl2.Dock = DockStyle.Fill;
+            lbl2.TextAlign = ContentAlignment.MiddleLeft;
+            lbl2.Font = new Font("Segoe UI", 9.5f, FontStyle.Regular);
+            lbl2.ForeColor = Color.Black;
+            lbl2.Margin = new Padding(16, 6, 12, 8);
+            lbl2.AutoSize = true;
+
+            ConfigurarControlFormularioCompacto(control1);
+            ConfigurarControlFormularioCompacto(control2);
+
+            tabla.Controls.Add(lbl1, 0, fila);
+            tabla.Controls.Add(control1, 1, fila);
+            tabla.Controls.Add(lbl2, 2, fila);
+            tabla.Controls.Add(control2, 3, fila);
+        }
+
+        private void ConfigurarControlFormularioCompacto(Control control)
+        {
+            control.Dock = DockStyle.None;
+            control.Anchor = AnchorStyles.Left;
+            control.Font = new Font("Segoe UI", 9.5f, FontStyle.Regular);
+            control.Margin = new Padding(0, 4, 0, 8);
+
+            if (control is FlowLayoutPanel panel)
+            {
+                panel.Dock = DockStyle.Fill;
+                panel.Anchor = AnchorStyles.Left;
+                panel.MinimumSize = new Size(0, 34);
+                panel.Width = 390;
+                panel.Height = 34;
+                return;
+            }
+
+            if (control is ComboBox combo)
+            {
+                combo.IntegralHeight = false;
+                combo.Width = 250;
+                combo.Height = 30;
+            }
+            else if (control is TextBox tb)
+            {
+                if (tb.Multiline)
+                {
+                    tb.Width = 390;
+                    tb.Height = 54;
+                }
+                else
+                {
+                    tb.Width = 250;
+                    tb.Height = 30;
+                    tb.MinimumSize = new Size(0, 30);
+                }
+            }
+        }
+
+        private void ConstruirPanelSiguientePasoDatos()
+        {
+            panelSiguientePasoDatos.Dock = DockStyle.Top;
+            panelSiguientePasoDatos.AutoSize = true;
+            panelSiguientePasoDatos.Visible = true;
+            panelSiguientePasoDatos.Padding = new Padding(14);
+            panelSiguientePasoDatos.Margin = new Padding(0, 20, 0, 0);
+            panelSiguientePasoDatos.BackColor = Color.FromArgb(246, 246, 246);
+            panelSiguientePasoDatos.BorderStyle = BorderStyle.FixedSingle;
+
+            TableLayoutPanel layoutPanel = new TableLayoutPanel();
+            layoutPanel.Dock = DockStyle.Top;
+            layoutPanel.AutoSize = true;
+            layoutPanel.ColumnCount = 1;
+            layoutPanel.RowCount = 2;
+            layoutPanel.Margin = new Padding(0);
+
+            layoutPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            layoutPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+            lblSiguientePasoDatos.AutoSize = true;
+            lblSiguientePasoDatos.MaximumSize = new Size(900, 0);
+            lblSiguientePasoDatos.Font = new Font("Segoe UI", 10, FontStyle.Bold);
+            lblSiguientePasoDatos.ForeColor = Color.FromArgb(35, 35, 35);
+            lblSiguientePasoDatos.Margin = new Padding(0, 0, 0, 12);
+
+            string monedaVisual = string.IsNullOrWhiteSpace(cotizacion.MonedaVisualizacion)
+                ? "CLP"
+                : cotizacion.MonedaVisualizacion;
+
+            lblSiguientePasoDatos.Text = $"Moneda para informe interno: {monedaVisual}";
+
+            FlowLayoutPanel panelBotones = new FlowLayoutPanel();
+            panelBotones.Dock = DockStyle.Top;
+            panelBotones.AutoSize = true;
+            panelBotones.FlowDirection = FlowDirection.LeftToRight;
+            panelBotones.WrapContents = true;
+            panelBotones.Margin = new Padding(0);
+
+            btnDatosIrMoneda.Text = "Modificar moneda interna";
+            btnDatosIrMoneda.Width = 230;
+            btnDatosIrMoneda.Height = 38;
+            btnDatosIrMoneda.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
+            btnDatosIrMoneda.Margin = new Padding(0, 0, 10, 0);
+            btnDatosIrMoneda.BackColor = Color.White;
+            btnDatosIrMoneda.ForeColor = Color.Black;
+            btnDatosIrMoneda.FlatStyle = FlatStyle.Flat;
+            btnDatosIrMoneda.FlatAppearance.BorderColor = Color.FromArgb(130, 130, 130);
+            btnDatosIrMoneda.FlatAppearance.BorderSize = 1;
+            btnDatosIrMoneda.UseVisualStyleBackColor = true;
+            btnDatosIrMoneda.Click -= BtnDatosIrMoneda_Click;
+            btnDatosIrMoneda.Click += BtnDatosIrMoneda_Click;
+
+            btnDatosIrEtapas.Text = "Avanzar a definir etapas";
+            btnDatosIrEtapas.Width = 230;
+            btnDatosIrEtapas.Height = 38;
+            btnDatosIrEtapas.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
+            btnDatosIrEtapas.Margin = new Padding(0);
+            btnDatosIrEtapas.BackColor = Color.White;
+            btnDatosIrEtapas.ForeColor = Color.Black;
+            btnDatosIrEtapas.FlatStyle = FlatStyle.Flat;
+            btnDatosIrEtapas.FlatAppearance.BorderColor = Color.FromArgb(130, 130, 130);
+            btnDatosIrEtapas.FlatAppearance.BorderSize = 1;
+            btnDatosIrEtapas.UseVisualStyleBackColor = true;
+            btnDatosIrEtapas.Click -= BtnDatosIrEtapas_Click;
+            btnDatosIrEtapas.Click += BtnDatosIrEtapas_Click;
+
+            panelBotones.Controls.Add(btnDatosIrMoneda);
+            panelBotones.Controls.Add(btnDatosIrEtapas);
+
+            layoutPanel.Controls.Add(lblSiguientePasoDatos, 0, 0);
+            layoutPanel.Controls.Add(panelBotones, 0, 1);
+
+            panelSiguientePasoDatos.Controls.Clear();
+            panelSiguientePasoDatos.Controls.Add(layoutPanel);
+        }
+
+        private string NormalizarTextoDatosVisual(string texto)
+        {
+            if (string.IsNullOrWhiteSpace(texto))
+            {
+                return "";
+            }
+
+            return texto
+                .Trim()
+                .ToLowerInvariant()
+                .Replace("á", "a")
+                .Replace("é", "e")
+                .Replace("í", "i")
+                .Replace("ó", "o")
+                .Replace("ú", "u")
+                .Replace("ü", "u");
+        }
+    }
+}

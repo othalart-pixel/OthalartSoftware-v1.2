@@ -1,0 +1,50 @@
+[
+  {
+    "Id": "persona_001",
+    "Nombre": "Micael Laplagne",
+    "CargoPrincipal": "Director de arte",
+    "CargosPosibles": [],
+    "TrabajosPosibles": [
+      "Animatic / timing",
+      "Clean up / linea final",
+      "Color / pintura base",
+      "Guion / escena",
+      "Preparacion de assets",
+      "Rough animation",
+      "Shading",
+      "Storyboard / secuencia visual"
+    ],
+    "PagoInterno": 600000,
+    "PeriodoPago": "Mensual",
+    "HorasTrabajoSemana": 42,
+    "CostoHora": 3571.43,
+    "TarifaHora": 3571.43,
+    "HorasMaximasPorTanda": 42,
+    "Activo": true,
+    "Notas": ""
+  },
+  {
+    "Id": "persona_002",
+    "Nombre": "Mario Alvear",
+    "CargoPrincipal": "Director de animaci\u00F3n",
+    "CargosPosibles": [],
+    "TrabajosPosibles": [
+      "Animatic / timing",
+      "Clean up / linea final",
+      "Color / pintura base",
+      "Guion / escena",
+      "Preparacion de assets",
+      "Rough animation",
+      "Shading",
+      "Storyboard / secuencia visual"
+    ],
+    "PagoInterno": 600000,
+    "PeriodoPago": "Mensual",
+    "HorasTrabajoSemana": 42,
+    "CostoHora": 3571.43,
+    "TarifaHora": 3571.43,
+    "HorasMaximasPorTanda": 42,
+    "Activo": true,
+    "Notas": ""
+  }
+]

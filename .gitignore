@@ -1,0 +1,11 @@
+.codex-audit/
+.codex-build/
+.codex-publish/
+.git_onedrive_placeholder/
+.vs/
+bin/
+obj/
+*.user
+*.log
+desktop.ini
+Bibliotecas/default/*.backup_*.json

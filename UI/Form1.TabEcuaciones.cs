@@ -1,0 +1,4251 @@
+using System;
+using System.Collections.Generic;
+using System.Drawing;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Text.Json;
+using System.Windows.Forms;
+using Cotizador_animacion_Othalart.Data;
+using Cotizador_animacion_Othalart.Models;
+using Cotizador_animacion_Othalart.Services;
+
+namespace Cotizador_animacion_Othalart
+{
+    public partial class Form1
+    {
+        private DataGridView dgvEcuacionesProductivas = new DataGridView();
+        private Label lblEstadoEcuacionesProductivas = new Label();
+        private TextBox txtEcuacionClave = new TextBox();
+        private TextBox txtEcuacionNombre = new TextBox();
+        private ComboBox cmbEcuacionTipo = new ComboBox();
+        private ComboBox cmbEcuacionBase = new ComboBox();
+        private Label lblDetalleEcuacionBase = new Label();
+        private TextBox txtEcuacionEtapa = new TextBox();
+        private TextBox txtEcuacionSubEtapa = new TextBox();
+        private ListBox lstEcuacionVariables = new ListBox();
+        private TextBox txtNuevaVariableEcuacion = new TextBox();
+        private ListBox lstEcuacionNumerador = new ListBox();
+        private ListBox lstEcuacionDenominador = new ListBox();
+        private ListBox lstEcuacionTokens = new ListBox();
+        private TextBox txtNuevoTokenEcuacion = new TextBox();
+        private ListBox lstEcuacionCargosPermitidos = new ListBox();
+        private ComboBox cmbCargoPermitidoEcuacion = new ComboBox();
+        private NumericUpDown nudPonderadorCargoEcuacion = new NumericUpDown();
+        private RichTextBox rtbResumenVectorCargosEcuacion = new RichTextBox();
+        private DataGridView dgvCargosParticipantesEcuacion = new DataGridView();
+        private RichTextBox rtbVistaPreviaCargosParticipantes = new RichTextBox();
+        private TextBox txtEcuacionFormula = new TextBox();
+        private TextBox txtEcuacionImpacto = new TextBox();
+        private TextBox txtEcuacionNota = new TextBox();
+        private RichTextBox rtbEcuacionRenderizada = new RichTextBox();
+        private CheckBox chkEcuacionActiva = new CheckBox();
+        private TabControl tabsEcuacionesProductivasInternas = new TabControl();
+        private TabPage tabEditorVisualEcuacion = new TabPage("Editor visual");
+        private TabPage tabMapaFlujoEcuacion = new TabPage("Mapa / flujo");
+        private Panel pnlMapaFlujoEcuacion = new Panel();
+        private TextBox txtBuscarEcuacionProductiva = new TextBox();
+        private ComboBox cmbFiltroTipoEcuacion = new ComboBox();
+        private ComboBox cmbFiltroEstadoEcuacion = new ComboBox();
+        private ComboBox cmbFiltroEtapaEcuacion = new ComboBox();
+        private ListView lvBibliotecaEcuaciones = new ListView();
+        private RichTextBox rtbValidacionEcuaciones = new RichTextBox();
+        private List<Tuple<Rectangle, string, string>> nodosMapaFlujoEcuacion =
+            new List<Tuple<Rectangle, string, string>>();
+        private bool cargandoEditorEcuaciones = false;
+        private bool sincronizandoBibliotecaEcuaciones = false;
+        private bool actualizandoCargosParticipantes = false;
+
+        private sealed class OpcionFormulaMadreEcuacion
+        {
+            public string Clave { get; set; } = "";
+            public string Nombre { get; set; } = "";
+
+            public override string ToString()
+            {
+                if (string.IsNullOrWhiteSpace(Clave))
+                {
+                    return "Sin formula madre";
+                }
+
+                string nombreVisible = string.IsNullOrWhiteSpace(Nombre)
+                    ? Clave
+                    : Nombre;
+
+                return nombreVisible + " (" + Clave + ")";
+            }
+        }
+
+        private sealed class CargoPonderadoEcuacion
+        {
+            public string Cargo { get; set; } = "";
+            public double Ponderador { get; set; } = 1.0;
+
+            public string Serializar()
+            {
+                return Cargo + "|" + Ponderador.ToString("0.####", CultureInfo.InvariantCulture);
+            }
+
+            public override string ToString()
+            {
+                string porcentaje = (Ponderador * 100.0).ToString("0.#", CultureInfo.CurrentCulture);
+                return Cargo + " - " + porcentaje + "% disponibilidad";
+            }
+        }
+
+        private void ConstruirTabEcuacionesProductivas(TabPage tab)
+        {
+            tab.Controls.Clear();
+            tab.BackColor = Color.White;
+
+            TableLayoutPanel root = new TableLayoutPanel();
+            root.Dock = DockStyle.Fill;
+            root.ColumnCount = 1;
+            root.RowCount = 5;
+            root.Padding = new Padding(22, 18, 22, 22);
+            root.BackColor = Color.White;
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+            Label titulo = new Label();
+            titulo.Text = "Ecuaciones productivas";
+            titulo.Font = new Font("Segoe UI", 17, FontStyle.Bold);
+            titulo.AutoSize = true;
+
+            Label ayuda = new Label();
+            ayuda.Text = "Define formulas madre y procesos productivos. Cada proceso puede usar una formula madre, cargos, variables y palabras de busqueda para viajar al pipeline y al desglose.";
+            ayuda.Font = new Font("Segoe UI", 9.5f);
+            ayuda.ForeColor = Color.FromArgb(90, 90, 90);
+            ayuda.AutoSize = true;
+            ayuda.MaximumSize = new Size(1200, 0);
+            ayuda.Margin = new Padding(0, 0, 0, 10);
+
+            FlowLayoutPanel acciones = new FlowLayoutPanel();
+            acciones.AutoSize = true;
+            acciones.Margin = new Padding(0, 6, 0, 14);
+            acciones.Padding = new Padding(0, 2, 0, 2);
+
+            Button btnAgregarBase = CrearBotonEcuacion("Agregar formula madre");
+            btnAgregarBase.Width = 165;
+            btnAgregarBase.Click += (s, e) => AgregarEcuacionProductiva(true);
+
+            Button btnAgregarVariante = CrearBotonEcuacion("Agregar proceso");
+            btnAgregarVariante.Width = 135;
+            btnAgregarVariante.Click += (s, e) => AgregarEcuacionProductiva(false);
+
+            Button btnQuitar = CrearBotonEcuacion("Quitar");
+            btnQuitar.Click += (s, e) => QuitarEcuacionProductiva();
+
+            Button btnGuardar = CrearBotonEcuacion("Guardar biblioteca");
+            btnGuardar.Width = 150;
+            btnGuardar.Click += (s, e) => GuardarBibliotecaEcuacionesProductivas();
+
+            Button btnRestaurar = CrearBotonEcuacion("Restaurar base");
+            btnRestaurar.Width = 130;
+            btnRestaurar.Click += (s, e) => RestaurarBibliotecaEcuacionesProductivas();
+
+            Button btnAbrirEditor = CrearBotonEcuacion("Abrir editor visual");
+            btnAbrirEditor.Width = 155;
+            btnAbrirEditor.Click += (s, e) =>
+            {
+                CargarEditorEcuacionDesdeFilaSeleccionada();
+                AbrirEditorVisualEcuacion();
+            };
+
+            Button btnAbrirMapa = CrearBotonEcuacion("Ver mapa / flujo");
+            btnAbrirMapa.Width = 145;
+            btnAbrirMapa.Click += (s, e) =>
+            {
+                CargarEditorEcuacionDesdeFilaSeleccionada();
+                AbrirMapaFlujoEcuacion();
+            };
+
+            acciones.Controls.Add(btnAgregarBase);
+            acciones.Controls.Add(btnAgregarVariante);
+            acciones.Controls.Add(btnQuitar);
+            acciones.Controls.Add(btnAbrirEditor);
+            acciones.Controls.Add(btnAbrirMapa);
+            acciones.Controls.Add(btnGuardar);
+            acciones.Controls.Add(btnRestaurar);
+
+            ConfigurarGrillaEcuacionesProductivas();
+
+            lblEstadoEcuacionesProductivas.AutoSize = true;
+            lblEstadoEcuacionesProductivas.ForeColor = Color.FromArgb(90, 90, 90);
+            lblEstadoEcuacionesProductivas.Margin = new Padding(0, 8, 0, 0);
+
+            root.Controls.Add(titulo, 0, 0);
+            root.Controls.Add(ayuda, 0, 1);
+            root.Controls.Add(acciones, 0, 2);
+            root.Controls.Add(CrearContenedorEcuacionesProductivas(), 0, 3);
+            root.Controls.Add(lblEstadoEcuacionesProductivas, 0, 4);
+
+            tab.Controls.Add(root);
+
+            tab.Enter -= TabEcuacionesProductivas_Enter;
+            tab.Enter += TabEcuacionesProductivas_Enter;
+        }
+
+        private Button CrearBotonEcuacion(string texto)
+        {
+            Button boton = new Button();
+            boton.Text = texto;
+            boton.Width = 110;
+            boton.Height = 30;
+            boton.Margin = new Padding(0, 0, 8, 0);
+            boton.FlatStyle = FlatStyle.Flat;
+            boton.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
+            boton.BackColor = Color.FromArgb(245, 245, 245);
+            boton.ForeColor = Color.Black;
+            boton.UseVisualStyleBackColor = false;
+            return boton;
+        }
+
+        private void ConfigurarGrillaEcuacionesProductivas()
+        {
+            dgvEcuacionesProductivas.Dock = DockStyle.Fill;
+            dgvEcuacionesProductivas.AllowUserToAddRows = false;
+            dgvEcuacionesProductivas.AllowUserToDeleteRows = false;
+            dgvEcuacionesProductivas.RowHeadersVisible = false;
+            dgvEcuacionesProductivas.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+            dgvEcuacionesProductivas.MultiSelect = false;
+            dgvEcuacionesProductivas.EditMode = DataGridViewEditMode.EditOnEnter;
+            dgvEcuacionesProductivas.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
+            dgvEcuacionesProductivas.BackgroundColor = Color.White;
+            dgvEcuacionesProductivas.BorderStyle = BorderStyle.FixedSingle;
+            dgvEcuacionesProductivas.GridColor = Color.Gainsboro;
+            dgvEcuacionesProductivas.EnableHeadersVisualStyles = false;
+            dgvEcuacionesProductivas.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(235, 235, 235);
+            dgvEcuacionesProductivas.ColumnHeadersDefaultCellStyle.ForeColor = Color.Black;
+            dgvEcuacionesProductivas.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
+            dgvEcuacionesProductivas.RowTemplate.Height = 28;
+
+            dgvEcuacionesProductivas.Columns.Clear();
+            dgvEcuacionesProductivas.Columns.Add(new DataGridViewCheckBoxColumn { Name = "Activa", HeaderText = "Activa", Width = 58 });
+            dgvEcuacionesProductivas.Columns.Add("Clave", "Clave");
+            dgvEcuacionesProductivas.Columns.Add("NombreVisible", "Nombre visible");
+
+            DataGridViewComboBoxColumn colTipo = new DataGridViewComboBoxColumn();
+            colTipo.Name = "TipoEcuacion";
+            colTipo.HeaderText = "Clase";
+            colTipo.Width = 95;
+            colTipo.FlatStyle = FlatStyle.Flat;
+            colTipo.Items.Add("Base");
+            colTipo.Items.Add("Variante");
+            dgvEcuacionesProductivas.Columns.Add(colTipo);
+
+            DataGridViewComboBoxColumn colBase = new DataGridViewComboBoxColumn();
+            colBase.Name = "EcuacionBase";
+            colBase.HeaderText = "Formula madre";
+            colBase.Width = 180;
+            colBase.FlatStyle = FlatStyle.Flat;
+            dgvEcuacionesProductivas.Columns.Add(colBase);
+
+            dgvEcuacionesProductivas.Columns.Add("Etapa", "Etapa");
+            dgvEcuacionesProductivas.Columns.Add("SubEtapa", "Subetapa");
+            dgvEcuacionesProductivas.Columns.Add("Tokens", "Palabras de busqueda");
+            dgvEcuacionesProductivas.Columns.Add("Variables", "Variables de entrada");
+            dgvEcuacionesProductivas.Columns.Add("CargosPermitidos", "Cargos participantes");
+            dgvEcuacionesProductivas.Columns.Add("CargosParticipantesJson", "Cargos participantes");
+            dgvEcuacionesProductivas.Columns.Add("FormulaReferencia", "Calculo");
+            dgvEcuacionesProductivas.Columns.Add("Numerador", "Numerador");
+            dgvEcuacionesProductivas.Columns.Add("Denominador", "Denominador");
+            dgvEcuacionesProductivas.Columns.Add("Impacto", "Impacto");
+            dgvEcuacionesProductivas.Columns.Add("Nota", "Nota");
+
+            SetColEcuacion("Clave", 145);
+            SetColEcuacion("NombreVisible", 210);
+            SetColEcuacion("Etapa", 125);
+            SetColEcuacion("SubEtapa", 190);
+            SetColEcuacion("Tokens", 320);
+            SetColEcuacion("Variables", 330);
+            SetColEcuacion("CargosPermitidos", 360);
+            SetColEcuacion("FormulaReferencia", 300);
+            SetColEcuacion("Numerador", 240);
+            SetColEcuacion("Denominador", 240);
+            SetColEcuacion("Impacto", 420);
+            SetColEcuacion("Nota", 230);
+
+            dgvEcuacionesProductivas.Columns["Numerador"].Visible = false;
+            dgvEcuacionesProductivas.Columns["Denominador"].Visible = false;
+            dgvEcuacionesProductivas.Columns["CargosParticipantesJson"].Visible = false;
+
+            dgvEcuacionesProductivas.SelectionChanged -= DgvEcuacionesProductivas_SelectionChanged;
+            dgvEcuacionesProductivas.SelectionChanged += DgvEcuacionesProductivas_SelectionChanged;
+            dgvEcuacionesProductivas.CellDoubleClick -= DgvEcuacionesProductivas_CellDoubleClick;
+            dgvEcuacionesProductivas.CellDoubleClick += DgvEcuacionesProductivas_CellDoubleClick;
+        }
+
+        private Control CrearContenedorEcuacionesProductivas()
+        {
+            SplitContainer split = new SplitContainer();
+            split.Dock = DockStyle.Fill;
+            split.SplitterWidth = 6;
+            split.FixedPanel = FixedPanel.Panel1;
+            split.Panel1MinSize = 0;
+            split.Panel2MinSize = 0;
+            split.BackColor = Color.FromArgb(230, 232, 236);
+            split.HandleCreated += (s, e) => AjustarSplitterEcuaciones(split);
+            split.SizeChanged += (s, e) => AjustarSplitterEcuaciones(split);
+
+            split.Panel1.Controls.Add(CrearPanelBibliotecaEcuaciones());
+
+            tabsEcuacionesProductivasInternas = new TabControl();
+            tabsEcuacionesProductivasInternas.Dock = DockStyle.Fill;
+
+            TabPage tabBiblioteca = new TabPage("Tabla completa");
+            tabBiblioteca.Padding = new Padding(8);
+            tabBiblioteca.BackColor = Color.White;
+            tabBiblioteca.Controls.Add(dgvEcuacionesProductivas);
+
+            tabEditorVisualEcuacion = new TabPage("Editor visual");
+            tabEditorVisualEcuacion.Padding = new Padding(8);
+            tabEditorVisualEcuacion.BackColor = Color.White;
+            tabEditorVisualEcuacion.Controls.Add(CrearEditorEcuacionesProductivas());
+
+            tabMapaFlujoEcuacion = new TabPage("Mapa / flujo");
+            tabMapaFlujoEcuacion.Padding = new Padding(8);
+            tabMapaFlujoEcuacion.BackColor = Color.White;
+            tabMapaFlujoEcuacion.Controls.Add(CrearPanelMapaFlujoEcuacion());
+
+            tabsEcuacionesProductivasInternas.TabPages.Add(tabEditorVisualEcuacion);
+            tabsEcuacionesProductivasInternas.TabPages.Add(CrearTabValidacionEcuaciones());
+            tabsEcuacionesProductivasInternas.TabPages.Add(tabMapaFlujoEcuacion);
+            tabsEcuacionesProductivasInternas.TabPages.Add(tabBiblioteca);
+
+            split.Panel2.Controls.Add(tabsEcuacionesProductivasInternas);
+            return split;
+        }
+
+        private void AjustarSplitterEcuaciones(SplitContainer split)
+        {
+            if (split == null || split.Width <= 0)
+            {
+                return;
+            }
+
+            int anchoDisponible = split.Width - split.SplitterWidth;
+            if (anchoDisponible < 620)
+            {
+                return;
+            }
+
+            int panel1Min = 260;
+            int panel2Min = 320;
+            int maximo = anchoDisponible - panel2Min;
+            int distancia = Math.Max(panel1Min, Math.Min(340, maximo));
+            if (split.SplitterDistance != distancia)
+            {
+                split.SplitterDistance = distancia;
+            }
+
+            if (split.Panel1MinSize != panel1Min)
+            {
+                split.Panel1MinSize = panel1Min;
+            }
+
+            if (split.Panel2MinSize != panel2Min)
+            {
+                split.Panel2MinSize = panel2Min;
+            }
+        }
+
+        private Control CrearPanelBibliotecaEcuaciones()
+        {
+            TableLayoutPanel panel = new TableLayoutPanel();
+            panel.Dock = DockStyle.Fill;
+            panel.BackColor = Color.FromArgb(248, 249, 251);
+            panel.Padding = new Padding(10);
+            panel.ColumnCount = 1;
+            panel.RowCount = 7;
+            panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            panel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+            Label titulo = new Label();
+            titulo.Text = "Biblioteca";
+            titulo.AutoSize = true;
+            titulo.Font = new Font("Segoe UI", 12f, FontStyle.Bold);
+            titulo.Margin = new Padding(0, 0, 0, 8);
+
+            txtBuscarEcuacionProductiva.Dock = DockStyle.Fill;
+            txtBuscarEcuacionProductiva.Margin = new Padding(28, 3, 6, 3);
+            txtBuscarEcuacionProductiva.Font = new Font("Segoe UI", 9.5f);
+            txtBuscarEcuacionProductiva.PlaceholderText = "Buscar ecuacion o proceso...";
+            txtBuscarEcuacionProductiva.TextChanged += (s, e) => RefrescarListaBibliotecaEcuaciones();
+
+            ConfigurarFiltroBibliotecaEcuacion(cmbFiltroTipoEcuacion, new[] { "Todas", "Formulas madre", "Procesos" });
+            cmbFiltroTipoEcuacion.SelectedIndexChanged += (s, e) => RefrescarListaBibliotecaEcuaciones();
+
+            ConfigurarFiltroBibliotecaEcuacion(cmbFiltroEstadoEcuacion, new[] { "Activas e inactivas", "Activas", "Inactivas" });
+            cmbFiltroEstadoEcuacion.SelectedIndexChanged += (s, e) => RefrescarListaBibliotecaEcuaciones();
+
+            cmbFiltroEtapaEcuacion.DropDownStyle = ComboBoxStyle.DropDownList;
+            cmbFiltroEtapaEcuacion.Dock = DockStyle.Top;
+            cmbFiltroEtapaEcuacion.Margin = new Padding(0, 0, 0, 8);
+            cmbFiltroEtapaEcuacion.SelectedIndexChanged += (s, e) => RefrescarListaBibliotecaEcuaciones();
+
+            lvBibliotecaEcuaciones.Dock = DockStyle.Fill;
+            lvBibliotecaEcuaciones.View = View.Details;
+            lvBibliotecaEcuaciones.FullRowSelect = true;
+            lvBibliotecaEcuaciones.HideSelection = false;
+            lvBibliotecaEcuaciones.MultiSelect = false;
+            lvBibliotecaEcuaciones.BorderStyle = BorderStyle.FixedSingle;
+            lvBibliotecaEcuaciones.Font = new Font("Segoe UI", 9f);
+            lvBibliotecaEcuaciones.Columns.Clear();
+            lvBibliotecaEcuaciones.Columns.Add("Proceso", 185);
+            lvBibliotecaEcuaciones.Columns.Add("Clase", 76);
+            lvBibliotecaEcuaciones.Columns.Add("Etapa", 92);
+            lvBibliotecaEcuaciones.ContextMenuStrip = CrearMenuContextualBibliotecaEcuaciones();
+            lvBibliotecaEcuaciones.SelectedIndexChanged += (s, e) =>
+            {
+                if (sincronizandoBibliotecaEcuaciones)
+                {
+                    return;
+                }
+
+                if (lvBibliotecaEcuaciones.SelectedItems.Count == 0)
+                {
+                    return;
+                }
+
+                if (lvBibliotecaEcuaciones.SelectedItems[0].Tag is DataGridViewRow row)
+                {
+                    SeleccionarFilaEcuacion(row);
+                }
+            };
+
+            FlowLayoutPanel acciones = new FlowLayoutPanel();
+            acciones.AutoSize = true;
+            acciones.FlowDirection = FlowDirection.LeftToRight;
+            acciones.WrapContents = true;
+            acciones.Margin = new Padding(0, 8, 0, 0);
+
+            Button btnValidar = CrearBotonEcuacion("Validar");
+            btnValidar.Width = 88;
+            btnValidar.Click += (s, e) =>
+            {
+                MostrarValidacionBibliotecaEcuaciones();
+                if (tabsEcuacionesProductivasInternas.TabPages.Count > 1)
+                {
+                    tabsEcuacionesProductivasInternas.SelectedIndex = 1;
+                }
+            };
+
+            Button btnRecargar = CrearBotonEcuacion("Recargar");
+            btnRecargar.Width = 92;
+            btnRecargar.Click += (s, e) => CargarBibliotecaEcuacionesProductivasEnPantalla();
+
+            acciones.Controls.Add(btnValidar);
+            acciones.Controls.Add(btnRecargar);
+
+            panel.Controls.Add(titulo, 0, 0);
+            panel.Controls.Add(CrearBuscadorEcuacionProductiva(), 0, 1);
+            panel.Controls.Add(cmbFiltroTipoEcuacion, 0, 2);
+            panel.Controls.Add(cmbFiltroEstadoEcuacion, 0, 3);
+            panel.Controls.Add(cmbFiltroEtapaEcuacion, 0, 4);
+            panel.Controls.Add(lvBibliotecaEcuaciones, 0, 5);
+            panel.Controls.Add(acciones, 0, 6);
+
+            return panel;
+        }
+
+        private ContextMenuStrip CrearMenuContextualBibliotecaEcuaciones()
+        {
+            ContextMenuStrip menu = new ContextMenuStrip();
+
+            ToolStripMenuItem duplicar = new ToolStripMenuItem("Duplicar");
+            duplicar.Click += (s, e) => DuplicarEcuacionSeleccionadaDesdeBiblioteca();
+
+            ToolStripMenuItem quitar = new ToolStripMenuItem("Quitar");
+            quitar.Click += (s, e) => QuitarEcuacionProductiva();
+
+            menu.Opening += (s, e) =>
+            {
+                bool haySeleccion = lvBibliotecaEcuaciones != null &&
+                                    lvBibliotecaEcuaciones.SelectedItems.Count > 0;
+                duplicar.Enabled = haySeleccion;
+                quitar.Enabled = haySeleccion;
+            };
+
+            menu.Items.Add(duplicar);
+            menu.Items.Add(new ToolStripSeparator());
+            menu.Items.Add(quitar);
+            return menu;
+        }
+
+        private Control CrearBuscadorEcuacionProductiva()
+        {
+            Panel panel = new Panel();
+            panel.Dock = DockStyle.Top;
+            panel.Height = 34;
+            panel.Margin = new Padding(0, 0, 0, 8);
+            panel.BackColor = Color.White;
+            panel.BorderStyle = BorderStyle.FixedSingle;
+
+            Label icono = new Label();
+            icono.Text = "⌕";
+            icono.Dock = DockStyle.Left;
+            icono.Width = 28;
+            icono.TextAlign = ContentAlignment.MiddleCenter;
+            icono.Font = new Font("Segoe UI", 12f, FontStyle.Bold);
+            icono.ForeColor = Color.FromArgb(90, 90, 90);
+
+            panel.Controls.Add(txtBuscarEcuacionProductiva);
+            panel.Controls.Add(icono);
+            return panel;
+        }
+
+        private Label CrearMiniLabelEcuacion(string texto)
+        {
+            return new Label
+            {
+                Text = texto,
+                AutoSize = true,
+                Font = new Font("Segoe UI", 8.5f),
+                ForeColor = Color.FromArgb(90, 90, 90),
+                Margin = new Padding(0, 0, 0, 4)
+            };
+        }
+
+        private void ConfigurarFiltroBibliotecaEcuacion(ComboBox combo, string[] valores)
+        {
+            combo.DropDownStyle = ComboBoxStyle.DropDownList;
+            combo.Dock = DockStyle.Top;
+            combo.Margin = new Padding(0, 0, 0, 8);
+            combo.Items.Clear();
+            combo.Items.AddRange(valores);
+            if (combo.Items.Count > 0)
+            {
+                combo.SelectedIndex = 0;
+            }
+        }
+
+        private TabPage CrearTabValidacionEcuaciones()
+        {
+            TabPage tab = new TabPage("Validacion / prueba");
+            tab.Padding = new Padding(10);
+            tab.BackColor = Color.White;
+
+            rtbValidacionEcuaciones.Dock = DockStyle.Fill;
+            rtbValidacionEcuaciones.ReadOnly = true;
+            rtbValidacionEcuaciones.BorderStyle = BorderStyle.FixedSingle;
+            rtbValidacionEcuaciones.BackColor = Color.White;
+            rtbValidacionEcuaciones.Font = new Font("Segoe UI", 10f);
+            rtbValidacionEcuaciones.ScrollBars = RichTextBoxScrollBars.Vertical;
+
+            tab.Controls.Add(rtbValidacionEcuaciones);
+            return tab;
+        }
+
+        private Control CrearEditorEcuacionesProductivas()
+        {
+            TableLayoutPanel root = new TableLayoutPanel();
+            root.Dock = DockStyle.Fill;
+            root.ColumnCount = 1;
+            root.RowCount = 4;
+            root.Padding = new Padding(12);
+            root.BackColor = Color.FromArgb(248, 249, 251);
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+            Label titulo = new Label();
+            titulo.Text = "Editor de formula productiva";
+            titulo.AutoSize = true;
+            titulo.Font = new Font("Segoe UI", 11f, FontStyle.Bold);
+            titulo.ForeColor = Color.FromArgb(25, 25, 25);
+            titulo.Margin = new Padding(0, 0, 0, 8);
+
+            ConfigurarComboSimple(cmbEcuacionTipo, new[] { "Base", "Variante" });
+            ConfigurarTextBoxMultilinea(txtEcuacionFormula);
+            ConfigurarTextBoxMultilinea(txtEcuacionImpacto);
+            ConfigurarTextBoxMultilinea(txtEcuacionNota);
+            chkEcuacionActiva.Text = "Activa";
+            chkEcuacionActiva.AutoSize = true;
+            ConectarEventosRenderEcuacionProductiva();
+
+            TableLayoutPanel cuerpo = new TableLayoutPanel();
+            cuerpo.Dock = DockStyle.Top;
+            cuerpo.AutoSize = true;
+            cuerpo.ColumnCount = 1;
+            cuerpo.RowCount = 2;
+            cuerpo.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            cuerpo.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            cuerpo.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            cuerpo.Controls.Add(CrearGrupoIdentificacionEcuacion(), 0, 0);
+            cuerpo.Controls.Add(CrearGrupoCalculoEcuacion(), 0, 1);
+
+            FlowLayoutPanel acciones = new FlowLayoutPanel();
+            acciones.AutoSize = true;
+            acciones.FlowDirection = FlowDirection.LeftToRight;
+            acciones.Margin = new Padding(0, 10, 0, 0);
+
+            Button btnAplicar = CrearBotonEcuacion("Aplicar a fila");
+            btnAplicar.Width = 130;
+            btnAplicar.Click += (s, e) => AplicarEditorEcuacionAFilaSeleccionada();
+
+            Button btnGuardar = CrearBotonEcuacion("Guardar JSON");
+            btnGuardar.Width = 130;
+            btnGuardar.Click += (s, e) =>
+            {
+                AplicarEditorEcuacionAFilaSeleccionada();
+                GuardarBibliotecaEcuacionesProductivas();
+            };
+
+            Button btnEditarTexto = CrearBotonEcuacion("Editar nota");
+            btnEditarTexto.Width = 105;
+            btnEditarTexto.Click += (s, e) => EditarTextoLargoEcuacion("Nota de ecuacion", txtEcuacionNota);
+
+            Button btnVolver = CrearBotonEcuacion("Volver a biblioteca");
+            btnVolver.Width = 150;
+            btnVolver.Click += (s, e) => VolverABibliotecaEcuaciones();
+
+            acciones.Controls.Add(chkEcuacionActiva);
+            acciones.Controls.Add(btnAplicar);
+            acciones.Controls.Add(btnGuardar);
+            acciones.Controls.Add(btnEditarTexto);
+            acciones.Controls.Add(btnVolver);
+
+            Panel scroll = new Panel();
+            scroll.Dock = DockStyle.Fill;
+            scroll.AutoScroll = true;
+            scroll.BackColor = Color.FromArgb(248, 249, 251);
+
+            TableLayoutPanel contenido = new TableLayoutPanel();
+            contenido.Dock = DockStyle.Top;
+            contenido.AutoSize = true;
+            contenido.ColumnCount = 1;
+            contenido.RowCount = 2;
+            contenido.BackColor = Color.FromArgb(248, 249, 251);
+            contenido.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            contenido.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+            cuerpo.AutoSize = true;
+            cuerpo.MinimumSize = new Size(0, 300);
+            contenido.Controls.Add(cuerpo, 0, 0);
+            contenido.Controls.Add(CrearPanelRenderEcuacionProductiva(), 0, 1);
+
+            scroll.Controls.Add(contenido);
+            contenido.Width = Math.Max(600, scroll.ClientSize.Width - SystemInformation.VerticalScrollBarWidth - 6);
+
+            root.Controls.Add(titulo, 0, 0);
+            root.Controls.Add(CrearAyudaEditorEcuacion(), 0, 1);
+            root.Controls.Add(scroll, 0, 2);
+            root.Controls.Add(acciones, 0, 3);
+            scroll.Resize += (s, e) =>
+            {
+                contenido.Width = Math.Max(600, scroll.ClientSize.Width - SystemInformation.VerticalScrollBarWidth - 6);
+            };
+            return root;
+        }
+
+        private Control CrearGrupoIdentificacionEcuacion()
+        {
+            TableLayoutPanel tabla = new TableLayoutPanel();
+            tabla.Dock = DockStyle.Top;
+            tabla.AutoSize = true;
+            tabla.ColumnCount = 2;
+            tabla.RowCount = 6;
+            tabla.Padding = new Padding(12, 10, 12, 12);
+            tabla.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120));
+            tabla.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+
+            AgregarCampoEditorEcuacion(tabla, 0, "Clave", txtEcuacionClave);
+            AgregarCampoEditorEcuacion(tabla, 1, "Nombre", txtEcuacionNombre);
+            AgregarCampoEditorEcuacion(tabla, 2, "Clase", cmbEcuacionTipo);
+            AgregarCampoEditorEcuacion(tabla, 3, "Etapa", txtEcuacionEtapa);
+            AgregarCampoEditorEcuacion(tabla, 4, "Subetapa", txtEcuacionSubEtapa);
+
+            tabla.Controls.Add(CrearEtiquetaEditorEcuacion("Palabras busqueda"), 0, 5);
+            tabla.Controls.Add(CrearPanelListaEditableEcuacion(lstEcuacionTokens, txtNuevoTokenEcuacion, "Agregar palabra"), 1, 5);
+
+            return CrearGrupoEditorEcuacion("Identificacion y busqueda", tabla);
+        }
+
+        private Control CrearGrupoCalculoEcuacion()
+        {
+            TableLayoutPanel tabla = new TableLayoutPanel();
+            tabla.Dock = DockStyle.Top;
+            tabla.AutoSize = true;
+            tabla.ColumnCount = 2;
+            tabla.RowCount = 4;
+            tabla.Padding = new Padding(12, 10, 12, 12);
+            tabla.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120));
+            tabla.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+
+            AgregarCampoEditorEcuacion(tabla, 0, "Formula madre", CrearPanelFormulaMadreEditor());
+
+            tabla.Controls.Add(CrearEtiquetaEditorEcuacion("Variables entrada"), 0, 1);
+            tabla.Controls.Add(CrearPanelListaEditableEcuacion(lstEcuacionVariables, txtNuevaVariableEcuacion, "Agregar variable"), 1, 1);
+
+            tabla.Controls.Add(CrearEtiquetaEditorEcuacion("Cargos que participan en esta formula"), 0, 2);
+            tabla.Controls.Add(CrearPanelCargosParticipantesEcuacion(), 1, 2);
+
+            tabla.Controls.Add(CrearEtiquetaEditorEcuacion("Calculo"), 0, 3);
+            tabla.Controls.Add(txtEcuacionFormula, 1, 3);
+
+            return CrearGrupoEditorEcuacion("Formula, disponibilidad y costos", tabla);
+        }
+
+        private Control CrearGrupoEditorEcuacion(string titulo, Control contenido)
+        {
+            GroupBox grupo = new GroupBox();
+            grupo.Text = titulo;
+            grupo.Dock = DockStyle.Top;
+            grupo.AutoSize = true;
+            grupo.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
+            grupo.Padding = new Padding(10, 8, 10, 10);
+            grupo.Margin = new Padding(0, 0, 12, 8);
+
+            contenido.Dock = DockStyle.Top;
+            grupo.Controls.Add(contenido);
+            return grupo;
+        }
+
+        private Control CrearAyudaEditorEcuacion()
+        {
+            Label ayuda = new Label();
+            ayuda.AutoSize = true;
+            ayuda.MaximumSize = new Size(1120, 0);
+            ayuda.Margin = new Padding(0, 0, 0, 12);
+            ayuda.Font = new Font("Segoe UI", 9f);
+            ayuda.ForeColor = Color.FromArgb(80, 80, 80);
+            ayuda.Text =
+                "Clase: Formula madre es una regla reutilizable; Proceso es una version concreta para pipeline/desglose. " +
+                "Formula madre: regla desde la que hereda el proceso. " +
+                "Palabras de busqueda: sinonimos para que el pipeline encuentre esta formula. " +
+                "Cargos que participan: personas/roles que aportan horas y costo a esta formula. La dedicacion es independiente por cargo y no debe sumar 100%.";
+            return ayuda;
+        }
+
+        private void ConectarEventosRenderEcuacionProductiva()
+        {
+            txtEcuacionClave.TextChanged -= EditorEcuacionProductiva_Changed;
+            txtEcuacionNombre.TextChanged -= EditorEcuacionProductiva_Changed;
+            txtEcuacionEtapa.TextChanged -= EditorEcuacionProductiva_Changed;
+            txtEcuacionSubEtapa.TextChanged -= EditorEcuacionProductiva_Changed;
+            txtEcuacionFormula.TextChanged -= EditorEcuacionProductiva_Changed;
+            txtEcuacionImpacto.TextChanged -= EditorEcuacionProductiva_Changed;
+            cmbEcuacionTipo.SelectedIndexChanged -= EditorEcuacionProductiva_Changed;
+            cmbEcuacionBase.SelectedIndexChanged -= EditorEcuacionProductiva_Changed;
+
+            txtEcuacionClave.TextChanged += EditorEcuacionProductiva_Changed;
+            txtEcuacionNombre.TextChanged += EditorEcuacionProductiva_Changed;
+            txtEcuacionEtapa.TextChanged += EditorEcuacionProductiva_Changed;
+            txtEcuacionSubEtapa.TextChanged += EditorEcuacionProductiva_Changed;
+            txtEcuacionFormula.TextChanged += EditorEcuacionProductiva_Changed;
+            txtEcuacionImpacto.TextChanged += EditorEcuacionProductiva_Changed;
+            cmbEcuacionTipo.SelectedIndexChanged += EditorEcuacionProductiva_Changed;
+            cmbEcuacionBase.SelectedIndexChanged += EditorEcuacionProductiva_Changed;
+        }
+
+        private void EditorEcuacionProductiva_Changed(object sender, EventArgs e)
+        {
+            if (!cargandoEditorEcuaciones)
+            {
+                ActualizarRenderEcuacionProductiva();
+            }
+        }
+
+        private Control CrearPanelRenderEcuacionProductiva()
+        {
+            TableLayoutPanel panel = new TableLayoutPanel();
+            panel.Dock = DockStyle.Top;
+            panel.AutoSize = true;
+            panel.ColumnCount = 1;
+            panel.RowCount = 4;
+            panel.BackColor = Color.FromArgb(241, 243, 246);
+            panel.Padding = new Padding(18, 16, 18, 18);
+            panel.Margin = new Padding(0, 12, 0, 0);
+            panel.MinimumSize = new Size(0, 520);
+            panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 260));
+
+            Label titulo = new Label();
+            titulo.Text = "Formula legible";
+            titulo.AutoSize = true;
+            titulo.Font = new Font("Segoe UI", 12f, FontStyle.Bold);
+            titulo.Margin = new Padding(0, 0, 0, 10);
+
+            rtbEcuacionRenderizada.Dock = DockStyle.Fill;
+            rtbEcuacionRenderizada.ReadOnly = true;
+            rtbEcuacionRenderizada.BorderStyle = BorderStyle.FixedSingle;
+            rtbEcuacionRenderizada.BackColor = Color.White;
+            rtbEcuacionRenderizada.Font = new Font("Segoe UI", 11f);
+            rtbEcuacionRenderizada.ScrollBars = RichTextBoxScrollBars.Vertical;
+            rtbEcuacionRenderizada.MinimumSize = new Size(0, 240);
+
+            Label lblDesglose = new Label();
+            lblDesglose.Text = "Desglose calculado de cargos participantes";
+            lblDesglose.AutoSize = true;
+            lblDesglose.Font = new Font("Segoe UI", 10f, FontStyle.Bold);
+            lblDesglose.ForeColor = Color.FromArgb(45, 55, 70);
+            lblDesglose.Margin = new Padding(0, 12, 0, 6);
+
+            panel.Controls.Add(titulo, 0, 0);
+            panel.Controls.Add(CrearPanelConstructorFormulaVisual(), 0, 1);
+            panel.Controls.Add(lblDesglose, 0, 2);
+            panel.Controls.Add(rtbEcuacionRenderizada, 0, 3);
+            return panel;
+        }
+
+        private Control CrearPanelMapaFlujoEcuacion()
+        {
+            Panel contenedor = new Panel();
+            contenedor.Dock = DockStyle.Fill;
+            contenedor.AutoScroll = true;
+            contenedor.BackColor = Color.White;
+
+            pnlMapaFlujoEcuacion = new Panel();
+            pnlMapaFlujoEcuacion.Location = new Point(0, 0);
+            pnlMapaFlujoEcuacion.Size = new Size(1460, 860);
+            pnlMapaFlujoEcuacion.BackColor = Color.White;
+            pnlMapaFlujoEcuacion.Paint += PnlMapaFlujoEcuacion_Paint;
+            pnlMapaFlujoEcuacion.MouseDoubleClick += PnlMapaFlujoEcuacion_MouseDoubleClick;
+
+            contenedor.Controls.Add(pnlMapaFlujoEcuacion);
+            return contenedor;
+        }
+
+        private Control CrearPanelConstructorFormulaVisual()
+        {
+            TableLayoutPanel panel = new TableLayoutPanel();
+            panel.Dock = DockStyle.Top;
+            panel.AutoSize = true;
+            panel.ColumnCount = 3;
+            panel.RowCount = 3;
+            panel.Margin = new Padding(0, 0, 0, 10);
+            panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 46));
+            panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 150));
+            panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 54));
+
+            Label lblNumerador = CrearEtiquetaEditorEcuacion("Numerador");
+            Label lblDenominador = CrearEtiquetaEditorEcuacion("Denominador");
+            lblNumerador.Margin = new Padding(0, 0, 0, 4);
+            lblDenominador.Margin = new Padding(0, 0, 0, 4);
+
+            lstEcuacionNumerador.Dock = DockStyle.Fill;
+            lstEcuacionNumerador.Height = 96;
+            lstEcuacionNumerador.HorizontalScrollbar = true;
+            lstEcuacionDenominador.Dock = DockStyle.Fill;
+            lstEcuacionDenominador.Height = 96;
+            lstEcuacionDenominador.HorizontalScrollbar = true;
+
+            Label ayuda = new Label();
+            ayuda.Text = "Selecciona una variable arriba y agregala al numerador o denominador.";
+            ayuda.AutoSize = true;
+            ayuda.ForeColor = Color.FromArgb(90, 90, 90);
+            ayuda.Margin = new Padding(0, 0, 0, 8);
+
+            FlowLayoutPanel acciones = new FlowLayoutPanel();
+            acciones.Dock = DockStyle.Fill;
+            acciones.FlowDirection = FlowDirection.TopDown;
+            acciones.WrapContents = false;
+            acciones.Padding = new Padding(8, 4, 8, 0);
+
+            Button btnNumerador = CrearBotonEcuacion("Agregar arriba");
+            btnNumerador.Width = 128;
+            btnNumerador.Click += (s, e) => AgregarVariableAFactorEcuacion(lstEcuacionNumerador);
+
+            Button btnDenominador = CrearBotonEcuacion("Agregar abajo");
+            btnDenominador.Width = 128;
+            btnDenominador.Click += (s, e) => AgregarVariableAFactorEcuacion(lstEcuacionDenominador);
+
+            Button btnQuitar = CrearBotonEcuacion("Quitar");
+            btnQuitar.Width = 128;
+            btnQuitar.Click += (s, e) => QuitarVariableFactorEcuacion();
+
+            acciones.Controls.Add(btnNumerador);
+            acciones.Controls.Add(btnDenominador);
+            acciones.Controls.Add(btnQuitar);
+
+            panel.Controls.Add(ayuda, 0, 0);
+            panel.SetColumnSpan(ayuda, 3);
+            panel.Controls.Add(lblNumerador, 0, 1);
+            panel.Controls.Add(new Label { AutoSize = true }, 1, 1);
+            panel.Controls.Add(lblDenominador, 2, 1);
+            panel.Controls.Add(lstEcuacionNumerador, 0, 2);
+            panel.Controls.Add(acciones, 1, 2);
+            panel.Controls.Add(lstEcuacionDenominador, 2, 2);
+
+            return panel;
+        }
+
+        private void SetColEcuacion(string nombre, int ancho)
+        {
+            if (dgvEcuacionesProductivas.Columns.Contains(nombre))
+            {
+                dgvEcuacionesProductivas.Columns[nombre].Width = ancho;
+            }
+        }
+
+        private void TabEcuacionesProductivas_Enter(object sender, EventArgs e)
+        {
+            CargarBibliotecaEcuacionesProductivasEnPantalla();
+        }
+
+        private void ConfigurarComboSimple(ComboBox combo, string[] valores)
+        {
+            combo.DropDownStyle = ComboBoxStyle.DropDownList;
+            combo.Items.Clear();
+            combo.Items.AddRange(valores);
+            if (combo.Items.Count > 0)
+            {
+                combo.SelectedIndex = 0;
+            }
+            combo.Dock = DockStyle.Fill;
+        }
+
+        private void ConfigurarTextBoxMultilinea(TextBox txt)
+        {
+            txt.Multiline = true;
+            txt.ScrollBars = ScrollBars.Vertical;
+            txt.Dock = DockStyle.Fill;
+            txt.Height = 58;
+        }
+
+        private Label CrearEtiquetaEditorEcuacion(string texto)
+        {
+            return new Label
+            {
+                Text = texto,
+                AutoSize = true,
+                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(35, 35, 35),
+                Margin = new Padding(0, 5, 8, 6)
+            };
+        }
+
+        private Control CrearPanelFormulaMadreEditor()
+        {
+            TableLayoutPanel panel = new TableLayoutPanel();
+            panel.Dock = DockStyle.Fill;
+            panel.AutoSize = true;
+            panel.ColumnCount = 1;
+            panel.RowCount = 2;
+            panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            panel.Margin = new Padding(0, 0, 12, 6);
+
+            cmbEcuacionBase.Dock = DockStyle.Top;
+            cmbEcuacionBase.Margin = new Padding(0, 0, 0, 4);
+
+            lblDetalleEcuacionBase.AutoSize = true;
+            lblDetalleEcuacionBase.Dock = DockStyle.Top;
+            lblDetalleEcuacionBase.MaximumSize = new Size(430, 0);
+            lblDetalleEcuacionBase.Padding = new Padding(8, 6, 8, 6);
+            lblDetalleEcuacionBase.Margin = new Padding(0, 0, 0, 4);
+            lblDetalleEcuacionBase.BackColor = Color.FromArgb(238, 242, 248);
+            lblDetalleEcuacionBase.BorderStyle = BorderStyle.FixedSingle;
+            lblDetalleEcuacionBase.Font = new Font("Segoe UI", 8.4f, FontStyle.Regular);
+            lblDetalleEcuacionBase.ForeColor = Color.FromArgb(45, 55, 70);
+            lblDetalleEcuacionBase.Text = "Selecciona una formula madre para ver la regla que controla esta ecuacion.";
+
+            panel.Controls.Add(cmbEcuacionBase, 0, 0);
+            panel.Controls.Add(lblDetalleEcuacionBase, 0, 1);
+            return panel;
+        }
+
+        private void AgregarCampoEditorEcuacion(TableLayoutPanel tabla, int fila, string etiqueta, Control control)
+        {
+            tabla.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            if (control != cmbEcuacionBase.Parent)
+            {
+                control.Dock = DockStyle.Fill;
+                control.Margin = new Padding(0, 0, 12, 6);
+            }
+            tabla.Controls.Add(CrearEtiquetaEditorEcuacion(etiqueta), 0, fila);
+            tabla.Controls.Add(control, 1, fila);
+        }
+
+        private Control CrearPanelListaEditableEcuacion(ListBox lista, TextBox entrada, string textoBoton)
+        {
+            TableLayoutPanel panel = new TableLayoutPanel();
+            panel.Dock = DockStyle.Fill;
+            panel.ColumnCount = 1;
+            panel.RowCount = 2;
+            panel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            panel.Margin = new Padding(0, 0, 0, 6);
+
+            lista.Dock = DockStyle.Fill;
+            lista.HorizontalScrollbar = true;
+            lista.Height = 72;
+            if (ReferenceEquals(lista, lstEcuacionVariables))
+            {
+                lista.DoubleClick -= LstEcuacionVariables_DoubleClick;
+                lista.DoubleClick += LstEcuacionVariables_DoubleClick;
+            }
+
+            FlowLayoutPanel acciones = new FlowLayoutPanel();
+            acciones.AutoSize = true;
+            acciones.FlowDirection = FlowDirection.LeftToRight;
+            acciones.WrapContents = false;
+
+            entrada.Width = 170;
+            entrada.Margin = new Padding(0, 4, 6, 0);
+
+            Button agregar = CrearBotonEcuacion(textoBoton);
+            agregar.Width = textoBoton.Length > 14 ? 145 : 120;
+            agregar.Margin = new Padding(0, 2, 6, 0);
+            agregar.Click += (s, e) => AgregarItemListaEcuacion(lista, entrada);
+
+            Button quitar = CrearBotonEcuacion("Quitar");
+            quitar.Width = 75;
+            quitar.Margin = new Padding(0, 2, 0, 0);
+            quitar.Click += (s, e) =>
+            {
+                if (lista.SelectedItem != null)
+                {
+                    lista.Items.Remove(lista.SelectedItem);
+                    ActualizarRenderEcuacionProductiva();
+                }
+            };
+
+            acciones.Controls.Add(entrada);
+            acciones.Controls.Add(agregar);
+            acciones.Controls.Add(quitar);
+
+            panel.Controls.Add(lista, 0, 0);
+            panel.Controls.Add(acciones, 0, 1);
+            return panel;
+        }
+
+        private void LstEcuacionVariables_DoubleClick(object sender, EventArgs e)
+        {
+            AgregarVariableAFactorEcuacion(lstEcuacionNumerador);
+        }
+
+        private Control CrearPanelCargosParticipantesEcuacion()
+        {
+            TableLayoutPanel panel = new TableLayoutPanel();
+            panel.Dock = DockStyle.Fill;
+            panel.ColumnCount = 1;
+            panel.RowCount = 4;
+            panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 220));
+            panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 170));
+            panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 1));
+            panel.Margin = new Padding(0, 0, 0, 6);
+
+            ConfigurarGrillaCargosParticipantesEcuacion();
+
+            // Compatibilidad: el calculo actual sigue leyendo CargosPermitidos.
+            // Esta lista queda oculta y se sincroniza desde el editor visual.
+            lstEcuacionCargosPermitidos.Dock = DockStyle.Fill;
+            lstEcuacionCargosPermitidos.Visible = false;
+
+            FlowLayoutPanel acciones = new FlowLayoutPanel();
+            acciones.AutoSize = true;
+            acciones.FlowDirection = FlowDirection.LeftToRight;
+            acciones.WrapContents = false;
+
+            Button agregar = CrearBotonEcuacion("Agregar cargo");
+            agregar.Width = 128;
+            agregar.Margin = new Padding(0, 2, 6, 0);
+            agregar.Click += (s, e) => AgregarCargoParticipanteEcuacion();
+
+            Button editar = CrearBotonEcuacion("Editar dedicacion");
+            editar.Width = 150;
+            editar.Margin = new Padding(0, 2, 6, 0);
+            editar.Click += (s, e) => EditarCargoParticipanteEcuacion();
+
+            Button quitar = CrearBotonEcuacion("Quitar");
+            quitar.Width = 75;
+            quitar.Margin = new Padding(0, 2, 6, 0);
+            quitar.Click += (s, e) =>
+            {
+                if (dgvCargosParticipantesEcuacion.CurrentRow != null &&
+                    !dgvCargosParticipantesEcuacion.CurrentRow.IsNewRow)
+                {
+                    dgvCargosParticipantesEcuacion.Rows.Remove(dgvCargosParticipantesEcuacion.CurrentRow);
+                    SincronizarCargosParticipantesConLegacy();
+                    ActualizarVistaPreviaCargosParticipantes();
+                    ActualizarRenderEcuacionProductiva();
+                }
+            };
+
+            Button revisarCargos = CrearBotonEcuacion("Revisar cargos");
+            revisarCargos.Width = 120;
+            revisarCargos.Margin = new Padding(0, 2, 0, 0);
+            revisarCargos.Click += (s, e) => AbrirTabPrincipal(tabCargosPrincipal, true);
+
+            Button guardarVector = CrearBotonEcuacion("Guardar cargos en JSON");
+            guardarVector.Width = 178;
+            guardarVector.Margin = new Padding(0, 2, 0, 0);
+            guardarVector.Click += (s, e) => GuardarVectorCargosParticipantesJson();
+
+            acciones.Controls.Add(agregar);
+            acciones.Controls.Add(editar);
+            acciones.Controls.Add(quitar);
+            acciones.Controls.Add(revisarCargos);
+            acciones.Controls.Add(guardarVector);
+
+            rtbVistaPreviaCargosParticipantes.Dock = DockStyle.Fill;
+            rtbVistaPreviaCargosParticipantes.ReadOnly = true;
+            rtbVistaPreviaCargosParticipantes.BorderStyle = BorderStyle.FixedSingle;
+            rtbVistaPreviaCargosParticipantes.BackColor = Color.FromArgb(250, 252, 255);
+            rtbVistaPreviaCargosParticipantes.ForeColor = Color.FromArgb(35, 35, 35);
+            rtbVistaPreviaCargosParticipantes.Font = new Font("Segoe UI", 9f, FontStyle.Regular);
+            rtbVistaPreviaCargosParticipantes.ScrollBars = RichTextBoxScrollBars.Vertical;
+            rtbVistaPreviaCargosParticipantes.Margin = new Padding(0, 8, 0, 0);
+
+            panel.Controls.Add(dgvCargosParticipantesEcuacion, 0, 0);
+            panel.Controls.Add(acciones, 0, 1);
+            panel.Controls.Add(rtbVistaPreviaCargosParticipantes, 0, 2);
+            panel.Controls.Add(lstEcuacionCargosPermitidos, 0, 3);
+            ActualizarVistaPreviaCargosParticipantes();
+            return panel;
+        }
+
+        private void ConfigurarGrillaCargosParticipantesEcuacion()
+        {
+            dgvCargosParticipantesEcuacion.Dock = DockStyle.Fill;
+            dgvCargosParticipantesEcuacion.AllowUserToAddRows = false;
+            dgvCargosParticipantesEcuacion.AllowUserToDeleteRows = false;
+            dgvCargosParticipantesEcuacion.ReadOnly = true;
+            dgvCargosParticipantesEcuacion.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+            dgvCargosParticipantesEcuacion.MultiSelect = false;
+            dgvCargosParticipantesEcuacion.RowHeadersVisible = false;
+            dgvCargosParticipantesEcuacion.BackgroundColor = Color.White;
+            dgvCargosParticipantesEcuacion.BorderStyle = BorderStyle.FixedSingle;
+            dgvCargosParticipantesEcuacion.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
+            dgvCargosParticipantesEcuacion.RowTemplate.Height = 28;
+            dgvCargosParticipantesEcuacion.CellDoubleClick -= DgvCargosParticipantesEcuacion_CellDoubleClick;
+            dgvCargosParticipantesEcuacion.CellDoubleClick += DgvCargosParticipantesEcuacion_CellDoubleClick;
+            dgvCargosParticipantesEcuacion.SelectionChanged -= DgvCargosParticipantesEcuacion_SelectionChanged;
+            dgvCargosParticipantesEcuacion.SelectionChanged += DgvCargosParticipantesEcuacion_SelectionChanged;
+
+            if (dgvCargosParticipantesEcuacion.Columns.Count > 0)
+            {
+                AplicarEncabezadosGrillaCargosParticipantes();
+                return;
+            }
+
+            dgvCargosParticipantesEcuacion.Columns.Add("Cargo", "Cargo");
+            dgvCargosParticipantesEcuacion.Columns.Add("TarifaDiariaCLP", "Tarifa diaria");
+            dgvCargosParticipantesEcuacion.Columns.Add("HorasPorDia", "Horas/dia");
+            dgvCargosParticipantesEcuacion.Columns.Add("TarifaHorariaCLP", "Tarifa horaria");
+            dgvCargosParticipantesEcuacion.Columns.Add("DedicacionPorcentaje", "Dedicacion %");
+            dgvCargosParticipantesEcuacion.Columns.Add("ParticipacionNormalizada", "Factor dedicacion");
+            dgvCargosParticipantesEcuacion.Columns.Add("HorasProceso", "Horas proceso");
+            dgvCargosParticipantesEcuacion.Columns.Add("HorasAsignadas", "Horas asignadas");
+            dgvCargosParticipantesEcuacion.Columns.Add("CostoDerivadoCLP", "Costo/h efectivo");
+            dgvCargosParticipantesEcuacion.Columns.Add("CostoTotalCLP", "Costo total");
+            dgvCargosParticipantesEcuacion.Columns.Add("ModoCalculo", "Modo de calculo");
+            dgvCargosParticipantesEcuacion.Columns.Add("VariableBase", "Variable base");
+            dgvCargosParticipantesEcuacion.Columns.Add("CantidadFactor", "Rendimiento/factor");
+            dgvCargosParticipantesEcuacion.Columns.Add("FormulaPersonalizada", "Formula personalizada");
+
+            dgvCargosParticipantesEcuacion.Columns["Cargo"].Width = 230;
+            dgvCargosParticipantesEcuacion.Columns["TarifaDiariaCLP"].Width = 110;
+            dgvCargosParticipantesEcuacion.Columns["HorasPorDia"].Width = 78;
+            dgvCargosParticipantesEcuacion.Columns["TarifaHorariaCLP"].Width = 110;
+            dgvCargosParticipantesEcuacion.Columns["DedicacionPorcentaje"].Width = 110;
+            dgvCargosParticipantesEcuacion.Columns["ParticipacionNormalizada"].Width = 155;
+            dgvCargosParticipantesEcuacion.Columns["HorasProceso"].Width = 105;
+            dgvCargosParticipantesEcuacion.Columns["HorasAsignadas"].Width = 110;
+            dgvCargosParticipantesEcuacion.Columns["CostoDerivadoCLP"].Width = 125;
+            dgvCargosParticipantesEcuacion.Columns["CostoTotalCLP"].Width = 120;
+            dgvCargosParticipantesEcuacion.Columns["ModoCalculo"].Width = 230;
+            dgvCargosParticipantesEcuacion.Columns["VariableBase"].Width = 130;
+            dgvCargosParticipantesEcuacion.Columns["CantidadFactor"].Width = 105;
+            dgvCargosParticipantesEcuacion.Columns["ModoCalculo"].Visible = true;
+            dgvCargosParticipantesEcuacion.Columns["VariableBase"].Visible = true;
+            dgvCargosParticipantesEcuacion.Columns["CantidadFactor"].Visible = true;
+            dgvCargosParticipantesEcuacion.Columns["FormulaPersonalizada"].Visible = false;
+            AplicarEncabezadosGrillaCargosParticipantes();
+        }
+
+        private void AplicarEncabezadosGrillaCargosParticipantes()
+        {
+            if (dgvCargosParticipantesEcuacion.Columns.Count == 0)
+            {
+                return;
+            }
+
+            if (dgvCargosParticipantesEcuacion.Columns.Contains("TarifaHorariaCLP"))
+            {
+                dgvCargosParticipantesEcuacion.Columns["TarifaHorariaCLP"].HeaderText = "Tarifa base/h";
+            }
+
+            if (dgvCargosParticipantesEcuacion.Columns.Contains("DedicacionPorcentaje"))
+            {
+                dgvCargosParticipantesEcuacion.Columns["DedicacionPorcentaje"].HeaderText = "Dedicacion %";
+            }
+
+            if (dgvCargosParticipantesEcuacion.Columns.Contains("ParticipacionNormalizada"))
+            {
+                dgvCargosParticipantesEcuacion.Columns["ParticipacionNormalizada"].HeaderText = "Factor dedicacion";
+            }
+
+            if (dgvCargosParticipantesEcuacion.Columns.Contains("HorasProceso"))
+            {
+                dgvCargosParticipantesEcuacion.Columns["HorasProceso"].HeaderText = "Horas proceso";
+            }
+
+            if (dgvCargosParticipantesEcuacion.Columns.Contains("HorasAsignadas"))
+            {
+                dgvCargosParticipantesEcuacion.Columns["HorasAsignadas"].HeaderText = "Horas cargo";
+            }
+
+            if (dgvCargosParticipantesEcuacion.Columns.Contains("CostoDerivadoCLP"))
+            {
+                dgvCargosParticipantesEcuacion.Columns["CostoDerivadoCLP"].HeaderText = "Costo/h dedicado";
+            }
+
+            if (dgvCargosParticipantesEcuacion.Columns.Contains("CostoTotalCLP"))
+            {
+                dgvCargosParticipantesEcuacion.Columns["CostoTotalCLP"].HeaderText = "Costo derivado";
+            }
+
+            if (dgvCargosParticipantesEcuacion.Columns.Contains("ModoCalculo"))
+            {
+                dgvCargosParticipantesEcuacion.Columns["ModoCalculo"].HeaderText = "Como participa";
+            }
+
+            if (dgvCargosParticipantesEcuacion.Columns.Contains("VariableBase"))
+            {
+                dgvCargosParticipantesEcuacion.Columns["VariableBase"].HeaderText = "Variable base";
+            }
+
+            if (dgvCargosParticipantesEcuacion.Columns.Contains("CantidadFactor"))
+            {
+                dgvCargosParticipantesEcuacion.Columns["CantidadFactor"].HeaderText = "Cantidad/factor";
+            }
+        }
+
+        private void DgvCargosParticipantesEcuacion_CellDoubleClick(object sender, DataGridViewCellEventArgs e)
+        {
+            EditarCargoParticipanteEcuacion();
+        }
+
+        private void DgvCargosParticipantesEcuacion_SelectionChanged(object sender, EventArgs e)
+        {
+            if (cargandoEditorEcuaciones || actualizandoCargosParticipantes)
+            {
+                return;
+            }
+
+            ActualizarVistaPreviaCargosParticipantes();
+        }
+
+        private Control CrearPanelCargosPermitidosEcuacion()
+        {
+            TableLayoutPanel panel = new TableLayoutPanel();
+            panel.Dock = DockStyle.Fill;
+            panel.ColumnCount = 1;
+            panel.RowCount = 3;
+            panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 50));
+            panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 118));
+            panel.Margin = new Padding(0, 0, 0, 6);
+
+            lstEcuacionCargosPermitidos.Dock = DockStyle.Fill;
+            lstEcuacionCargosPermitidos.HorizontalScrollbar = true;
+            lstEcuacionCargosPermitidos.Height = 50;
+            lstEcuacionCargosPermitidos.SelectedIndexChanged -= LstEcuacionCargosPermitidos_SelectedIndexChanged;
+            lstEcuacionCargosPermitidos.SelectedIndexChanged += LstEcuacionCargosPermitidos_SelectedIndexChanged;
+
+            RefrescarComboCargosPermitidosEcuacion();
+
+            FlowLayoutPanel acciones = new FlowLayoutPanel();
+            acciones.AutoSize = true;
+            acciones.FlowDirection = FlowDirection.LeftToRight;
+            acciones.WrapContents = false;
+
+            cmbCargoPermitidoEcuacion.Width = 260;
+            cmbCargoPermitidoEcuacion.Margin = new Padding(0, 4, 6, 0);
+
+            nudPonderadorCargoEcuacion.DecimalPlaces = 2;
+            nudPonderadorCargoEcuacion.Minimum = 0.01M;
+            nudPonderadorCargoEcuacion.Maximum = 5M;
+            nudPonderadorCargoEcuacion.Increment = 0.05M;
+            nudPonderadorCargoEcuacion.Value = 1M;
+            nudPonderadorCargoEcuacion.Width = 72;
+            nudPonderadorCargoEcuacion.Margin = new Padding(0, 4, 6, 0);
+
+            Label lblPonderador = new Label();
+            lblPonderador.Text = "dedicacion";
+            lblPonderador.AutoSize = true;
+            lblPonderador.Margin = new Padding(0, 8, 8, 0);
+            lblPonderador.ForeColor = Color.FromArgb(80, 80, 80);
+
+            Button agregar = CrearBotonEcuacion("Agregar cargo");
+            agregar.Width = 128;
+            agregar.Margin = new Padding(0, 2, 6, 0);
+            agregar.Click += (s, e) => AgregarCargoPermitidoEcuacion();
+
+            Button aplicarPonderador = CrearBotonEcuacion("Aplicar %");
+            aplicarPonderador.Width = 90;
+            aplicarPonderador.Margin = new Padding(0, 2, 6, 0);
+            aplicarPonderador.Click += (s, e) => AplicarPonderadorCargoSeleccionadoEcuacion();
+
+            Button quitar = CrearBotonEcuacion("Quitar");
+            quitar.Width = 75;
+            quitar.Margin = new Padding(0, 2, 6, 0);
+            quitar.Click += (s, e) =>
+            {
+                if (lstEcuacionCargosPermitidos.SelectedItem != null)
+                {
+                    lstEcuacionCargosPermitidos.Items.Remove(lstEcuacionCargosPermitidos.SelectedItem);
+                    ActualizarResumenVectorCargosEcuacion();
+                    ActualizarRenderEcuacionProductiva();
+                }
+            };
+
+            Button revisarCargos = CrearBotonEcuacion("Revisar cargos");
+            revisarCargos.Width = 120;
+            revisarCargos.Margin = new Padding(0, 2, 0, 0);
+            revisarCargos.Click += (s, e) => AbrirTabPrincipal(tabCargosPrincipal, true);
+
+            acciones.Controls.Add(cmbCargoPermitidoEcuacion);
+            acciones.Controls.Add(nudPonderadorCargoEcuacion);
+            acciones.Controls.Add(lblPonderador);
+            acciones.Controls.Add(agregar);
+            acciones.Controls.Add(aplicarPonderador);
+            acciones.Controls.Add(quitar);
+            acciones.Controls.Add(revisarCargos);
+
+            rtbResumenVectorCargosEcuacion.Dock = DockStyle.Fill;
+            rtbResumenVectorCargosEcuacion.ReadOnly = true;
+            rtbResumenVectorCargosEcuacion.BorderStyle = BorderStyle.FixedSingle;
+            rtbResumenVectorCargosEcuacion.BackColor = Color.FromArgb(250, 252, 255);
+            rtbResumenVectorCargosEcuacion.ForeColor = Color.FromArgb(35, 35, 35);
+            rtbResumenVectorCargosEcuacion.Font = new Font("Segoe UI", 9f, FontStyle.Regular);
+            rtbResumenVectorCargosEcuacion.ScrollBars = RichTextBoxScrollBars.Vertical;
+            rtbResumenVectorCargosEcuacion.Margin = new Padding(0, 8, 0, 0);
+
+            panel.Controls.Add(lstEcuacionCargosPermitidos, 0, 0);
+            panel.Controls.Add(acciones, 0, 1);
+            panel.Controls.Add(rtbResumenVectorCargosEcuacion, 0, 2);
+            ActualizarResumenVectorCargosEcuacion();
+            return panel;
+        }
+
+        private void LstEcuacionCargosPermitidos_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (lstEcuacionCargosPermitidos.SelectedItem == null)
+            {
+                return;
+            }
+
+            CargoPonderadoEcuacion seleccionado =
+                ObtenerCargoPonderadoEcuacion(lstEcuacionCargosPermitidos.SelectedItem);
+
+            cmbCargoPermitidoEcuacion.Text = seleccionado.Cargo;
+            decimal valor = (decimal)Math.Max(
+                (double)nudPonderadorCargoEcuacion.Minimum,
+                Math.Min((double)nudPonderadorCargoEcuacion.Maximum, seleccionado.Ponderador)
+            );
+            nudPonderadorCargoEcuacion.Value = valor;
+            ActualizarResumenVectorCargosEcuacion();
+        }
+
+        private void RefrescarComboCargosPermitidosEcuacion()
+        {
+            string actual = Convert.ToString(cmbCargoPermitidoEcuacion.Text) ?? "";
+            cmbCargoPermitidoEcuacion.DropDownStyle = ComboBoxStyle.DropDown;
+            cmbCargoPermitidoEcuacion.Items.Clear();
+
+            foreach (string cargo in Cargos.CrearBibliotecaCompleta()
+                .Where(c => c != null && !string.IsNullOrWhiteSpace(c.NombreCompleto))
+                .Select(c => c.NombreCompleto)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(c => c))
+            {
+                cmbCargoPermitidoEcuacion.Items.Add(cargo);
+            }
+
+            cmbCargoPermitidoEcuacion.Text = actual;
+        }
+
+        private void AgregarCargoPermitidoEcuacion()
+        {
+            string valor = (cmbCargoPermitidoEcuacion.Text ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(valor))
+            {
+                return;
+            }
+
+            CargoPonderadoEcuacion cargoNuevo = new CargoPonderadoEcuacion
+            {
+                Cargo = valor,
+                Ponderador = (double)nudPonderadorCargoEcuacion.Value
+            };
+
+            bool existe = lstEcuacionCargosPermitidos.Items
+                .Cast<object>()
+                .Select(ObtenerCargoPonderadoEcuacion)
+                .Any(i => string.Equals(i.Cargo, valor, StringComparison.OrdinalIgnoreCase));
+
+            if (existe)
+            {
+                for (int i = 0; i < lstEcuacionCargosPermitidos.Items.Count; i++)
+                {
+                    CargoPonderadoEcuacion existente =
+                        ObtenerCargoPonderadoEcuacion(lstEcuacionCargosPermitidos.Items[i]);
+
+                    if (string.Equals(existente.Cargo, valor, StringComparison.OrdinalIgnoreCase))
+                    {
+                        lstEcuacionCargosPermitidos.Items[i] = cargoNuevo;
+                        lstEcuacionCargosPermitidos.SelectedIndex = i;
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                lstEcuacionCargosPermitidos.Items.Add(cargoNuevo);
+            }
+
+            cmbCargoPermitidoEcuacion.Text = "";
+            nudPonderadorCargoEcuacion.Value = 1M;
+            ActualizarResumenVectorCargosEcuacion();
+            ActualizarRenderEcuacionProductiva();
+        }
+
+        private void AplicarPonderadorCargoSeleccionadoEcuacion()
+        {
+            int index = lstEcuacionCargosPermitidos.SelectedIndex;
+            if (index < 0)
+            {
+                AgregarCargoPermitidoEcuacion();
+                return;
+            }
+
+            CargoPonderadoEcuacion cargo =
+                ObtenerCargoPonderadoEcuacion(lstEcuacionCargosPermitidos.Items[index]);
+
+            if (!string.IsNullOrWhiteSpace(cmbCargoPermitidoEcuacion.Text))
+            {
+                cargo.Cargo = cmbCargoPermitidoEcuacion.Text.Trim();
+            }
+
+            cargo.Ponderador = (double)nudPonderadorCargoEcuacion.Value;
+            lstEcuacionCargosPermitidos.Items[index] = cargo;
+            lstEcuacionCargosPermitidos.SelectedIndex = index;
+            ActualizarResumenVectorCargosEcuacion();
+            ActualizarRenderEcuacionProductiva();
+        }
+
+        private static readonly string[] ModosCalculoCargoParticipante =
+        {
+            "Trabaja durante todo el periodo productivo",
+            "Dias fijos",
+            "Horas fijas",
+            "Minutos por unidad",
+            "Horas por unidad",
+            "Porcentaje de una variable",
+            "Formula personalizada"
+        };
+
+        private void AgregarCargoParticipanteEcuacion()
+        {
+            CargoParticipanteFormula participante = MostrarDialogoCargoParticipante(null);
+            if (participante == null)
+            {
+                return;
+            }
+
+            AgregarParticipanteAGrilla(participante);
+            SincronizarCargosParticipantesConLegacy();
+            ActualizarVistaPreviaCargosParticipantes();
+            ActualizarRenderEcuacionProductiva();
+        }
+
+        private void EditarCargoParticipanteEcuacion()
+        {
+            if (dgvCargosParticipantesEcuacion.CurrentRow == null ||
+                dgvCargosParticipantesEcuacion.CurrentRow.IsNewRow)
+            {
+                AgregarCargoParticipanteEcuacion();
+                return;
+            }
+
+            CargoParticipanteFormula actual = ObtenerParticipanteDesdeFila(dgvCargosParticipantesEcuacion.CurrentRow);
+            CargoParticipanteFormula editado = MostrarDialogoCargoParticipante(actual);
+            if (editado == null)
+            {
+                return;
+            }
+
+            EscribirParticipanteEnFila(dgvCargosParticipantesEcuacion.CurrentRow, editado);
+            SincronizarCargosParticipantesConLegacy();
+            ActualizarVistaPreviaCargosParticipantes();
+            ActualizarRenderEcuacionProductiva();
+        }
+
+        private void GuardarVectorCargosParticipantesJson()
+        {
+            if (dgvEcuacionesProductivas.CurrentRow == null)
+            {
+                MessageBox.Show(
+                    "Selecciona primero una formula/proceso de la biblioteca.",
+                    "Guardar cargos en JSON",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information
+                );
+                return;
+            }
+
+            SincronizarCargosParticipantesConLegacy();
+            AplicarEditorEcuacionAFilaSeleccionada();
+            GuardarBibliotecaEcuacionesProductivas();
+            ActualizarVistaPreviaCargosParticipantes();
+            ActualizarRenderEcuacionProductiva();
+        }
+
+        private CargoParticipanteFormula MostrarDialogoCargoParticipante(CargoParticipanteFormula participante)
+        {
+            CargoParticipanteFormula trabajo = participante == null
+                ? new CargoParticipanteFormula()
+                : new CargoParticipanteFormula
+                {
+                    Cargo = participante.Cargo,
+                    TarifaDiariaCLP = participante.TarifaDiariaCLP,
+                    HorasPorDia = participante.HorasPorDia,
+                    DedicacionPorcentaje = participante.DedicacionPorcentaje,
+                    ModoCalculo = participante.ModoCalculo,
+                    VariableBase = participante.VariableBase,
+                    CantidadFactor = participante.CantidadFactor,
+                    FormulaPersonalizada = participante.FormulaPersonalizada
+                };
+
+            Form dialogo = new Form();
+            dialogo.Text = "Configurar dedicacion del cargo";
+            dialogo.StartPosition = FormStartPosition.CenterParent;
+            dialogo.FormBorderStyle = FormBorderStyle.FixedDialog;
+            dialogo.MaximizeBox = false;
+            dialogo.MinimizeBox = false;
+            dialogo.ClientSize = new Size(640, 420);
+
+            TableLayoutPanel tabla = new TableLayoutPanel();
+            tabla.Dock = DockStyle.Fill;
+            tabla.Padding = new Padding(18);
+            tabla.ColumnCount = 2;
+            tabla.RowCount = 9;
+            tabla.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 210));
+            tabla.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            dialogo.Controls.Add(tabla);
+
+            ComboBox cmbCargo = new ComboBox();
+            cmbCargo.DropDownStyle = ComboBoxStyle.DropDown;
+            cmbCargo.Dock = DockStyle.Fill;
+            foreach (string cargo in Cargos.CrearBibliotecaCompleta()
+                .Where(c => c != null && !string.IsNullOrWhiteSpace(c.NombreCompleto))
+                .Select(c => c.NombreCompleto)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(c => c))
+            {
+                cmbCargo.Items.Add(cargo);
+            }
+            cmbCargo.Text = trabajo.Cargo ?? "";
+
+            ComboBox cmbModo = new ComboBox();
+            cmbModo.DropDownStyle = ComboBoxStyle.DropDownList;
+            cmbModo.Dock = DockStyle.Fill;
+            cmbModo.Items.AddRange(ModosCalculoCargoParticipante);
+            SeleccionarComboSeguro(cmbModo, string.IsNullOrWhiteSpace(trabajo.ModoCalculo)
+                ? ModosCalculoCargoParticipante[0]
+                : trabajo.ModoCalculo);
+
+            ComboBox cmbVariable = new ComboBox();
+            cmbVariable.DropDownStyle = ComboBoxStyle.DropDown;
+            cmbVariable.Dock = DockStyle.Fill;
+            foreach (object item in lstEcuacionVariables.Items)
+            {
+                string variable = Convert.ToString(item) ?? "";
+                if (!string.IsNullOrWhiteSpace(variable) && !cmbVariable.Items.Contains(variable))
+                {
+                    cmbVariable.Items.Add(variable);
+                }
+            }
+            cmbVariable.Text = trabajo.VariableBase ?? "";
+
+            NumericUpDown nudDedicacion = CrearNumericDialogo(0, 500, 100, 1, 2);
+            nudDedicacion.Value = (decimal)Math.Max(0, Math.Min(500, trabajo.DedicacionPorcentaje <= 0 ? 100 : trabajo.DedicacionPorcentaje));
+
+            NumericUpDown nudTarifa = CrearNumericDialogo(0, 100000000, 0, 1000, 0);
+            nudTarifa.Value = (decimal)Math.Max(0, Math.Min(100000000, trabajo.TarifaDiariaCLP));
+
+            NumericUpDown nudHorasDia = CrearNumericDialogo(0.1M, 24, 8, 0.5M, 2);
+            nudHorasDia.Value = (decimal)Math.Max(0.1, Math.Min(24, trabajo.HorasPorDia <= 0 ? 8 : trabajo.HorasPorDia));
+
+            NumericUpDown nudFactor = CrearNumericDialogo(0, 1000000, 1, 0.25M, 2);
+            nudFactor.Value = (decimal)Math.Max(0, Math.Min(1000000, trabajo.CantidadFactor <= 0 ? 1 : trabajo.CantidadFactor));
+
+            TextBox txtFormula = new TextBox();
+            txtFormula.Dock = DockStyle.Fill;
+            txtFormula.Text = trabajo.FormulaPersonalizada ?? "";
+
+            Label lblCosto = new Label();
+            lblCosto.Dock = DockStyle.Fill;
+            lblCosto.AutoSize = true;
+            lblCosto.ForeColor = Color.FromArgb(70, 70, 70);
+
+            Action actualizarPreviewDialogo = () =>
+            {
+                CategoriaTrabajador cargo = BuscarCargoRenderizadoEcuacion(Cargos.CrearBibliotecaCompleta(), cmbCargo.Text);
+                if (cargo != null && nudTarifa.Value == 0)
+                {
+                    nudTarifa.Value = (decimal)Math.Round(cargo.SueldoMensualCLPTipico / 22.0, 0);
+                }
+
+                CargoParticipanteFormula prueba = new CargoParticipanteFormula
+                {
+                    Cargo = cmbCargo.Text.Trim(),
+                    TarifaDiariaCLP = (double)nudTarifa.Value,
+                    HorasPorDia = (double)nudHorasDia.Value,
+                    DedicacionPorcentaje = (double)nudDedicacion.Value,
+                    ModoCalculo = Convert.ToString(cmbModo.SelectedItem) ?? ModosCalculoCargoParticipante[0],
+                    VariableBase = cmbVariable.Text.Trim(),
+                    CantidadFactor = (double)nudFactor.Value,
+                    FormulaPersonalizada = txtFormula.Text.Trim()
+                };
+
+                List<string> advertencias = new List<string>();
+                double horasBase = ObtenerHorasProcesoBaseParticipante(prueba, advertencias);
+                CalcularParticipantePreview(prueba, advertencias);
+                double tarifaHora = prueba.HorasPorDia <= 0.0 ? 0.0 : prueba.TarifaDiariaCLP / prueba.HorasPorDia;
+                double tarifaHoraEfectiva = tarifaHora * Math.Max(0.0, prueba.DedicacionPorcentaje) / 100.0;
+
+                lblCosto.Text =
+                    "Tarifa/h base: " + (tarifaHora <= 0.0 ? "No definida" : FormatearMiles(tarifaHora) + " CLP/h") +
+                    " | Costo/h dedicado: " + (tarifaHoraEfectiva <= 0.0 ? "No definido" : FormatearMiles(tarifaHoraEfectiva) + " CLP/h") +
+                    " | Horas base: " + horasBase.ToString("0.##") +
+                    " | Horas asignadas: " + prueba.TiempoCalculadoHoras.ToString("0.##") +
+                    " | Costo total: " + FormatearMiles(prueba.CostoCalculadoCLP) + " CLP" +
+                    (advertencias.Count == 0 ? "" : " | " + string.Join("; ", advertencias.Distinct()));
+            };
+
+            cmbCargo.SelectedIndexChanged += (s, e) => actualizarPreviewDialogo();
+            cmbCargo.TextChanged += (s, e) => actualizarPreviewDialogo();
+            cmbModo.SelectedIndexChanged += (s, e) => actualizarPreviewDialogo();
+            cmbVariable.TextChanged += (s, e) => actualizarPreviewDialogo();
+            nudDedicacion.ValueChanged += (s, e) => actualizarPreviewDialogo();
+            nudTarifa.ValueChanged += (s, e) => actualizarPreviewDialogo();
+            nudHorasDia.ValueChanged += (s, e) => actualizarPreviewDialogo();
+            nudFactor.ValueChanged += (s, e) => actualizarPreviewDialogo();
+            txtFormula.TextChanged += (s, e) => actualizarPreviewDialogo();
+
+            AgregarFilaDialogoCargo(tabla, 0, "Que cargo participa?", cmbCargo);
+            AgregarFilaDialogoCargo(tabla, 1, "Como participa?", cmbModo);
+            AgregarFilaDialogoCargo(tabla, 2, "Que variable controla su tiempo?", cmbVariable);
+            AgregarFilaDialogoCargo(tabla, 3, "Que dedicacion tiene sobre el proceso? (%)", nudDedicacion);
+            AgregarFilaDialogoCargo(tabla, 4, "Tarifa diaria CLP", nudTarifa);
+            AgregarFilaDialogoCargo(tabla, 5, "Horas por dia", nudHorasDia);
+            AgregarFilaDialogoCargo(tabla, 6, "Rendimiento o factor base", nudFactor);
+            AgregarFilaDialogoCargo(tabla, 7, "Formula personalizada", txtFormula);
+            AgregarFilaDialogoCargo(tabla, 8, "Que costo deriva?", lblCosto);
+
+            FlowLayoutPanel botones = new FlowLayoutPanel();
+            botones.Dock = DockStyle.Bottom;
+            botones.FlowDirection = FlowDirection.RightToLeft;
+            botones.Padding = new Padding(12);
+            botones.Height = 58;
+            Button aceptar = CrearBotonEcuacion("Aceptar");
+            Button cancelar = CrearBotonEcuacion("Cancelar");
+            aceptar.DialogResult = DialogResult.OK;
+            cancelar.DialogResult = DialogResult.Cancel;
+            botones.Controls.Add(aceptar);
+            botones.Controls.Add(cancelar);
+            dialogo.Controls.Add(botones);
+            dialogo.AcceptButton = aceptar;
+            dialogo.CancelButton = cancelar;
+            actualizarPreviewDialogo();
+
+            if (dialogo.ShowDialog(this) != DialogResult.OK)
+            {
+                return null;
+            }
+
+            trabajo.Cargo = cmbCargo.Text.Trim();
+            trabajo.ModoCalculo = Convert.ToString(cmbModo.SelectedItem) ?? ModosCalculoCargoParticipante[0];
+            trabajo.VariableBase = cmbVariable.Text.Trim();
+            trabajo.DedicacionPorcentaje = (double)nudDedicacion.Value;
+            trabajo.TarifaDiariaCLP = (double)nudTarifa.Value;
+            trabajo.HorasPorDia = (double)nudHorasDia.Value;
+            trabajo.CantidadFactor = (double)nudFactor.Value;
+            trabajo.FormulaPersonalizada = txtFormula.Text.Trim();
+            return string.IsNullOrWhiteSpace(trabajo.Cargo) ? null : trabajo;
+        }
+
+        private NumericUpDown CrearNumericDialogo(decimal minimo, decimal maximo, decimal valor, decimal incremento, int decimales)
+        {
+            NumericUpDown nud = new NumericUpDown();
+            nud.Dock = DockStyle.Fill;
+            nud.Minimum = minimo;
+            nud.Maximum = maximo;
+            nud.Value = Math.Max(minimo, Math.Min(maximo, valor));
+            nud.Increment = incremento;
+            nud.DecimalPlaces = decimales;
+            nud.ThousandsSeparator = true;
+            return nud;
+        }
+
+        private void AgregarFilaDialogoCargo(TableLayoutPanel tabla, int fila, string pregunta, Control control)
+        {
+            tabla.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            tabla.Controls.Add(new Label
+            {
+                Text = pregunta,
+                AutoSize = true,
+                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                Margin = new Padding(0, 6, 8, 6)
+            }, 0, fila);
+            control.Margin = new Padding(0, 4, 0, 4);
+            tabla.Controls.Add(control, 1, fila);
+        }
+
+        private void AgregarParticipanteAGrilla(CargoParticipanteFormula participante)
+        {
+            int rowIndex = dgvCargosParticipantesEcuacion.Rows.Add();
+            EscribirParticipanteEnFila(dgvCargosParticipantesEcuacion.Rows[rowIndex], participante);
+            dgvCargosParticipantesEcuacion.CurrentCell = dgvCargosParticipantesEcuacion.Rows[rowIndex].Cells["Cargo"];
+        }
+
+        private void EscribirParticipanteEnFila(DataGridViewRow row, CargoParticipanteFormula participante)
+        {
+            List<string> advertencias = new List<string>();
+            double horasProceso = ObtenerHorasProcesoBaseParticipante(participante, advertencias);
+            CalcularParticipantePreview(participante, advertencias);
+            double tarifaHora = participante.HorasPorDia <= 0.0 ? 0.0 : participante.TarifaDiariaCLP / participante.HorasPorDia;
+            double dedicacion = Math.Max(0.0, participante.DedicacionPorcentaje) / 100.0;
+            double tarifaHoraDedicada = tarifaHora * dedicacion;
+
+            row.Cells["Cargo"].Value = participante.Cargo;
+            row.Cells["TarifaDiariaCLP"].Value = FormatearMiles(participante.TarifaDiariaCLP) + " CLP";
+            row.Cells["HorasPorDia"].Value = participante.HorasPorDia.ToString("0.##");
+            row.Cells["TarifaHorariaCLP"].Value = tarifaHora <= 0.0 ? "No definido" : FormatearMiles(tarifaHora) + " CLP/h";
+            row.Cells["DedicacionPorcentaje"].Value = participante.DedicacionPorcentaje.ToString("0.##");
+            row.Cells["ParticipacionNormalizada"].Value = dedicacion.ToString("0.####");
+            row.Cells["HorasProceso"].Value = horasProceso <= 0.0 ? "No definido" : horasProceso.ToString("0.##") + " h";
+            row.Cells["HorasAsignadas"].Value = participante.TiempoCalculadoHoras <= 0.0 ? "No definido" : participante.TiempoCalculadoHoras.ToString("0.##") + " h";
+            row.Cells["CostoDerivadoCLP"].Value = tarifaHoraDedicada <= 0.0 ? "No definido" : FormatearMiles(tarifaHoraDedicada) + " CLP/h";
+            if (dgvCargosParticipantesEcuacion.Columns.Contains("CostoTotalCLP"))
+            {
+                row.Cells["CostoTotalCLP"].Value = participante.CostoCalculadoCLP <= 0.0 ? "No definido" : FormatearMiles(participante.CostoCalculadoCLP) + " CLP";
+            }
+            row.Cells["ModoCalculo"].Value = participante.ModoCalculo;
+            row.Cells["VariableBase"].Value = participante.VariableBase;
+            row.Cells["CantidadFactor"].Value = participante.CantidadFactor.ToString("0.##");
+            row.Cells["FormulaPersonalizada"].Value = participante.FormulaPersonalizada;
+        }
+
+        private CargoParticipanteFormula ObtenerParticipanteDesdeFila(DataGridViewRow row)
+        {
+            return new CargoParticipanteFormula
+            {
+                Cargo = Convert.ToString(row.Cells["Cargo"].Value) ?? "",
+                TarifaDiariaCLP = ConvertirNumeroFlexible(row.Cells["TarifaDiariaCLP"].Value),
+                HorasPorDia = Math.Max(0.1, ConvertirNumeroFlexible(row.Cells["HorasPorDia"].Value, 8.0)),
+                DedicacionPorcentaje = ConvertirNumeroFlexible(row.Cells["DedicacionPorcentaje"].Value, 100.0),
+                ModoCalculo = Convert.ToString(row.Cells["ModoCalculo"].Value) ?? ModosCalculoCargoParticipante[0],
+                VariableBase = Convert.ToString(row.Cells["VariableBase"].Value) ?? "",
+                CantidadFactor = ConvertirNumeroFlexible(row.Cells["CantidadFactor"].Value, 1.0),
+                FormulaPersonalizada = Convert.ToString(row.Cells["FormulaPersonalizada"].Value) ?? ""
+            };
+        }
+
+        private double ConvertirNumeroFlexible(object valor, double defecto = 0.0)
+        {
+            string texto = Convert.ToString(valor) ?? "";
+            texto = texto.Replace("CLP", "", StringComparison.OrdinalIgnoreCase)
+                .Replace("$", "")
+                .Replace("h", "", StringComparison.OrdinalIgnoreCase)
+                .Trim();
+
+            if (double.TryParse(texto, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.CurrentCulture, out double local))
+            {
+                return local;
+            }
+
+            if (double.TryParse(texto, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out double invariant))
+            {
+                return invariant;
+            }
+
+            return defecto;
+        }
+
+        private List<CargoParticipanteFormula> ObtenerParticipantesDesdeGrilla()
+        {
+            return dgvCargosParticipantesEcuacion.Rows
+                .Cast<DataGridViewRow>()
+                .Where(row => row != null && !row.IsNewRow)
+                .Select(ObtenerParticipanteDesdeFila)
+                .Where(p => p != null && !string.IsNullOrWhiteSpace(p.Cargo))
+                .ToList();
+        }
+
+        private void CargarParticipantesEnGrilla(List<CargoParticipanteFormula> participantes)
+        {
+            if (dgvCargosParticipantesEcuacion.Columns.Count == 0)
+            {
+                ConfigurarGrillaCargosParticipantesEcuacion();
+            }
+
+            dgvCargosParticipantesEcuacion.Rows.Clear();
+            foreach (CargoParticipanteFormula participante in participantes ?? new List<CargoParticipanteFormula>())
+            {
+                AgregarParticipanteAGrilla(participante);
+            }
+
+            ActualizarVistaPreviaCargosParticipantes();
+        }
+
+        private List<CargoParticipanteFormula> ParsearParticipantesEcuacion(string json, string cargosLegacy)
+        {
+            if (!string.IsNullOrWhiteSpace(json))
+            {
+                try
+                {
+                    List<CargoParticipanteFormula> lista =
+                        JsonSerializer.Deserialize<List<CargoParticipanteFormula>>(json) ?? new List<CargoParticipanteFormula>();
+                    if (lista.Count > 0)
+                    {
+                        return lista;
+                    }
+                }
+                catch
+                {
+                    // Si el JSON nuevo esta corrupto, se reconstruye desde el formato antiguo.
+                }
+            }
+
+            List<CategoriaTrabajador> biblioteca = Cargos.CrearBibliotecaCompleta();
+            return SepararListaEcuacion(cargosLegacy)
+                .Select(ParsearCargoPonderadoEcuacion)
+                .Where(c => !string.IsNullOrWhiteSpace(c.Cargo))
+                .Select(c =>
+                {
+                    CategoriaTrabajador cargo = BuscarCargoRenderizadoEcuacion(biblioteca, c.Cargo);
+                    return new CargoParticipanteFormula
+                    {
+                        Cargo = c.Cargo,
+                        TarifaDiariaCLP = cargo == null ? 0.0 : cargo.SueldoMensualCLPTipico / 22.0,
+                        HorasPorDia = 8.0,
+                        DedicacionPorcentaje = c.Ponderador * 100.0,
+                        ModoCalculo = ModosCalculoCargoParticipante[0],
+                        CantidadFactor = 1.0
+                    };
+                })
+                .ToList();
+        }
+
+        private string SerializarParticipantesJson(List<CargoParticipanteFormula> participantes)
+        {
+            return JsonSerializer.Serialize(participantes ?? new List<CargoParticipanteFormula>());
+        }
+
+        private void SincronizarCargosParticipantesConLegacy()
+        {
+            lstEcuacionCargosPermitidos.Items.Clear();
+
+            foreach (CargoParticipanteFormula participante in ObtenerParticipantesDesdeGrilla())
+            {
+                double ponderador = Math.Max(0.0, participante.DedicacionPorcentaje / 100.0);
+                lstEcuacionCargosPermitidos.Items.Add(new CargoPonderadoEcuacion
+                {
+                    Cargo = participante.Cargo,
+                    Ponderador = ponderador
+                });
+            }
+        }
+
+        private void ActualizarVistaPreviaCargosParticipantes()
+        {
+            if (rtbVistaPreviaCargosParticipantes == null)
+            {
+                return;
+            }
+
+            List<CargoParticipanteFormula> participantes = ObtenerParticipantesDesdeGrilla();
+            rtbVistaPreviaCargosParticipantes.Clear();
+
+            if (participantes.Count == 0)
+            {
+                rtbVistaPreviaCargosParticipantes.SelectionFont = new Font("Segoe UI", 9f, FontStyle.Italic);
+                rtbVistaPreviaCargosParticipantes.SelectionColor = Color.FromArgb(90, 90, 90);
+                rtbVistaPreviaCargosParticipantes.AppendText(
+                    "Agrega cargos para ver la regla: cantidad/rendimiento -> horas proceso -> horas por cargo segun dedicacion -> costo derivado.\n" +
+                    "El JSON guarda la definicion; horas y costos se recalculan desde cargos y rendimientos."
+                );
+                return;
+            }
+
+            double totalHoras = 0.0;
+            double maxDias = 0.0;
+            double totalCosto = 0.0;
+            double sumaDedicacion = participantes.Sum(p => Math.Max(0.0, p.DedicacionPorcentaje));
+            List<string> advertencias = new List<string>();
+
+            foreach (CargoParticipanteFormula participante in participantes)
+            {
+                CalcularParticipantePreview(participante, advertencias);
+                totalHoras += participante.TiempoCalculadoHoras;
+                maxDias = Math.Max(maxDias, participante.DiasTecnicos);
+                totalCosto += participante.CostoCalculadoCLP;
+            }
+
+            CargarParticipantesEnGrillaSinRecalcular(participantes);
+
+            rtbVistaPreviaCargosParticipantes.SelectionFont = new Font("Segoe UI", 9.5f, FontStyle.Bold);
+            rtbVistaPreviaCargosParticipantes.SelectionColor = Color.FromArgb(20, 65, 120);
+            rtbVistaPreviaCargosParticipantes.AppendText("Prueba de dedicacion por cargo\n");
+            rtbVistaPreviaCargosParticipantes.SelectionFont = new Font("Segoe UI", 9f, FontStyle.Regular);
+            rtbVistaPreviaCargosParticipantes.SelectionColor = Color.FromArgb(55, 55, 55);
+            rtbVistaPreviaCargosParticipantes.AppendText(
+                "Cantidad usada: " + ObtenerCantidadPruebaParaParticipante("").ToString("0.##") +
+                " | Dedicacion acumulada informativa: " + sumaDedicacion.ToString("0.##") + "%\n" +
+                "Regla: horas_proceso = cantidad / rendimiento; horas_cargo = horas_proceso * dedicacion_cargo; costo = horas_cargo * tarifa_horaria.\n" +
+                "Nota: la dedicacion no debe sumar 100%; cada cargo aporta su propio tiempo al proceso.\n\n"
+            );
+
+            foreach (CargoParticipanteFormula participante in participantes)
+            {
+                rtbVistaPreviaCargosParticipantes.SelectionFont = new Font("Segoe UI", 9f, FontStyle.Bold);
+                rtbVistaPreviaCargosParticipantes.SelectionColor = Color.Black;
+                rtbVistaPreviaCargosParticipantes.AppendText("- " + participante.Cargo + ": ");
+                rtbVistaPreviaCargosParticipantes.SelectionFont = new Font("Segoe UI", 9f, FontStyle.Regular);
+                rtbVistaPreviaCargosParticipantes.SelectionColor = Color.FromArgb(45, 45, 45);
+                rtbVistaPreviaCargosParticipantes.AppendText(
+                    "dedicacion " + participante.DedicacionPorcentaje.ToString("0.##") + "% | " +
+                    participante.TiempoCalculadoHoras.ToString("0.##") + " h asignadas | " +
+                    participante.DiasTecnicos.ToString("0.##") + " dias | " +
+                    "costo derivado " + FormatearValorVisual(participante.CostoCalculadoCLP) + "\n"
+                );
+            }
+
+            rtbVistaPreviaCargosParticipantes.SelectionFont = new Font("Segoe UI", 9.5f, FontStyle.Bold);
+            rtbVistaPreviaCargosParticipantes.SelectionColor = Color.FromArgb(0, 105, 92);
+            rtbVistaPreviaCargosParticipantes.AppendText(
+                "\nTotal horas: " + totalHoras.ToString("0.##") +
+                " | Dias tecnicos: " + maxDias.ToString("0.##") +
+                " | Costo derivado total: " + FormatearValorVisual(totalCosto)
+            );
+
+            if (advertencias.Count > 0)
+            {
+                rtbVistaPreviaCargosParticipantes.SelectionFont = new Font("Segoe UI", 9f, FontStyle.Bold);
+                rtbVistaPreviaCargosParticipantes.SelectionColor = Color.FromArgb(170, 80, 0);
+                rtbVistaPreviaCargosParticipantes.AppendText("\n\nAdvertencias\n- " + string.Join("\n- ", advertencias.Distinct()));
+            }
+        }
+
+        private void CargarParticipantesEnGrillaSinRecalcular(List<CargoParticipanteFormula> participantes)
+        {
+            int current = dgvCargosParticipantesEcuacion.CurrentRow == null ? -1 : dgvCargosParticipantesEcuacion.CurrentRow.Index;
+            actualizandoCargosParticipantes = true;
+            try
+            {
+                dgvCargosParticipantesEcuacion.Rows.Clear();
+                foreach (CargoParticipanteFormula participante in participantes)
+                {
+                    AgregarParticipanteAGrilla(participante);
+                }
+                if (current >= 0 && current < dgvCargosParticipantesEcuacion.Rows.Count)
+                {
+                    dgvCargosParticipantesEcuacion.CurrentCell = dgvCargosParticipantesEcuacion.Rows[current].Cells["Cargo"];
+                }
+            }
+            finally
+            {
+                actualizandoCargosParticipantes = false;
+            }
+        }
+
+        private void CalcularParticipantePreview(CargoParticipanteFormula participante, List<string> advertencias)
+        {
+            double tarifa = participante.TarifaDiariaCLP;
+            if (tarifa <= 0)
+            {
+                CategoriaTrabajador cargo = BuscarCargoRenderizadoEcuacion(Cargos.CrearBibliotecaCompleta(), participante.Cargo);
+                if (cargo != null)
+                {
+                    tarifa = cargo.SueldoMensualCLPTipico / 22.0;
+                    participante.TarifaDiariaCLP = tarifa;
+                }
+                else
+                {
+                    advertencias.Add("Cargo no encontrado: " + participante.Cargo);
+                }
+            }
+
+            if (tarifa <= 0)
+            {
+                advertencias.Add("Tarifa faltante para " + participante.Cargo);
+            }
+
+            double horasDia = Math.Max(0.1, participante.HorasPorDia);
+            double dedicacion = Math.Max(0.0, participante.DedicacionPorcentaje) / 100.0;
+            double horasProceso = ObtenerHorasProcesoBaseParticipante(participante, advertencias);
+            double horas = horasProceso * dedicacion;
+
+            participante.TiempoCalculadoHoras = horas;
+            participante.DiasTecnicos = horas / horasDia;
+            participante.CostoCalculadoCLP = horas * (tarifa / horasDia);
+        }
+
+        private double ObtenerHorasProcesoBaseParticipante(CargoParticipanteFormula participante, List<string> advertencias)
+        {
+            double baseCantidad = ObtenerCantidadPruebaParaParticipante(participante.VariableBase);
+            double factor = Math.Max(0.0, participante.CantidadFactor);
+            double horasDia = Math.Max(0.1, participante.HorasPorDia);
+
+            switch (participante.ModoCalculo)
+            {
+                case "Dias fijos":
+                    return factor * horasDia;
+                case "Horas fijas":
+                    return factor;
+                case "Minutos por unidad":
+                    return baseCantidad * factor / 60.0;
+                case "Horas por unidad":
+                    return baseCantidad * factor;
+                case "Porcentaje de una variable":
+                    return baseCantidad * (factor / 100.0) * horasDia;
+                case "Formula personalizada":
+                    if (string.IsNullOrWhiteSpace(participante.FormulaPersonalizada))
+                    {
+                        advertencias.Add("Formula personalizada vacia en " + participante.Cargo);
+                    }
+                    return factor;
+                default:
+                    if (factor <= 0.0)
+                    {
+                        advertencias.Add("Rendimiento/factor faltante para " + participante.Cargo);
+                    }
+                    return baseCantidad / Math.Max(0.01, factor <= 0 ? 1.0 : factor);
+            }
+        }
+
+        private double ObtenerCantidadPruebaParaParticipante(string variableBase)
+        {
+            string texto = NormalizarTextoDatosVisual(variableBase + ";" + UnirListaEcuacion(lstEcuacionVariables));
+            if (texto.Contains("segundo") || texto.Contains("duracion"))
+            {
+                return 30.0;
+            }
+            if (texto.Contains("minuto"))
+            {
+                return 10.0;
+            }
+            if (texto.Contains("personaje") || texto.Contains("pieza") || texto.Contains("cantidad"))
+            {
+                return 1.0;
+            }
+            return 1.0;
+        }
+
+        private void AgregarItemListaEcuacion(ListBox lista, TextBox entrada)
+        {
+            string valor = (entrada.Text ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(valor))
+            {
+                return;
+            }
+
+            bool existe = lista.Items
+                .Cast<object>()
+                .Any(i => string.Equals(Convert.ToString(i), valor, StringComparison.OrdinalIgnoreCase));
+
+            if (!existe)
+            {
+                lista.Items.Add(valor);
+            }
+
+            entrada.Clear();
+            ActualizarRenderEcuacionProductiva();
+        }
+
+        private void AgregarVariableAFactorEcuacion(ListBox destino)
+        {
+            if (destino == null)
+            {
+                return;
+            }
+
+            string valor = Convert.ToString(lstEcuacionVariables.SelectedItem)?.Trim() ?? "";
+            if (string.IsNullOrWhiteSpace(valor))
+            {
+                valor = (txtNuevaVariableEcuacion.Text ?? "").Trim();
+            }
+
+            if (string.IsNullOrWhiteSpace(valor))
+            {
+                lblEstadoEcuacionesProductivas.Text =
+                    "Selecciona una variable o escribe una nueva antes de agregarla a la formula.";
+                return;
+            }
+
+            bool existe = destino.Items
+                .Cast<object>()
+                .Any(i => string.Equals(Convert.ToString(i), valor, StringComparison.OrdinalIgnoreCase));
+
+            if (!existe)
+            {
+                destino.Items.Add(valor);
+            }
+
+            SincronizarFormulaReferenciaDesdeConstructor();
+            ActualizarRenderEcuacionProductiva();
+            lblEstadoEcuacionesProductivas.Text =
+                "Variable agregada a la formula. Aplica o guarda para persistir el cambio.";
+        }
+
+        private void QuitarVariableFactorEcuacion()
+        {
+            if (lstEcuacionNumerador.SelectedItem != null)
+            {
+                lstEcuacionNumerador.Items.Remove(lstEcuacionNumerador.SelectedItem);
+            }
+            else if (lstEcuacionDenominador.SelectedItem != null)
+            {
+                lstEcuacionDenominador.Items.Remove(lstEcuacionDenominador.SelectedItem);
+            }
+
+            SincronizarFormulaReferenciaDesdeConstructor();
+            ActualizarRenderEcuacionProductiva();
+        }
+
+#pragma warning disable CS0162
+        private void SincronizarFormulaReferenciaDesdeConstructor()
+        {
+            string numerador = UnirFactorVisualEcuacion(lstEcuacionNumerador);
+            string denominador = UnirFactorVisualEcuacion(lstEcuacionDenominador);
+
+            if (string.IsNullOrWhiteSpace(numerador) && string.IsNullOrWhiteSpace(denominador))
+            {
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(numerador))
+            {
+                numerador = "No definido";
+            }
+
+            if (string.IsNullOrWhiteSpace(denominador))
+            {
+                denominador = "capacidad_por_periodo[cargo]";
+            }
+
+            txtEcuacionFormula.Text =
+                "horas_base[cargo] = " + numerador + " / " + denominador + "; " +
+                "horas_cargo = horas_base[cargo] * dedicacion[cargo]; " +
+                "costo_derivado = dot(horas_cargo, tarifa_horaria[cargo])";
+            return;
+
+            if (string.IsNullOrWhiteSpace(denominador))
+            {
+                txtEcuacionFormula.Text = "dias = " + numerador;
+                return;
+            }
+
+            txtEcuacionFormula.Text = "dias = (" + numerador + ") ÷ (" + denominador + ")";
+        }
+
+#pragma warning restore CS0162
+
+        private string UnirFactorVisualEcuacion(ListBox lista)
+        {
+            if (lista == null)
+            {
+                return "";
+            }
+
+            return string.Join(" + ", lista.Items
+                .Cast<object>()
+                .Select(i => Convert.ToString(i)?.Trim() ?? "")
+                .Where(v => !string.IsNullOrWhiteSpace(v)));
+        }
+
+        private void CargarConstructorVisualDesdeFormula(string formula)
+        {
+            lstEcuacionNumerador.Items.Clear();
+            lstEcuacionDenominador.Items.Clear();
+
+            string texto = (formula ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(texto))
+            {
+                return;
+            }
+
+            int igual = texto.IndexOf('=');
+            if (igual >= 0 && igual + 1 < texto.Length)
+            {
+                texto = texto.Substring(igual + 1).Trim();
+            }
+
+            string numerador = texto;
+            string denominador = "";
+            int largoOperador = 1;
+            int division = texto.IndexOf('÷');
+            if (division < 0)
+            {
+                division = texto.IndexOf(" / ", StringComparison.Ordinal);
+                largoOperador = division >= 0 ? 3 : 1;
+            }
+            if (division >= 0)
+            {
+                numerador = texto.Substring(0, division);
+                denominador = texto.Substring(division + largoOperador);
+                int finPrimerTermino = denominador.IndexOf(';');
+                if (finPrimerTermino >= 0)
+                {
+                    denominador = denominador.Substring(0, finPrimerTermino);
+                }
+            }
+
+            CargarFactorVisualEcuacion(lstEcuacionNumerador, numerador);
+            CargarFactorVisualEcuacion(lstEcuacionDenominador, denominador);
+        }
+
+        private void CargarConstructorVisualDesdeCampos(
+            string numerador,
+            string denominador,
+            string formula
+        )
+        {
+            lstEcuacionNumerador.Items.Clear();
+            lstEcuacionDenominador.Items.Clear();
+
+            bool tieneEstructura = !string.IsNullOrWhiteSpace(numerador) ||
+                !string.IsNullOrWhiteSpace(denominador);
+
+            if (tieneEstructura)
+            {
+                CargarListaSeparada(lstEcuacionNumerador, numerador);
+                CargarListaSeparada(lstEcuacionDenominador, denominador);
+                return;
+            }
+
+            CargarConstructorVisualDesdeFormula(formula);
+        }
+
+        private void CargarFactorVisualEcuacion(ListBox lista, string texto)
+        {
+            foreach (string item in SepararFactorVisualEcuacion(texto))
+            {
+                if (!lista.Items.Cast<object>().Any(i =>
+                        string.Equals(Convert.ToString(i), item, StringComparison.OrdinalIgnoreCase)))
+                {
+                    lista.Items.Add(item);
+                }
+            }
+        }
+
+        private IEnumerable<string> SepararFactorVisualEcuacion(string texto)
+        {
+            return (texto ?? "")
+                .Replace("(", "")
+                .Replace(")", "")
+                .Split(new[] { '+' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(v => v.Trim())
+                .Where(v => !string.IsNullOrWhiteSpace(v) &&
+                    !string.Equals(v, "No definido", StringComparison.OrdinalIgnoreCase));
+        }
+
+        private void DgvEcuacionesProductivas_SelectionChanged(object sender, EventArgs e)
+        {
+            CargarEditorEcuacionDesdeFilaSeleccionada();
+            SincronizarSeleccionListaBibliotecaEcuaciones();
+            MostrarValidacionBibliotecaEcuaciones();
+        }
+
+        private void DgvEcuacionesProductivas_CellDoubleClick(object sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex < 0)
+            {
+                return;
+            }
+
+            DataGridViewRow row = dgvEcuacionesProductivas.Rows[e.RowIndex];
+            string columna = e.ColumnIndex >= 0 ? dgvEcuacionesProductivas.Columns[e.ColumnIndex].Name : "";
+            CargarEditorEcuacionDesdeFila(row);
+            AbrirEditorVisualEcuacion();
+
+            if (columna == "Variables")
+            {
+                CargarEditorEcuacionDesdeFila(row);
+                lstEcuacionVariables.Focus();
+                return;
+            }
+
+            if (columna == "CargosPermitidos")
+            {
+                CargarEditorEcuacionDesdeFila(row);
+                lstEcuacionCargosPermitidos.Focus();
+                return;
+            }
+
+            if (columna == "Tokens")
+            {
+                CargarEditorEcuacionDesdeFila(row);
+                lstEcuacionTokens.Focus();
+                return;
+            }
+
+            if (columna == "FormulaReferencia")
+            {
+                CargarEditorEcuacionDesdeFila(row);
+                EditarTextoLargoEcuacion("Fórmula de referencia", txtEcuacionFormula);
+            }
+        }
+
+        private void CargarEditorEcuacionDesdeFilaSeleccionada()
+        {
+            if (dgvEcuacionesProductivas.CurrentRow == null)
+            {
+                return;
+            }
+
+            CargarEditorEcuacionDesdeFila(dgvEcuacionesProductivas.CurrentRow);
+        }
+
+        private void AbrirEditorVisualEcuacion()
+        {
+            if (tabsEcuacionesProductivasInternas == null ||
+                tabEditorVisualEcuacion == null ||
+                !tabsEcuacionesProductivasInternas.TabPages.Contains(tabEditorVisualEcuacion))
+            {
+                return;
+            }
+
+            tabsEcuacionesProductivasInternas.SelectedTab = tabEditorVisualEcuacion;
+        }
+
+        private void AbrirMapaFlujoEcuacion()
+        {
+            if (tabsEcuacionesProductivasInternas == null ||
+                tabMapaFlujoEcuacion == null ||
+                !tabsEcuacionesProductivasInternas.TabPages.Contains(tabMapaFlujoEcuacion))
+            {
+                return;
+            }
+
+            pnlMapaFlujoEcuacion.Invalidate();
+            tabsEcuacionesProductivasInternas.SelectedTab = tabMapaFlujoEcuacion;
+        }
+
+        private void VolverABibliotecaEcuaciones()
+        {
+            if (tabsEcuacionesProductivasInternas != null &&
+                tabsEcuacionesProductivasInternas.TabPages.Count > 0)
+            {
+                tabsEcuacionesProductivasInternas.SelectedIndex = 0;
+            }
+        }
+
+        private void CargarEditorEcuacionDesdeFila(DataGridViewRow row)
+        {
+            if (row == null || row.IsNewRow)
+            {
+                return;
+            }
+
+            try
+            {
+                cargandoEditorEcuaciones = true;
+
+                chkEcuacionActiva.Checked = Convert.ToBoolean(row.Cells["Activa"].Value ?? true);
+                txtEcuacionClave.Text = Convert.ToString(row.Cells["Clave"].Value) ?? "";
+                txtEcuacionNombre.Text = Convert.ToString(row.Cells["NombreVisible"].Value) ?? "";
+                SeleccionarComboSeguro(cmbEcuacionTipo, Convert.ToString(row.Cells["TipoEcuacion"].Value) ?? "Variante");
+                RefrescarComboBaseEditorEcuacion();
+                SeleccionarComboSeguro(cmbEcuacionBase, Convert.ToString(row.Cells["EcuacionBase"].Value) ?? "");
+                txtEcuacionEtapa.Text = Convert.ToString(row.Cells["Etapa"].Value) ?? "";
+                txtEcuacionSubEtapa.Text = Convert.ToString(row.Cells["SubEtapa"].Value) ?? "";
+                CargarListaSeparada(lstEcuacionVariables, Convert.ToString(row.Cells["Variables"].Value) ?? "");
+                CargarListaSeparada(lstEcuacionTokens, Convert.ToString(row.Cells["Tokens"].Value) ?? "");
+                CargarListaSeparada(lstEcuacionCargosPermitidos, Convert.ToString(row.Cells["CargosPermitidos"].Value) ?? "");
+                CargarParticipantesEnGrilla(
+                    ParsearParticipantesEcuacion(
+                        Convert.ToString(row.Cells["CargosParticipantesJson"].Value) ?? "",
+                        Convert.ToString(row.Cells["CargosPermitidos"].Value) ?? ""
+                    )
+                );
+                txtEcuacionFormula.Text = Convert.ToString(row.Cells["FormulaReferencia"].Value) ?? "";
+                CargarConstructorVisualDesdeCampos(
+                    Convert.ToString(row.Cells["Numerador"].Value) ?? "",
+                    Convert.ToString(row.Cells["Denominador"].Value) ?? "",
+                    txtEcuacionFormula.Text
+                );
+                txtEcuacionImpacto.Text = Convert.ToString(row.Cells["Impacto"].Value) ?? "";
+                txtEcuacionNota.Text = Convert.ToString(row.Cells["Nota"].Value) ?? "";
+            }
+            finally
+            {
+                cargandoEditorEcuaciones = false;
+            }
+
+            ActualizarRenderEcuacionProductiva();
+        }
+
+        private void RefrescarComboBaseEditorEcuacion()
+        {
+            string actual = ObtenerClaveFormulaMadreSeleccionada();
+            cmbEcuacionBase.Items.Clear();
+            cmbEcuacionBase.Items.Add(new OpcionFormulaMadreEcuacion());
+
+            foreach (DataGridViewRow row in dgvEcuacionesProductivas.Rows)
+            {
+                if (row == null || row.IsNewRow)
+                {
+                    continue;
+                }
+
+                string tipo = Convert.ToString(row.Cells["TipoEcuacion"].Value) ?? "";
+                string clave = Convert.ToString(row.Cells["Clave"].Value) ?? "";
+                string nombre = Convert.ToString(row.Cells["NombreVisible"].Value) ?? "";
+
+                if (!string.Equals(tipo, "Base", StringComparison.OrdinalIgnoreCase) ||
+                    string.IsNullOrWhiteSpace(clave))
+                {
+                    continue;
+                }
+
+                if (!ExisteOpcionFormulaMadre(clave))
+                {
+                    cmbEcuacionBase.Items.Add(new OpcionFormulaMadreEcuacion
+                    {
+                        Clave = clave,
+                        Nombre = nombre
+                    });
+                }
+            }
+
+            SeleccionarComboSeguro(cmbEcuacionBase, actual);
+        }
+
+        private void SeleccionarComboSeguro(ComboBox combo, string valor)
+        {
+            if (combo == cmbEcuacionBase)
+            {
+                foreach (object item in combo.Items)
+                {
+                    if (item is OpcionFormulaMadreEcuacion opcion &&
+                        string.Equals(opcion.Clave, valor ?? "", StringComparison.OrdinalIgnoreCase))
+                    {
+                        combo.SelectedItem = item;
+                        return;
+                    }
+                }
+
+                OpcionFormulaMadreEcuacion nueva = new OpcionFormulaMadreEcuacion
+                {
+                    Clave = valor ?? "",
+                    Nombre = string.IsNullOrWhiteSpace(valor) ? "" : "Formula no encontrada"
+                };
+                combo.Items.Add(nueva);
+                combo.SelectedItem = nueva;
+                return;
+            }
+
+            if (!combo.Items.Contains(valor))
+            {
+                combo.Items.Add(valor);
+            }
+
+            combo.SelectedItem = valor;
+        }
+
+        private bool ExisteOpcionFormulaMadre(string clave)
+        {
+            foreach (object item in cmbEcuacionBase.Items)
+            {
+                if (item is OpcionFormulaMadreEcuacion opcion &&
+                    string.Equals(opcion.Clave, clave ?? "", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private string ObtenerClaveFormulaMadreSeleccionada()
+        {
+            if (cmbEcuacionBase.SelectedItem is OpcionFormulaMadreEcuacion opcion)
+            {
+                return opcion.Clave ?? "";
+            }
+
+            return Convert.ToString(cmbEcuacionBase.SelectedItem) ?? "";
+        }
+
+        private void CargarListaSeparada(ListBox lista, string texto)
+        {
+            lista.Items.Clear();
+
+            foreach (string item in SepararListaEcuacion(texto))
+            {
+                if (ReferenceEquals(lista, lstEcuacionCargosPermitidos))
+                {
+                    lista.Items.Add(ParsearCargoPonderadoEcuacion(item));
+                }
+                else
+                {
+                    lista.Items.Add(item);
+                }
+            }
+
+            if (ReferenceEquals(lista, lstEcuacionCargosPermitidos))
+            {
+                ActualizarResumenVectorCargosEcuacion();
+            }
+        }
+
+        private void ActualizarResumenVectorCargosEcuacion()
+        {
+            if (rtbResumenVectorCargosEcuacion == null)
+            {
+                return;
+            }
+
+            List<CargoPonderadoEcuacion> cargos = lstEcuacionCargosPermitidos.Items
+                .Cast<object>()
+                .Select(ObtenerCargoPonderadoEcuacion)
+                .Where(c => c != null && !string.IsNullOrWhiteSpace(c.Cargo))
+                .ToList();
+
+            rtbResumenVectorCargosEcuacion.Clear();
+
+            if (cargos.Count == 0)
+            {
+                rtbResumenVectorCargosEcuacion.SelectionFont = new Font("Segoe UI", 9f, FontStyle.Italic);
+                rtbResumenVectorCargosEcuacion.SelectionColor = Color.FromArgb(90, 90, 90);
+                rtbResumenVectorCargosEcuacion.AppendText(
+                    "Agrega cargos para ver cuanto tiempo y costo aporta cada uno.\n" +
+                    "Ejemplo: Clean up 100% + Supervisor 10% => suma real de ambos aportes."
+                );
+                return;
+            }
+
+            List<CategoriaTrabajador> bibliotecaCargos = Cargos.CrearBibliotecaCompleta();
+            double totalDia = 0.0;
+            double totalMes = 0.0;
+            List<string> faltantes = new List<string>();
+
+            rtbResumenVectorCargosEcuacion.SelectionFont = new Font("Segoe UI", 9.2f, FontStyle.Bold);
+            rtbResumenVectorCargosEcuacion.SelectionColor = Color.FromArgb(20, 65, 120);
+            rtbResumenVectorCargosEcuacion.AppendText("Lectura de cargos participantes\n");
+
+            foreach (CargoPonderadoEcuacion cargoVector in cargos)
+            {
+                CategoriaTrabajador cargo = BuscarCargoRenderizadoEcuacion(
+                    bibliotecaCargos,
+                    cargoVector.Cargo
+                );
+
+                if (cargo == null)
+                {
+                    faltantes.Add(cargoVector.Cargo);
+                    rtbResumenVectorCargosEcuacion.SelectionFont = new Font("Segoe UI", 9f, FontStyle.Bold);
+                    rtbResumenVectorCargosEcuacion.SelectionColor = Color.FromArgb(170, 45, 45);
+                    rtbResumenVectorCargosEcuacion.AppendText("- " + cargoVector.Cargo + ": no encontrado en Cargos\n");
+                    continue;
+                }
+
+                double sueldoMes = Math.Max(0.0, cargo.SueldoMensualCLPTipico);
+                double tarifaDia = sueldoMes / 22.0;
+                double aporteDia = tarifaDia * cargoVector.Ponderador;
+                double aporteMes = sueldoMes * cargoVector.Ponderador;
+                totalDia += aporteDia;
+                totalMes += aporteMes;
+
+                rtbResumenVectorCargosEcuacion.SelectionFont = new Font("Segoe UI", 9f, FontStyle.Bold);
+                rtbResumenVectorCargosEcuacion.SelectionColor = Color.Black;
+                rtbResumenVectorCargosEcuacion.AppendText("- " + cargo.NombreCompleto + ": ");
+
+                rtbResumenVectorCargosEcuacion.SelectionFont = new Font("Segoe UI", 9f, FontStyle.Regular);
+                rtbResumenVectorCargosEcuacion.SelectionColor = Color.FromArgb(45, 45, 45);
+                rtbResumenVectorCargosEcuacion.AppendText(
+                    FormatearValorVisual(sueldoMes) + "/mes / 22 = " +
+                    FormatearValorVisual(tarifaDia) + "/dia; " +
+                    (cargoVector.Ponderador * 100.0).ToString("0.#") + "% => " +
+                    FormatearValorVisual(aporteDia) + "/dia\n"
+                );
+            }
+
+            rtbResumenVectorCargosEcuacion.SelectionFont = new Font("Segoe UI", 9.2f, FontStyle.Bold);
+            rtbResumenVectorCargosEcuacion.SelectionColor = Color.FromArgb(0, 105, 92);
+            rtbResumenVectorCargosEcuacion.AppendText(
+                "Total cargos participantes: " +
+                FormatearValorVisual(totalDia) + "/dia ponderado | " +
+                FormatearValorVisual(totalMes) + "/mes equivalente"
+            );
+
+            if (faltantes.Count > 0)
+            {
+                rtbResumenVectorCargosEcuacion.SelectionFont = new Font("Segoe UI", 9f, FontStyle.Bold);
+                rtbResumenVectorCargosEcuacion.SelectionColor = Color.FromArgb(170, 45, 45);
+                rtbResumenVectorCargosEcuacion.AppendText(
+                    "\nFalta definir en Cargos: " + string.Join("; ", faltantes)
+                );
+            }
+        }
+
+        private IEnumerable<string> SepararListaEcuacion(string texto)
+        {
+            return (texto ?? "")
+                .Split(new[] { ';', ',' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(v => v.Trim())
+                .Where(v => !string.IsNullOrWhiteSpace(v))
+                .Distinct(StringComparer.OrdinalIgnoreCase);
+        }
+
+        private string UnirListaEcuacion(ListBox lista)
+        {
+            return string.Join(";", lista.Items.Cast<object>()
+                .Select(i => ReferenceEquals(lista, lstEcuacionCargosPermitidos)
+                    ? ObtenerCargoPonderadoEcuacion(i).Serializar()
+                    : Convert.ToString(i)?.Trim() ?? "")
+                .Where(v => !string.IsNullOrWhiteSpace(v)));
+        }
+
+        private CargoPonderadoEcuacion ObtenerCargoPonderadoEcuacion(object item)
+        {
+            if (item is CargoPonderadoEcuacion ponderado)
+            {
+                return ponderado;
+            }
+
+            return ParsearCargoPonderadoEcuacion(Convert.ToString(item) ?? "");
+        }
+
+        private CargoPonderadoEcuacion ParsearCargoPonderadoEcuacion(string texto)
+        {
+            string valor = (texto ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(valor))
+            {
+                return new CargoPonderadoEcuacion();
+            }
+
+            string cargo = valor;
+            double ponderador = 1.0;
+            int separador = valor.LastIndexOf('|');
+
+            if (separador >= 0)
+            {
+                cargo = valor.Substring(0, separador).Trim();
+                string pesoTexto = valor.Substring(separador + 1).Trim();
+                if (!double.TryParse(
+                        pesoTexto,
+                        NumberStyles.Float,
+                        CultureInfo.InvariantCulture,
+                        out ponderador) &&
+                    !double.TryParse(
+                        pesoTexto,
+                        NumberStyles.Float,
+                        CultureInfo.CurrentCulture,
+                        out ponderador))
+                {
+                    ponderador = 1.0;
+                }
+            }
+
+            ponderador = Math.Max(0.0, Math.Min(5.0, ponderador));
+
+            return new CargoPonderadoEcuacion
+            {
+                Cargo = cargo,
+                Ponderador = ponderador
+            };
+        }
+
+        private void AplicarEditorEcuacionAFilaSeleccionada()
+        {
+            if (cargandoEditorEcuaciones || dgvEcuacionesProductivas.CurrentRow == null)
+            {
+                return;
+            }
+
+            DataGridViewRow row = dgvEcuacionesProductivas.CurrentRow;
+            row.Cells["Activa"].Value = chkEcuacionActiva.Checked;
+            row.Cells["Clave"].Value = txtEcuacionClave.Text.Trim();
+            row.Cells["NombreVisible"].Value = txtEcuacionNombre.Text.Trim();
+            row.Cells["TipoEcuacion"].Value = Convert.ToString(cmbEcuacionTipo.SelectedItem) ?? "Variante";
+            row.Cells["EcuacionBase"].Value = ObtenerClaveFormulaMadreSeleccionada();
+            row.Cells["Etapa"].Value = txtEcuacionEtapa.Text.Trim();
+            row.Cells["SubEtapa"].Value = txtEcuacionSubEtapa.Text.Trim();
+            row.Cells["Variables"].Value = UnirListaEcuacion(lstEcuacionVariables);
+            row.Cells["Tokens"].Value = UnirListaEcuacion(lstEcuacionTokens);
+            SincronizarCargosParticipantesConLegacy();
+            row.Cells["CargosPermitidos"].Value = UnirListaEcuacion(lstEcuacionCargosPermitidos);
+            row.Cells["CargosParticipantesJson"].Value =
+                SerializarParticipantesJson(ObtenerParticipantesDesdeGrilla());
+            SincronizarFormulaReferenciaDesdeConstructor();
+            row.Cells["FormulaReferencia"].Value = txtEcuacionFormula.Text.Trim();
+            row.Cells["Numerador"].Value = UnirListaEcuacion(lstEcuacionNumerador);
+            row.Cells["Denominador"].Value = UnirListaEcuacion(lstEcuacionDenominador);
+            row.Cells["Impacto"].Value = txtEcuacionImpacto.Text.Trim();
+            row.Cells["Nota"].Value = txtEcuacionNota.Text.Trim();
+
+            RefrescarComboBaseEditorEcuacion();
+            ActualizarRenderEcuacionProductiva();
+            lblEstadoEcuacionesProductivas.Text = lstEcuacionCargosPermitidos.Items.Count == 0
+                ? "Cambios aplicados, pero falta ingresar cargos participantes para que la ecuacion calcule costo real."
+                : "Cambios aplicados a la fila. Guarda JSON para dejarlos persistidos.";
+        }
+
+        private void ActualizarRenderEcuacionProductiva()
+        {
+            if (rtbEcuacionRenderizada == null)
+            {
+                return;
+            }
+
+            string clave = (txtEcuacionClave.Text ?? "").Trim();
+            string nombre = (txtEcuacionNombre.Text ?? "").Trim();
+            string tipo = Convert.ToString(cmbEcuacionTipo.SelectedItem) ?? "";
+            string baseEcuacion = ObtenerClaveFormulaMadreSeleccionada();
+            string etapa = (txtEcuacionEtapa.Text ?? "").Trim();
+            string subEtapa = (txtEcuacionSubEtapa.Text ?? "").Trim();
+            string formula = (txtEcuacionFormula.Text ?? "").Trim();
+            string impacto = (txtEcuacionImpacto.Text ?? "").Trim();
+            DataGridViewRow filaBase = BuscarFilaEcuacionPorClave(baseEcuacion);
+            string nombreBase = ObtenerValorFilaEcuacion(filaBase, "NombreVisible");
+            string formulaBase = ObtenerValorFilaEcuacion(filaBase, "FormulaReferencia");
+            string numeradorBase = ObtenerValorFilaEcuacion(filaBase, "Numerador");
+            string denominadorBase = ObtenerValorFilaEcuacion(filaBase, "Denominador");
+            string variablesBase = ObtenerValorFilaEcuacion(filaBase, "Variables");
+            string cargosBase = ObtenerValorFilaEcuacion(filaBase, "CargosPermitidos");
+            ActualizarDetalleFormulaMadreEditor(
+                baseEcuacion,
+                nombreBase,
+                formulaBase,
+                numeradorBase,
+                denominadorBase,
+                variablesBase,
+                cargosBase,
+                filaBase
+            );
+            string numeradorPropio = UnirFactorVisualEcuacion(lstEcuacionNumerador);
+            string denominadorPropio = UnirFactorVisualEcuacion(lstEcuacionDenominador);
+            string numeradorEfectivo = string.IsNullOrWhiteSpace(numeradorPropio)
+                ? numeradorBase
+                : numeradorPropio;
+            string denominadorEfectivo = string.IsNullOrWhiteSpace(denominadorPropio)
+                ? denominadorBase
+                : denominadorPropio;
+            string formulaEfectiva = string.IsNullOrWhiteSpace(formula)
+                ? formulaBase
+                : formula;
+
+            List<string> variables = lstEcuacionVariables.Items
+                .Cast<object>()
+                .Select(i => Convert.ToString(i)?.Trim() ?? "")
+                .Where(v => !string.IsNullOrWhiteSpace(v))
+                .ToList();
+
+            List<string> tokens = lstEcuacionTokens.Items
+                .Cast<object>()
+                .Select(i => Convert.ToString(i)?.Trim() ?? "")
+                .Where(v => !string.IsNullOrWhiteSpace(v))
+                .ToList();
+
+            List<CargoPonderadoEcuacion> cargos = lstEcuacionCargosPermitidos.Items
+                .Cast<object>()
+                .Select(ObtenerCargoPonderadoEcuacion)
+                .Where(v => !string.IsNullOrWhiteSpace(v.Cargo))
+                .ToList();
+
+            List<CategoriaTrabajador> bibliotecaCargos = Cargos.CrearBibliotecaCompleta();
+            List<string> cargosRender = new List<string>();
+            List<string> faltantes = new List<string>();
+            double costoDiaEstimado = 0.0;
+
+            foreach (CargoPonderadoEcuacion cargoVector in cargos)
+            {
+                CategoriaTrabajador cargo = BuscarCargoRenderizadoEcuacion(
+                    bibliotecaCargos,
+                    cargoVector.Cargo
+                );
+
+                if (cargo == null)
+                {
+                    faltantes.Add(cargoVector.Cargo);
+                    cargosRender.Add("- " + cargoVector.Cargo + " -> no encontrado en Cargos");
+                    continue;
+                }
+
+                double costoDia = cargo.SueldoMensualCLPTipico / 22.0;
+                double costoDiaPonderado = costoDia * cargoVector.Ponderador;
+                costoDiaEstimado += costoDiaPonderado;
+                cargosRender.Add("- " + cargo.NombreCompleto + " -> " +
+                    "dedicacion " + (cargoVector.Ponderador * 100.0).ToString("0.#") + "% | " +
+                    FormatearValorVisual(cargo.SueldoMensualCLPTipico) +
+                    "/mes aprox. | " +
+                    FormatearValorVisual(costoDiaPonderado) +
+                    "/dia ponderado");
+            }
+
+            List<string> lineas = new List<string>();
+            lineas.Add(string.IsNullOrWhiteSpace(nombre) ? "Ecuacion sin nombre" : nombre);
+            lineas.Add("Clave: " + (string.IsNullOrWhiteSpace(clave) ? "No definida" : clave));
+            lineas.Add("Clase: " + TraducirClaseEcuacion(tipo));
+            lineas.Add("Formula madre: " + ConstruirResumenFormulaMadreRender(baseEcuacion, nombreBase));
+            lineas.Add("Destino: " + ConstruirDestinoRenderEcuacion(etapa, subEtapa));
+            lineas.Add("");
+            lineas.Add("Como influye la formula madre");
+            if (string.IsNullOrWhiteSpace(baseEcuacion))
+            {
+                lineas.Add("- Esta fila no hereda de otra formula. Sus variables, cargos y calculo son la regla completa.");
+            }
+            else if (filaBase == null)
+            {
+                lineas.Add("- Se eligio una formula madre, pero no existe en la biblioteca actual: " + baseEcuacion);
+                lineas.Add("- Hasta corregir eso, el desglose debe tratar esta ecuacion como incompleta.");
+            }
+            else
+            {
+                lineas.Add("- Hereda la estructura de: " + baseEcuacion + " | " +
+                    (string.IsNullOrWhiteSpace(nombreBase) ? "sin nombre visible" : nombreBase));
+                lineas.Add("- Formula madre: " + (string.IsNullOrWhiteSpace(formulaBase) ? "No definida" : formulaBase));
+                lineas.Add("- Variables madre: " + (string.IsNullOrWhiteSpace(variablesBase) ? "No definidas" : variablesBase));
+                lineas.Add("- Cargos participantes heredados: " + (string.IsNullOrWhiteSpace(cargosBase) ? "No definidos" : cargosBase));
+                lineas.Add("- Este proceso puede sobrescribir variables, cargos y calculo para adaptarlo a la subetapa.");
+            }
+            lineas.Add("");
+            lineas.Add("Formula efectiva que usara el desglose");
+            lineas.Add("Numerador: " + (string.IsNullOrWhiteSpace(numeradorEfectivo) ? "No definido" : numeradorEfectivo));
+            lineas.Add("Denominador: " + (string.IsNullOrWhiteSpace(denominadorEfectivo) ? "No definido" : denominadorEfectivo));
+            lineas.Add("Calculo: " + (string.IsNullOrWhiteSpace(formulaEfectiva) ? "No definido" : formulaEfectiva));
+            lineas.Add("");
+            lineas.Add("Regla legible");
+            lineas.Add(string.IsNullOrWhiteSpace(formula)
+                ? "No hay calculo propio: se intentara usar la formula madre si existe."
+                : formula);
+            lineas.Add("");
+            lineas.Add("Interpretacion del sistema");
+            lineas.Add("1. El pipeline/subproducto elige esta ecuacion.");
+            lineas.Add("2. La cantidad y unidad vienen del desglose.");
+            lineas.Add("3. Cada cargo participante busca su capacidad por periodo.");
+            lineas.Add("4. La ecuacion calcula horas del proceso: cantidad / rendimiento.");
+            lineas.Add("5. Cada cargo toma esas horas segun su dedicacion independiente; el costo se deriva con tarifa horaria.");
+            lineas.Add("");
+            lineas.Add("Variables base");
+            lineas.Add(variables.Count == 0
+                ? "- No definidas"
+                : "- " + string.Join("\r\n- ", variables));
+            lineas.Add("");
+            lineas.Add("Tokens que activan esta ecuacion");
+            lineas.Add(tokens.Count == 0
+                ? "- No definidos"
+                : "- " + string.Join("\r\n- ", tokens));
+            lineas.Add("");
+            lineas.Add("Cargos que suman costo");
+            lineas.Add(cargosRender.Count == 0
+                ? "- No definido. Debes ingresar al menos un cargo participante para calcular costo real."
+                : string.Join("\r\n", cargosRender));
+            lineas.Add("");
+            lineas.Add("Costo horario estimado de la ecuacion: " +
+                (costoDiaEstimado <= 0.0 ? "No definido" : FormatearValorVisual(costoDiaEstimado / 8.0) + "/h"));
+
+            lineas.Add("");
+            lineas.Add("Forma de calculo esperada");
+            lineas.Add("horas_base[cargo] = cantidad / capacidad_por_periodo[cargo]");
+            lineas.Add("horas_cargo = horas_base[cargo] * dedicacion[cargo]");
+            lineas.Add("dias_tecnicos = max(horas_cargo / horas_dia[cargo])");
+            lineas.Add("costo_derivado = <horas_cargo> dot <tarifa_horaria_cargo>");
+
+            if (faltantes.Count > 0)
+            {
+                lineas.Add("");
+                lineas.Add("Faltan parametros por definir");
+                lineas.Add("- Estos cargos no existen o no calzan con la biblioteca de Cargos: " +
+                    string.Join("; ", faltantes));
+            }
+
+            if (!string.IsNullOrWhiteSpace(impacto))
+            {
+                lineas.Add("");
+                lineas.Add("Impacto");
+                lineas.Add(impacto);
+            }
+
+            PintarRenderEcuacionProductiva(
+                string.IsNullOrWhiteSpace(nombre) ? "Ecuacion sin nombre" : nombre,
+                numeradorEfectivo,
+                denominadorEfectivo,
+                lineas
+            );
+
+            pnlMapaFlujoEcuacion?.Invalidate();
+        }
+
+        private string TraducirClaseEcuacion(string tipo)
+        {
+            if (string.Equals(tipo, "Base", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Formula madre reutilizable";
+            }
+
+            if (string.Equals(tipo, "Variante", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Proceso productivo que puede heredar una formula madre";
+            }
+
+            return string.IsNullOrWhiteSpace(tipo) ? "No definida" : tipo;
+        }
+
+        private string ConstruirResumenFormulaMadreRender(string claveBase, string nombreBase)
+        {
+            if (string.IsNullOrWhiteSpace(claveBase))
+            {
+                return "No usa formula madre";
+            }
+
+            if (string.IsNullOrWhiteSpace(nombreBase))
+            {
+                return claveBase + " (no encontrada o sin nombre visible)";
+            }
+
+            return claveBase + " | " + nombreBase;
+        }
+
+        private void ActualizarDetalleFormulaMadreEditor(
+            string claveBase,
+            string nombreBase,
+            string formulaBase,
+            string numeradorBase,
+            string denominadorBase,
+            string variablesBase,
+            string cargosBase,
+            DataGridViewRow filaBase
+        )
+        {
+            if (lblDetalleEcuacionBase == null)
+            {
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(claveBase))
+            {
+                lblDetalleEcuacionBase.BackColor = Color.FromArgb(244, 245, 247);
+                lblDetalleEcuacionBase.ForeColor = Color.FromArgb(80, 80, 80);
+                lblDetalleEcuacionBase.Text =
+                    "No hereda formula madre.\r\n" +
+                    "Esta fila debe definir su propia regla de calculo, variables y cargos participantes.";
+                return;
+            }
+
+            if (filaBase == null)
+            {
+                lblDetalleEcuacionBase.BackColor = Color.FromArgb(255, 238, 238);
+                lblDetalleEcuacionBase.ForeColor = Color.FromArgb(140, 35, 35);
+                lblDetalleEcuacionBase.Text =
+                    "Formula madre no encontrada: " + claveBase + "\r\n" +
+                    "El desglose no puede resolver la herencia hasta corregir esta seleccion.";
+                return;
+            }
+
+            lblDetalleEcuacionBase.BackColor = Color.FromArgb(235, 244, 255);
+            lblDetalleEcuacionBase.ForeColor = Color.FromArgb(35, 55, 80);
+            lblDetalleEcuacionBase.Text =
+                claveBase + " - " + (string.IsNullOrWhiteSpace(nombreBase) ? "sin nombre visible" : nombreBase) + "\r\n" +
+                "Regla: " + (string.IsNullOrWhiteSpace(formulaBase) ? "No definida" : formulaBase) + "\r\n" +
+                "Ecuacion: (" + (string.IsNullOrWhiteSpace(numeradorBase) ? "sin numerador" : numeradorBase) +
+                ") / (" + (string.IsNullOrWhiteSpace(denominadorBase) ? "sin denominador" : denominadorBase) + ")\r\n" +
+                "Variables: " + (string.IsNullOrWhiteSpace(variablesBase) ? "No definidas" : variablesBase) + "\r\n" +
+                "Cargos heredables: " + (string.IsNullOrWhiteSpace(cargosBase) ? "No definidos" : cargosBase);
+        }
+
+        private DataGridViewRow BuscarFilaEcuacionPorClave(string clave)
+        {
+            if (string.IsNullOrWhiteSpace(clave) || dgvEcuacionesProductivas == null)
+            {
+                return null;
+            }
+
+            foreach (DataGridViewRow row in dgvEcuacionesProductivas.Rows)
+            {
+                if (row == null || row.IsNewRow)
+                {
+                    continue;
+                }
+
+                string claveFila = Convert.ToString(row.Cells["Clave"].Value) ?? "";
+                if (string.Equals(claveFila.Trim(), clave.Trim(), StringComparison.OrdinalIgnoreCase))
+                {
+                    return row;
+                }
+            }
+
+            return null;
+        }
+
+        private string ObtenerValorFilaEcuacion(DataGridViewRow row, string columna)
+        {
+            if (row == null ||
+                string.IsNullOrWhiteSpace(columna) ||
+                !row.DataGridView.Columns.Contains(columna))
+            {
+                return "";
+            }
+
+            return Convert.ToString(row.Cells[columna].Value) ?? "";
+        }
+
+        private void PintarRenderEcuacionProductiva(
+            string titulo,
+            string numerador,
+            string denominador,
+            List<string> detalle
+        )
+        {
+            rtbEcuacionRenderizada.Clear();
+            rtbEcuacionRenderizada.SelectionColor = Color.FromArgb(25, 25, 25);
+            rtbEcuacionRenderizada.SelectionFont = new Font("Segoe UI", 13f, FontStyle.Bold);
+            rtbEcuacionRenderizada.AppendText(titulo + "\r\n\r\n");
+
+            string arriba = string.IsNullOrWhiteSpace(numerador) ? "No definido" : numerador;
+            string abajo = string.IsNullOrWhiteSpace(denominador) ? "No definido" : denominador;
+            int ancho = Math.Max(arriba.Length, abajo.Length);
+            string linea = new string('─', Math.Max(18, Math.Min(70, ancho + 8)));
+
+            rtbEcuacionRenderizada.SelectionFont = new Font("Segoe UI", 12.5f, FontStyle.Bold);
+            rtbEcuacionRenderizada.SelectionColor = Color.FromArgb(30, 80, 150);
+            rtbEcuacionRenderizada.AppendText("días requeridos =\r\n");
+
+            rtbEcuacionRenderizada.SelectionFont = new Font("Segoe UI", 12.5f, FontStyle.Bold);
+            rtbEcuacionRenderizada.SelectionColor = Color.FromArgb(20, 20, 20);
+            rtbEcuacionRenderizada.AppendText("   " + arriba + "\r\n");
+
+            rtbEcuacionRenderizada.SelectionFont = new Font("Consolas", 12f, FontStyle.Bold);
+            rtbEcuacionRenderizada.SelectionColor = Color.FromArgb(70, 70, 70);
+            rtbEcuacionRenderizada.AppendText("   " + linea + "\r\n");
+
+            rtbEcuacionRenderizada.SelectionFont = new Font("Segoe UI", 12.5f, FontStyle.Bold);
+            rtbEcuacionRenderizada.SelectionColor = string.Equals(abajo, "No definido", StringComparison.OrdinalIgnoreCase)
+                ? Color.FromArgb(190, 40, 40)
+                : Color.FromArgb(20, 20, 20);
+            rtbEcuacionRenderizada.AppendText("   " + abajo + "\r\n\r\n");
+
+            rtbEcuacionRenderizada.SelectionFont = new Font("Segoe UI", 9.5f, FontStyle.Regular);
+            rtbEcuacionRenderizada.SelectionColor = Color.FromArgb(80, 80, 80);
+            rtbEcuacionRenderizada.AppendText(string.Join("\r\n", detalle));
+        }
+
+        private void PnlMapaFlujoEcuacion_Paint(object sender, PaintEventArgs e)
+        {
+            Graphics g = e.Graphics;
+            g.Clear(Color.White);
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            nodosMapaFlujoEcuacion.Clear();
+
+            string clave = (txtEcuacionClave.Text ?? "").Trim();
+            string nombre = (txtEcuacionNombre.Text ?? "").Trim();
+            string etapa = (txtEcuacionEtapa.Text ?? "").Trim();
+            string subEtapa = (txtEcuacionSubEtapa.Text ?? "").Trim();
+            string formula = (txtEcuacionFormula.Text ?? "").Trim();
+            string numerador = UnirFactorVisualEcuacion(lstEcuacionNumerador);
+            string denominador = UnirFactorVisualEcuacion(lstEcuacionDenominador);
+
+            List<string> variables = lstEcuacionVariables.Items
+                .Cast<object>()
+                .Select(i => Convert.ToString(i)?.Trim() ?? "")
+                .Where(v => !string.IsNullOrWhiteSpace(v))
+                .ToList();
+
+            List<CargoPonderadoEcuacion> cargosTexto = lstEcuacionCargosPermitidos.Items
+                .Cast<object>()
+                .Select(ObtenerCargoPonderadoEcuacion)
+                .Where(v => !string.IsNullOrWhiteSpace(v.Cargo))
+                .ToList();
+
+            List<CategoriaTrabajador> bibliotecaCargos = Cargos.CrearBibliotecaCompleta();
+            List<Tuple<CargoPonderadoEcuacion, CategoriaTrabajador, double>> cargosMapa =
+                new List<Tuple<CargoPonderadoEcuacion, CategoriaTrabajador, double>>();
+
+            foreach (CargoPonderadoEcuacion cargoTexto in cargosTexto)
+            {
+                CategoriaTrabajador cargo = BuscarCargoRenderizadoEcuacion(bibliotecaCargos, cargoTexto.Cargo);
+                double costoDia = cargo == null
+                    ? 0.0
+                    : (cargo.SueldoMensualCLPTipico / 22.0) * cargoTexto.Ponderador;
+                cargosMapa.Add(Tuple.Create(cargoTexto, cargo, costoDia));
+            }
+
+            double totalCostoDia = cargosMapa.Sum(c => c.Item3);
+            Font tituloFont = new Font("Segoe UI", 15f, FontStyle.Bold);
+            Font subtituloFont = new Font("Segoe UI", 9.5f, FontStyle.Bold);
+            Font textoFont = new Font("Segoe UI", 9f);
+            Font chicoFont = new Font("Segoe UI", 8.5f);
+
+            g.DrawString("Mapa de flujo productivo", tituloFont, Brushes.Black, new PointF(36, 26));
+            g.DrawString(
+                string.IsNullOrWhiteSpace(nombre) ? "Selecciona una ecuacion para ver sus vinculos." : nombre,
+                new Font("Segoe UI", 10f),
+                new SolidBrush(Color.FromArgb(80, 80, 80)),
+                new PointF(38, 58)
+            );
+
+            Rectangle ecuacionRect = new Rectangle(560, 170, 310, 210);
+            string destino = ConstruirDestinoRenderEcuacion(etapa, subEtapa);
+            string detalleEcuacion =
+                "Clave: " + (string.IsNullOrWhiteSpace(clave) ? "No definida" : clave) + "\n" +
+                "Destino: " + destino + "\n" +
+                "Formula: " + (string.IsNullOrWhiteSpace(formula) ? "No definida" : formula) + "\n\n" +
+                "Resultado: horas por cargo y costo derivado por tarifa horaria";
+
+            DibujarNodoFlujo(
+                g,
+                ecuacionRect,
+                string.IsNullOrWhiteSpace(nombre) ? "Ecuacion sin nombre" : nombre,
+                detalleEcuacion,
+                Color.FromArgb(248, 249, 252),
+                Color.FromArgb(80, 110, 160),
+                subtituloFont,
+                textoFont
+            );
+            RegistrarNodoMapa(ecuacionRect, "ecuacion", clave);
+
+            Rectangle numeradorRect = new Rectangle(90, 150, 310, 105);
+            Rectangle denominadorRect = new Rectangle(90, 300, 310, 105);
+            DibujarNodoFlujo(
+                g,
+                numeradorRect,
+                "Numerador",
+                string.IsNullOrWhiteSpace(numerador) ? "No definido" : numerador,
+                Color.FromArgb(232, 248, 244),
+                Color.FromArgb(70, 170, 145),
+                subtituloFont,
+                textoFont
+            );
+            DibujarNodoFlujo(
+                g,
+                denominadorRect,
+                "Denominador",
+                string.IsNullOrWhiteSpace(denominador) ? "No definido" : denominador,
+                Color.FromArgb(235, 242, 255),
+                Color.FromArgb(80, 130, 210),
+                subtituloFont,
+                textoFont
+            );
+            DibujarFlechaFlujo(g, new Point(numeradorRect.Right, numeradorRect.Top + 52), new Point(ecuacionRect.Left, ecuacionRect.Top + 58), Color.FromArgb(70, 170, 145));
+            DibujarFlechaFlujo(g, new Point(denominadorRect.Right, denominadorRect.Top + 52), new Point(ecuacionRect.Left, ecuacionRect.Top + 145), Color.FromArgb(80, 130, 210));
+
+            int varY = 460;
+            g.DrawString("Variables disponibles", subtituloFont, Brushes.Black, new PointF(92, varY));
+            varY += 30;
+            if (variables.Count == 0)
+            {
+                DibujarNodoFlujo(g, new Rectangle(90, varY, 310, 55), "No definido", "Falta declarar variables.", Color.FromArgb(255, 245, 225), Color.FromArgb(210, 160, 60), subtituloFont, chicoFont);
+            }
+            else
+            {
+                foreach (string variable in variables.Take(8))
+                {
+                    Rectangle variableRect = new Rectangle(90, varY, 310, 42);
+                    DibujarNodoFlujo(g, variableRect, variable, "Variable independiente", Color.FromArgb(255, 253, 232), Color.FromArgb(210, 190, 70), subtituloFont, chicoFont);
+                    DibujarFlechaFlujo(g, new Point(variableRect.Right, variableRect.Top + 21), new Point(ecuacionRect.Left, ecuacionRect.Bottom - 28), Color.FromArgb(210, 190, 70));
+                    varY += 50;
+                }
+            }
+
+            int cargoX = 1010;
+            int cargoY = 125;
+            g.DrawString("Cargos asociados y ponderadores", subtituloFont, Brushes.Black, new PointF(cargoX, 90));
+
+            if (cargosMapa.Count == 0)
+            {
+                Rectangle cargoRect = new Rectangle(cargoX, cargoY, 360, 80);
+                DibujarNodoFlujo(g, cargoRect, "No definido", "Esta ecuacion no tiene cargos permitidos.", Color.FromArgb(255, 242, 242), Color.FromArgb(210, 80, 80), subtituloFont, textoFont);
+                DibujarFlechaFlujo(g, new Point(ecuacionRect.Right, ecuacionRect.Top + 105), new Point(cargoRect.Left, cargoRect.Top + 40), Color.FromArgb(150, 150, 150));
+            }
+            else
+            {
+                foreach (Tuple<CargoPonderadoEcuacion, CategoriaTrabajador, double> item in cargosMapa.Take(9))
+                {
+                    string tituloCargo = item.Item2 == null ? item.Item1.Cargo : item.Item2.NombreCompleto;
+                    string detalleCargo;
+                    Color relleno = Color.FromArgb(238, 250, 238);
+                    Color borde = Color.FromArgb(70, 150, 90);
+
+                    if (item.Item2 == null)
+                    {
+                        detalleCargo = "Cargo no encontrado en biblioteca.";
+                        relleno = Color.FromArgb(255, 242, 242);
+                        borde = Color.FromArgb(210, 80, 80);
+                    }
+                    else
+                    {
+                        double peso = totalCostoDia <= 0.0 ? 0.0 : item.Item3 / totalCostoDia;
+                        detalleCargo =
+                            "Dedicacion: " + (item.Item1.Ponderador * 100.0).ToString("0.#") + "%\n" +
+                            "Mensual: " + FormatearValorVisual(item.Item2.SueldoMensualCLPTipico) + "\n" +
+                            "Dia ponderado: " + FormatearValorVisual(item.Item3) + "\n" +
+                            "Peso en el costo diario: " + peso.ToString("P0");
+                    }
+
+                    Rectangle cargoRect = new Rectangle(cargoX, cargoY, 360, 92);
+                    DibujarNodoFlujo(g, cargoRect, tituloCargo, detalleCargo, relleno, borde, subtituloFont, chicoFont);
+                    if (item.Item2 != null && totalCostoDia > 0.0)
+                    {
+                        double peso = item.Item3 / totalCostoDia;
+                        DibujarBarraPonderadorFlujo(g, cargoRect, peso, borde);
+                    }
+                    RegistrarNodoMapa(cargoRect, "cargo", tituloCargo);
+                    DibujarFlechaFlujo(g, new Point(ecuacionRect.Right, ecuacionRect.Top + 105), new Point(cargoRect.Left, cargoRect.Top + 46), borde);
+                    cargoY += 108;
+                }
+            }
+
+            Rectangle resumenRect = new Rectangle(560, 450, 310, 130);
+            string detalleResumen =
+                "Costo diario conjunto: " +
+                (totalCostoDia <= 0.0 ? "No definido" : FormatearValorVisual(totalCostoDia) + "/dia") + "\n" +
+                "Cargos vinculados: " + cargosMapa.Count + "\n" +
+                "Dedicacion: porcentaje de horas del proceso que aporta ese cargo";
+            DibujarNodoFlujo(
+                g,
+                resumenRect,
+                "Flujo de caja productivo",
+                detalleResumen,
+                Color.FromArgb(250, 246, 238),
+                Color.FromArgb(190, 130, 55),
+                subtituloFont,
+                textoFont
+            );
+            DibujarFlechaFlujo(g, new Point(ecuacionRect.Left + 155, ecuacionRect.Bottom), new Point(resumenRect.Left + 155, resumenRect.Top), Color.FromArgb(190, 130, 55));
+
+            Rectangle salidaRect = new Rectangle(930, 470, 380, 110);
+            string salidaDetalle =
+                "Entrega al desglose: tiempo tecnico, costo por cargos participantes y advertencias.\n" +
+                "Si falta cargo, capacidad o tarifa, el calculo debe quedar como no definido.";
+            DibujarNodoFlujo(
+                g,
+                salidaRect,
+                "Salida al desglose productivo",
+                salidaDetalle,
+                Color.FromArgb(244, 248, 255),
+                Color.FromArgb(80, 120, 210),
+                subtituloFont,
+                textoFont
+            );
+            DibujarFlechaFlujo(g, new Point(resumenRect.Right, resumenRect.Top + 65), new Point(salidaRect.Left, salidaRect.Top + 55), Color.FromArgb(80, 120, 210));
+            RegistrarNodoMapa(salidaRect, "desglose", "");
+
+            DibujarPanelEcuacionesRelacionadasFlujo(
+                g,
+                new Rectangle(560, 625, 750, 165),
+                clave,
+                ObtenerClaveFormulaMadreSeleccionada(),
+                subtituloFont,
+                chicoFont
+            );
+
+            tituloFont.Dispose();
+            subtituloFont.Dispose();
+            textoFont.Dispose();
+            chicoFont.Dispose();
+        }
+
+        private void PnlMapaFlujoEcuacion_MouseDoubleClick(object sender, MouseEventArgs e)
+        {
+            Tuple<Rectangle, string, string> nodo = nodosMapaFlujoEcuacion
+                .LastOrDefault(n => n.Item1.Contains(e.Location));
+
+            if (nodo == null)
+            {
+                return;
+            }
+
+            if (string.Equals(nodo.Item2, "cargo", StringComparison.OrdinalIgnoreCase))
+            {
+                AbrirTabPrincipal(tabCargosPrincipal, true);
+                lblEstadoEcuacionesProductivas.Text =
+                    "Abierta la pestaña Cargos para revisar el costo del cargo seleccionado.";
+                return;
+            }
+
+            if (string.Equals(nodo.Item2, "ecuacion", StringComparison.OrdinalIgnoreCase))
+            {
+                AbrirEditorVisualEcuacion();
+                lblEstadoEcuacionesProductivas.Text =
+                    "Abierto el editor visual de la ecuacion seleccionada.";
+                return;
+            }
+
+            if (string.Equals(nodo.Item2, "desglose", StringComparison.OrdinalIgnoreCase))
+            {
+                AbrirTabPrincipal(tabDesgloseProductivoPrincipal, false);
+                lblEstadoEcuacionesProductivas.Text =
+                    "Abierto el desglose productivo para revisar donde impacta esta ecuacion.";
+            }
+        }
+
+        private void RegistrarNodoMapa(Rectangle rect, string tipo, string clave)
+        {
+            nodosMapaFlujoEcuacion.Add(Tuple.Create(rect, tipo, clave));
+        }
+
+        private void DibujarNodoFlujo(
+            Graphics g,
+            Rectangle rect,
+            string titulo,
+            string detalle,
+            Color relleno,
+            Color borde,
+            Font tituloFont,
+            Font detalleFont
+        )
+        {
+            using (SolidBrush brush = new SolidBrush(relleno))
+            using (Pen pen = new Pen(borde, 1.6f))
+            {
+                g.FillRectangle(brush, rect);
+                g.DrawRectangle(pen, rect);
+            }
+
+            Rectangle tituloRect = new Rectangle(rect.X + 12, rect.Y + 10, rect.Width - 24, 24);
+            Rectangle detalleRect = new Rectangle(rect.X + 12, rect.Y + 38, rect.Width - 24, rect.Height - 46);
+
+            TextRenderer.DrawText(g, titulo, tituloFont, tituloRect, Color.FromArgb(20, 20, 20), TextFormatFlags.WordBreak | TextFormatFlags.EndEllipsis);
+            TextRenderer.DrawText(g, detalle, detalleFont, detalleRect, Color.FromArgb(55, 55, 55), TextFormatFlags.WordBreak | TextFormatFlags.EndEllipsis);
+        }
+
+        private void DibujarBarraPonderadorFlujo(Graphics g, Rectangle nodo, double peso, Color color)
+        {
+            peso = Math.Max(0.0, Math.Min(1.0, peso));
+
+            Rectangle fondo = new Rectangle(nodo.X + 12, nodo.Bottom - 14, nodo.Width - 24, 5);
+            Rectangle barra = new Rectangle(fondo.X, fondo.Y, Math.Max(2, (int)(fondo.Width * peso)), fondo.Height);
+
+            using (SolidBrush brushFondo = new SolidBrush(Color.FromArgb(218, 222, 226)))
+            using (SolidBrush brushBarra = new SolidBrush(color))
+            {
+                g.FillRectangle(brushFondo, fondo);
+                g.FillRectangle(brushBarra, barra);
+            }
+        }
+
+        private void DibujarPanelEcuacionesRelacionadasFlujo(
+            Graphics g,
+            Rectangle rect,
+            string claveActual,
+            string baseActual,
+            Font tituloFont,
+            Font textoFont
+        )
+        {
+            DibujarNodoFlujo(
+                g,
+                rect,
+                "Ecuaciones relacionadas",
+                "Base, variantes y formulas que comparten familia con la seleccionada.",
+                Color.FromArgb(249, 249, 249),
+                Color.FromArgb(150, 150, 150),
+                tituloFont,
+                textoFont
+            );
+
+            string claveNormalizada = NormalizarTextoDatosVisual(claveActual);
+            string baseNormalizada = NormalizarTextoDatosVisual(baseActual);
+            List<string> relacionadas = new List<string>();
+
+            foreach (DataGridViewRow row in dgvEcuacionesProductivas.Rows)
+            {
+                if (row == null || row.IsNewRow)
+                {
+                    continue;
+                }
+
+                string clave = Convert.ToString(row.Cells["Clave"].Value) ?? "";
+                string nombre = Convert.ToString(row.Cells["NombreVisible"].Value) ?? "";
+                string baseFila = Convert.ToString(row.Cells["EcuacionBase"].Value) ?? "";
+                string tipo = Convert.ToString(row.Cells["TipoEcuacion"].Value) ?? "";
+
+                bool mismaBase = !string.IsNullOrWhiteSpace(baseNormalizada) &&
+                    NormalizarTextoDatosVisual(baseFila) == baseNormalizada;
+                bool usaActualComoBase = !string.IsNullOrWhiteSpace(claveNormalizada) &&
+                    NormalizarTextoDatosVisual(baseFila) == claveNormalizada;
+                bool esBaseActual = !string.IsNullOrWhiteSpace(baseNormalizada) &&
+                    NormalizarTextoDatosVisual(clave) == baseNormalizada;
+
+                if (!mismaBase && !usaActualComoBase && !esBaseActual)
+                {
+                    continue;
+                }
+
+                string texto = (string.IsNullOrWhiteSpace(clave) ? "Sin clave" : clave) +
+                    " | " +
+                    (string.IsNullOrWhiteSpace(nombre) ? "Sin nombre" : nombre) +
+                    " | " +
+                    (string.IsNullOrWhiteSpace(tipo) ? "Sin tipo" : tipo);
+
+                if (!relacionadas.Contains(texto))
+                {
+                    relacionadas.Add(texto);
+                }
+            }
+
+            int y = rect.Y + 58;
+            if (relacionadas.Count == 0)
+            {
+                TextRenderer.DrawText(
+                    g,
+                    "No hay variantes/base conectadas a esta ecuacion.",
+                    textoFont,
+                    new Rectangle(rect.X + 14, y, rect.Width - 28, 24),
+                    Color.FromArgb(95, 95, 95),
+                    TextFormatFlags.EndEllipsis
+                );
+                return;
+            }
+
+            foreach (string texto in relacionadas.Take(4))
+            {
+                Rectangle item = new Rectangle(rect.X + 14, y, rect.Width - 28, 24);
+                TextRenderer.DrawText(
+                    g,
+                    texto,
+                    textoFont,
+                    item,
+                    Color.FromArgb(40, 40, 40),
+                    TextFormatFlags.EndEllipsis
+                );
+                y += 26;
+            }
+        }
+
+        private void DibujarFlechaFlujo(Graphics g, Point origen, Point destino, Color color)
+        {
+            using (Pen pen = new Pen(color, 2.0f))
+            using (SolidBrush brush = new SolidBrush(color))
+            {
+                g.DrawLine(pen, origen, destino);
+
+                double angulo = Math.Atan2(destino.Y - origen.Y, destino.X - origen.X);
+                const int largo = 10;
+                PointF p1 = new PointF(
+                    destino.X - largo * (float)Math.Cos(angulo - Math.PI / 6),
+                    destino.Y - largo * (float)Math.Sin(angulo - Math.PI / 6)
+                );
+                PointF p2 = new PointF(
+                    destino.X - largo * (float)Math.Cos(angulo + Math.PI / 6),
+                    destino.Y - largo * (float)Math.Sin(angulo + Math.PI / 6)
+                );
+
+                g.FillPolygon(brush, new[] { new PointF(destino.X, destino.Y), p1, p2 });
+            }
+        }
+
+        private string ConstruirDestinoRenderEcuacion(string etapa, string subEtapa)
+        {
+            if (string.IsNullOrWhiteSpace(etapa) && string.IsNullOrWhiteSpace(subEtapa))
+            {
+                return "No definido";
+            }
+
+            if (string.IsNullOrWhiteSpace(subEtapa))
+            {
+                return etapa;
+            }
+
+            if (string.IsNullOrWhiteSpace(etapa))
+            {
+                return subEtapa;
+            }
+
+            return etapa + " / " + subEtapa;
+        }
+
+        private CategoriaTrabajador BuscarCargoRenderizadoEcuacion(
+            List<CategoriaTrabajador> cargos,
+            string cargoTexto
+        )
+        {
+            if (cargos == null || string.IsNullOrWhiteSpace(cargoTexto))
+            {
+                return null;
+            }
+
+            cargoTexto = ParsearCargoPonderadoEcuacion(cargoTexto).Cargo;
+            string buscado = NormalizarTextoDatosVisual(cargoTexto);
+            return cargos.FirstOrDefault(c =>
+                c != null &&
+                (
+                    NormalizarTextoDatosVisual(c.NombreCompleto) == buscado ||
+                    NormalizarTextoDatosVisual(c.Nombre) == buscado ||
+                    buscado.Contains(NormalizarTextoDatosVisual(c.Nombre))
+                ));
+        }
+
+        private void EditarTextoLargoEcuacion(string titulo, TextBox destino)
+        {
+            using (Form dialogo = new Form())
+            {
+                dialogo.Text = titulo;
+                dialogo.StartPosition = FormStartPosition.CenterParent;
+                dialogo.Size = new Size(720, 420);
+                dialogo.MinimumSize = new Size(520, 320);
+                dialogo.Padding = new Padding(12);
+
+                TextBox texto = new TextBox();
+                texto.Multiline = true;
+                texto.ScrollBars = ScrollBars.Both;
+                texto.Dock = DockStyle.Fill;
+                texto.Font = new Font("Segoe UI", 10f);
+                texto.Text = destino.Text;
+
+                FlowLayoutPanel acciones = new FlowLayoutPanel();
+                acciones.Dock = DockStyle.Bottom;
+                acciones.FlowDirection = FlowDirection.RightToLeft;
+                acciones.Height = 42;
+
+                Button aceptar = CrearBotonEcuacion("Aplicar");
+                aceptar.Click += (s, e) =>
+                {
+                    destino.Text = texto.Text;
+                    dialogo.DialogResult = DialogResult.OK;
+                    dialogo.Close();
+                };
+
+                Button cancelar = CrearBotonEcuacion("Cancelar");
+                cancelar.Click += (s, e) => dialogo.Close();
+
+                acciones.Controls.Add(aceptar);
+                acciones.Controls.Add(cancelar);
+
+                dialogo.Controls.Add(texto);
+                dialogo.Controls.Add(acciones);
+                dialogo.ShowDialog(this);
+            }
+        }
+
+        private void AbrirTabEcuacionesProductivas(string ecuacionPipeline)
+        {
+            AbrirTabPrincipal(tabEcuacionesPrincipal, true);
+            CargarBibliotecaEcuacionesProductivasEnPantalla();
+            if (SeleccionarEcuacionProductivaEnPantalla(ecuacionPipeline))
+            {
+                AbrirEditorVisualEcuacion();
+            }
+        }
+
+        private bool SeleccionarEcuacionProductivaEnPantalla(string ecuacionPipeline)
+        {
+            if (dgvEcuacionesProductivas == null ||
+                dgvEcuacionesProductivas.Rows.Count == 0 ||
+                string.IsNullOrWhiteSpace(ecuacionPipeline))
+            {
+                return false;
+            }
+
+            string normalizada = NormalizarTextoDatosVisual(ecuacionPipeline);
+            string clave = ExtraerClaveEcuacionPipeline(ecuacionPipeline);
+            string claveNormalizada = NormalizarTextoDatosVisual(clave);
+
+            foreach (DataGridViewRow row in dgvEcuacionesProductivas.Rows)
+            {
+                if (row == null || row.IsNewRow)
+                {
+                    continue;
+                }
+
+                string claveFila = Convert.ToString(row.Cells["Clave"].Value) ?? "";
+                string nombreFila = Convert.ToString(row.Cells["NombreVisible"].Value) ?? "";
+                string subEtapaFila = Convert.ToString(row.Cells["SubEtapa"].Value) ?? "";
+                string tokensFila = Convert.ToString(row.Cells["Tokens"].Value) ?? "";
+                string textoFila = claveFila + " | " + nombreFila;
+                string textoBusquedaFila = claveFila + " " + nombreFila + " " + subEtapaFila + " " + tokensFila;
+                string filaNormalizada = NormalizarTextoDatosVisual(textoBusquedaFila);
+
+                bool coincide =
+                    (!string.IsNullOrWhiteSpace(claveNormalizada) &&
+                        NormalizarTextoDatosVisual(claveFila) == claveNormalizada) ||
+                    NormalizarTextoDatosVisual(nombreFila) == normalizada ||
+                    NormalizarTextoDatosVisual(subEtapaFila) == normalizada ||
+                    NormalizarTextoDatosVisual(textoFila) == normalizada ||
+                    (!string.IsNullOrWhiteSpace(normalizada) &&
+                        (filaNormalizada.Contains(normalizada) || normalizada.Contains(filaNormalizada)));
+
+                if (!coincide)
+                {
+                    continue;
+                }
+
+                SeleccionarFilaEcuacion(row);
+                return true;
+            }
+
+            return false;
+        }
+
+        private void SeleccionarFilaEcuacion(DataGridViewRow row)
+        {
+            if (row == null || row.IsNewRow || dgvEcuacionesProductivas == null)
+            {
+                return;
+            }
+
+            dgvEcuacionesProductivas.ClearSelection();
+            row.Selected = true;
+            dgvEcuacionesProductivas.CurrentCell = row.Cells["Clave"];
+            DesplazarGrillaEcuacionesAFila(row);
+            CargarEditorEcuacionDesdeFila(row);
+        }
+
+        private void DesplazarGrillaEcuacionesAFila(DataGridViewRow row)
+        {
+            if (row == null ||
+                row.IsNewRow ||
+                dgvEcuacionesProductivas == null ||
+                row.Index < 0 ||
+                row.Index >= dgvEcuacionesProductivas.RowCount)
+            {
+                return;
+            }
+
+            if (!dgvEcuacionesProductivas.IsHandleCreated ||
+                !dgvEcuacionesProductivas.Visible ||
+                dgvEcuacionesProductivas.DisplayedRowCount(false) <= 0)
+            {
+                return;
+            }
+
+            try
+            {
+                dgvEcuacionesProductivas.FirstDisplayedScrollingRowIndex = row.Index;
+            }
+            catch (InvalidOperationException)
+            {
+                // La tabla puede estar en una pestaña oculta; seleccionar la fila basta para mantener el editor sincronizado.
+            }
+        }
+
+        private void RefrescarListaBibliotecaEcuaciones()
+        {
+            if (lvBibliotecaEcuaciones == null || dgvEcuacionesProductivas == null)
+            {
+                return;
+            }
+
+            string busqueda = NormalizarTextoDatosVisual(txtBuscarEcuacionProductiva.Text ?? "");
+            string filtroTipo = Convert.ToString(cmbFiltroTipoEcuacion.SelectedItem) ?? "Todas";
+            string filtroEstado = Convert.ToString(cmbFiltroEstadoEcuacion.SelectedItem) ?? "Activas e inactivas";
+            string filtroEtapa = Convert.ToString(cmbFiltroEtapaEcuacion.SelectedItem) ?? "Todas las etapas";
+
+            lvBibliotecaEcuaciones.BeginUpdate();
+            lvBibliotecaEcuaciones.Items.Clear();
+
+            foreach (DataGridViewRow row in dgvEcuacionesProductivas.Rows)
+            {
+                if (row == null || row.IsNewRow)
+                {
+                    continue;
+                }
+
+                string clave = ObtenerValorFilaEcuacion(row, "Clave");
+                string nombre = ObtenerValorFilaEcuacion(row, "NombreVisible");
+                string tipo = ObtenerValorFilaEcuacion(row, "TipoEcuacion");
+                string etapa = ObtenerValorFilaEcuacion(row, "Etapa");
+                string subEtapa = ObtenerValorFilaEcuacion(row, "SubEtapa");
+                string tokens = ObtenerValorFilaEcuacion(row, "Tokens");
+                bool activa = Convert.ToBoolean(row.Cells["Activa"].Value ?? true);
+
+                if (filtroTipo == "Formulas madre" && !string.Equals(tipo, "Base", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (filtroTipo == "Procesos" && string.Equals(tipo, "Base", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (filtroEstado == "Activas" && !activa)
+                {
+                    continue;
+                }
+
+                if (filtroEstado == "Inactivas" && activa)
+                {
+                    continue;
+                }
+
+                if (!string.Equals(filtroEtapa, "Todas las etapas", StringComparison.OrdinalIgnoreCase) &&
+                    !string.Equals(filtroEtapa, etapa, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                string textoBusqueda = NormalizarTextoDatosVisual(
+                    clave + " " + nombre + " " + tipo + " " + etapa + " " + subEtapa + " " + tokens
+                );
+
+                if (!string.IsNullOrWhiteSpace(busqueda) && !textoBusqueda.Contains(busqueda))
+                {
+                    continue;
+                }
+
+                ListViewItem item = new ListViewItem(string.IsNullOrWhiteSpace(nombre) ? clave : nombre);
+                item.SubItems.Add(string.Equals(tipo, "Base", StringComparison.OrdinalIgnoreCase) ? "Madre" : "Proceso");
+                item.SubItems.Add(string.IsNullOrWhiteSpace(etapa) ? "Sin etapa" : etapa);
+                item.Tag = row;
+                item.ForeColor = activa ? Color.FromArgb(30, 30, 30) : Color.FromArgb(130, 130, 130);
+                if (string.Equals(tipo, "Base", StringComparison.OrdinalIgnoreCase))
+                {
+                    item.BackColor = Color.FromArgb(240, 247, 255);
+                }
+
+                lvBibliotecaEcuaciones.Items.Add(item);
+            }
+
+            lvBibliotecaEcuaciones.EndUpdate();
+            SincronizarSeleccionListaBibliotecaEcuaciones();
+        }
+
+        private void RefrescarFiltroEtapasEcuaciones()
+        {
+            if (cmbFiltroEtapaEcuacion == null || dgvEcuacionesProductivas == null)
+            {
+                return;
+            }
+
+            string actual = Convert.ToString(cmbFiltroEtapaEcuacion.SelectedItem) ?? "Todas las etapas";
+            cmbFiltroEtapaEcuacion.Items.Clear();
+            cmbFiltroEtapaEcuacion.Items.Add("Todas las etapas");
+
+            foreach (string etapa in dgvEcuacionesProductivas.Rows
+                .Cast<DataGridViewRow>()
+                .Where(r => r != null && !r.IsNewRow)
+                .Select(r => ObtenerValorFilaEcuacion(r, "Etapa"))
+                .Where(v => !string.IsNullOrWhiteSpace(v))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(v => v))
+            {
+                cmbFiltroEtapaEcuacion.Items.Add(etapa);
+            }
+
+            if (cmbFiltroEtapaEcuacion.Items.Contains(actual))
+            {
+                cmbFiltroEtapaEcuacion.SelectedItem = actual;
+            }
+            else
+            {
+                cmbFiltroEtapaEcuacion.SelectedIndex = 0;
+            }
+        }
+
+        private void SincronizarSeleccionListaBibliotecaEcuaciones()
+        {
+            if (lvBibliotecaEcuaciones == null ||
+                dgvEcuacionesProductivas == null ||
+                dgvEcuacionesProductivas.CurrentRow == null)
+            {
+                return;
+            }
+
+            foreach (ListViewItem item in lvBibliotecaEcuaciones.Items)
+            {
+                if (ReferenceEquals(item.Tag, dgvEcuacionesProductivas.CurrentRow))
+                {
+                    try
+                    {
+                        sincronizandoBibliotecaEcuaciones = true;
+                        item.Selected = true;
+                        item.EnsureVisible();
+                    }
+                    finally
+                    {
+                        sincronizandoBibliotecaEcuaciones = false;
+                    }
+                    return;
+                }
+            }
+        }
+
+        private string ExtraerClaveEcuacionPipeline(string ecuacionPipeline)
+        {
+            string texto = ecuacionPipeline ?? "";
+            int idx = texto.IndexOf("|", StringComparison.Ordinal);
+
+            if (idx < 0)
+            {
+                return texto.Trim();
+            }
+
+            return texto.Substring(0, idx).Trim();
+        }
+
+        private void CargarBibliotecaEcuacionesProductivasEnPantalla()
+        {
+            List<EcuacionProductivaDefinicion> ecuaciones =
+                BibliotecaEcuacionesProductivasJsonService.CargarEcuaciones();
+
+            DataGridViewComboBoxColumn colBase =
+                dgvEcuacionesProductivas.Columns["EcuacionBase"] as DataGridViewComboBoxColumn;
+
+            if (colBase != null)
+            {
+                colBase.Items.Clear();
+                colBase.Items.Add("");
+
+                foreach (string clave in ecuaciones
+                    .Where(e => e != null && !string.IsNullOrWhiteSpace(e.Clave))
+                    .Select(e => e.Clave)
+                    .OrderBy(c => c))
+                {
+                    if (!colBase.Items.Contains(clave))
+                    {
+                        colBase.Items.Add(clave);
+                    }
+                }
+            }
+
+            dgvEcuacionesProductivas.Rows.Clear();
+
+            foreach (EcuacionProductivaDefinicion e in ecuaciones
+                .OrderBy(e => NormalizarTextoDatosVisual(e.TipoEcuacion) == "base" ? 0 : 1)
+                .ThenBy(e => e.EcuacionBase)
+                .ThenBy(e => e.Clave))
+            {
+                int rowIndex = dgvEcuacionesProductivas.Rows.Add();
+                DataGridViewRow row = dgvEcuacionesProductivas.Rows[rowIndex];
+                row.Cells["Activa"].Value = e.Activa;
+                row.Cells["Clave"].Value = e.Clave;
+                row.Cells["NombreVisible"].Value = e.NombreVisible;
+                row.Cells["TipoEcuacion"].Value = string.IsNullOrWhiteSpace(e.TipoEcuacion)
+                    ? "Variante"
+                    : e.TipoEcuacion;
+                row.Cells["EcuacionBase"].Value = e.EcuacionBase ?? "";
+                row.Cells["Etapa"].Value = e.Etapa;
+                row.Cells["SubEtapa"].Value = e.SubEtapa;
+                row.Cells["Tokens"].Value = e.Tokens;
+                row.Cells["Variables"].Value = e.Variables;
+                row.Cells["CargosPermitidos"].Value = e.CargosPermitidos;
+                row.Cells["CargosParticipantesJson"].Value = e.CargosParticipantesJson;
+                row.Cells["FormulaReferencia"].Value = e.FormulaReferencia;
+                row.Cells["Numerador"].Value = e.Numerador;
+                row.Cells["Denominador"].Value = e.Denominador;
+                row.Cells["Impacto"].Value = e.Impacto;
+                row.Cells["Nota"].Value = e.Nota;
+            }
+
+            lblEstadoEcuacionesProductivas.Text =
+                "Biblioteca: " + BibliotecaEcuacionesProductivasJsonService.ObtenerRutaEcuaciones();
+
+            RefrescarFiltroEtapasEcuaciones();
+            RefrescarListaBibliotecaEcuaciones();
+
+            if (dgvEcuacionesProductivas.Rows.Count > 0)
+            {
+                dgvEcuacionesProductivas.ClearSelection();
+                dgvEcuacionesProductivas.Rows[0].Selected = true;
+                dgvEcuacionesProductivas.CurrentCell = dgvEcuacionesProductivas.Rows[0].Cells["Clave"];
+                CargarEditorEcuacionDesdeFila(dgvEcuacionesProductivas.Rows[0]);
+            }
+
+            MostrarValidacionBibliotecaEcuaciones();
+        }
+
+        private bool ValidarBibliotecaEcuaciones(out List<string> errores, out List<string> advertencias)
+        {
+            EcuacionProductivaRuntimeService.DiagnosticoBiblioteca diagnostico =
+                EcuacionProductivaRuntimeService.ValidarBiblioteca(ConstruirListaEcuacionesDesdeGrilla());
+
+            errores = diagnostico.Errores;
+            advertencias = diagnostico.Advertencias;
+            return diagnostico.PuedeGuardar;
+        }
+
+        private void MostrarValidacionBibliotecaEcuaciones()
+        {
+            if (rtbValidacionEcuaciones == null)
+            {
+                return;
+            }
+
+            ValidarBibliotecaEcuaciones(out List<string> errores, out List<string> advertencias);
+
+            rtbValidacionEcuaciones.Clear();
+            rtbValidacionEcuaciones.SelectionFont = new Font("Segoe UI", 12f, FontStyle.Bold);
+            rtbValidacionEcuaciones.SelectionColor = errores.Count == 0
+                ? Color.FromArgb(0, 105, 92)
+                : Color.FromArgb(170, 45, 45);
+            rtbValidacionEcuaciones.AppendText(errores.Count == 0
+                ? "Biblioteca sin errores criticos\r\n\r\n"
+                : "Errores criticos\r\n\r\n");
+
+            if (errores.Count == 0)
+            {
+                rtbValidacionEcuaciones.SelectionFont = new Font("Segoe UI", 10f, FontStyle.Regular);
+                rtbValidacionEcuaciones.SelectionColor = Color.FromArgb(45, 45, 45);
+                rtbValidacionEcuaciones.AppendText("Se puede guardar. Las advertencias no bloquean, pero conviene revisarlas.\r\n\r\n");
+            }
+            else
+            {
+                foreach (string error in errores)
+                {
+                    rtbValidacionEcuaciones.SelectionFont = new Font("Segoe UI", 10f, FontStyle.Bold);
+                    rtbValidacionEcuaciones.SelectionColor = Color.FromArgb(170, 45, 45);
+                    rtbValidacionEcuaciones.AppendText("- " + error + "\r\n");
+                }
+                rtbValidacionEcuaciones.AppendText("\r\n");
+            }
+
+            rtbValidacionEcuaciones.SelectionFont = new Font("Segoe UI", 11f, FontStyle.Bold);
+            rtbValidacionEcuaciones.SelectionColor = advertencias.Count == 0
+                ? Color.FromArgb(0, 105, 92)
+                : Color.FromArgb(160, 105, 0);
+            rtbValidacionEcuaciones.AppendText(advertencias.Count == 0 ? "Advertencias: ninguna\r\n\r\n" : "Advertencias\r\n\r\n");
+
+            foreach (string advertencia in advertencias)
+            {
+                rtbValidacionEcuaciones.SelectionFont = new Font("Segoe UI", 10f, FontStyle.Regular);
+                rtbValidacionEcuaciones.SelectionColor = Color.FromArgb(120, 80, 0);
+                rtbValidacionEcuaciones.AppendText("- " + advertencia + "\r\n");
+            }
+
+            rtbValidacionEcuaciones.AppendText("\r\n");
+            AgregarPruebaCalculoSeleccionadaEcuacion();
+        }
+
+        private void AgregarPruebaCalculoSeleccionadaEcuacion()
+        {
+            if (rtbValidacionEcuaciones == null || dgvEcuacionesProductivas.CurrentRow == null)
+            {
+                return;
+            }
+
+            List<EcuacionProductivaDefinicion> biblioteca = ConstruirListaEcuacionesDesdeGrilla();
+            EcuacionProductivaDefinicion ecuacion = ConstruirEcuacionDesdeFila(dgvEcuacionesProductivas.CurrentRow);
+            double diasHabilesSemana = cotizacion != null && cotizacion.DiasHabilesEstudioPorSemana > 0.0
+                ? cotizacion.DiasHabilesEstudioPorSemana
+                : 5.0;
+            EcuacionProductivaRuntimeService.ResultadoPrueba prueba =
+                EcuacionProductivaRuntimeService.ProbarEcuacion(ecuacion, biblioteca, diasHabilesSemana);
+
+            rtbValidacionEcuaciones.SelectionFont = new Font("Segoe UI", 12f, FontStyle.Bold);
+            rtbValidacionEcuaciones.SelectionColor = Color.FromArgb(30, 80, 150);
+            rtbValidacionEcuaciones.AppendText("Prueba tecnica del proceso seleccionado\r\n\r\n");
+
+            rtbValidacionEcuaciones.SelectionFont = new Font("Segoe UI", 10f, FontStyle.Bold);
+            rtbValidacionEcuaciones.SelectionColor = Color.Black;
+            rtbValidacionEcuaciones.AppendText(
+                (string.IsNullOrWhiteSpace(prueba.Nombre) ? prueba.Clave : prueba.Nombre) + "\r\n"
+            );
+
+            rtbValidacionEcuaciones.SelectionFont = new Font("Segoe UI", 10f, FontStyle.Regular);
+            rtbValidacionEcuaciones.SelectionColor = Color.FromArgb(55, 55, 55);
+            rtbValidacionEcuaciones.AppendText(
+                "Entrada de prueba: " +
+                prueba.CantidadPrueba.ToString("0.##") + " " +
+                prueba.UnidadPrueba + "\r\n"
+            );
+            rtbValidacionEcuaciones.AppendText(
+                "Formula madre: " +
+                (string.IsNullOrWhiteSpace(prueba.FormulaMadre) ? "No usa formula madre" : prueba.FormulaMadre) +
+                "\r\n\r\n"
+            );
+
+            if (prueba.Cargos.Count == 0)
+            {
+                rtbValidacionEcuaciones.SelectionColor = Color.FromArgb(170, 45, 45);
+                rtbValidacionEcuaciones.AppendText("No se puede probar costo: no hay cargos participantes.\r\n");
+                return;
+            }
+
+            foreach (EcuacionProductivaRuntimeService.ResultadoCargo item in prueba.Cargos)
+            {
+                if (!item.CargoExiste)
+                {
+                    rtbValidacionEcuaciones.SelectionColor = Color.FromArgb(170, 45, 45);
+                    rtbValidacionEcuaciones.AppendText("- " + item.CargoSolicitado + ": cargo no encontrado.\r\n");
+                    continue;
+                }
+
+                if (!item.RendimientoExiste)
+                {
+                    rtbValidacionEcuaciones.SelectionColor = Color.FromArgb(160, 105, 0);
+                    rtbValidacionEcuaciones.AppendText("- " + item.CargoResuelto + ": cargo OK, pero falta rendimiento compatible.\r\n");
+                    continue;
+                }
+
+                rtbValidacionEcuaciones.SelectionColor = Color.FromArgb(45, 45, 45);
+                rtbValidacionEcuaciones.AppendText(
+                    "- " + item.CargoResuelto + ": capacidad " +
+                    item.CapacidadPorPeriodo.ToString("0.##") + " " +
+                    item.UnidadPrueba + "/" + item.Periodo +
+                    " | dedicacion " + (item.Dedicacion * 100.0).ToString("0.#") + "%" +
+                    " | tarifa hora " + FormatearValorVisual(item.TarifaHoraCLP) + "/h" +
+                    " | horas " + item.HorasTecnicas.ToString("0.##") +
+                    " | dias eq. " + item.DiasTecnicos.ToString("0.##") +
+                    " | costo derivado " + FormatearValorVisual(item.CostoCLP) + "\r\n"
+                );
+            }
+
+            rtbValidacionEcuaciones.SelectionFont = new Font("Segoe UI", 10f, FontStyle.Bold);
+            rtbValidacionEcuaciones.SelectionColor = Color.FromArgb(0, 105, 92);
+            rtbValidacionEcuaciones.AppendText("\r\nDias tecnicos por cuello de botella: " + prueba.DiasTecnicos.ToString("0.##") + "\r\n");
+            rtbValidacionEcuaciones.AppendText("Costo derivado total de la prueba: " + FormatearValorVisual(prueba.CostoCLP) + "\r\n");
+            rtbValidacionEcuaciones.AppendText("Esto usa cargos.json + rendimientos_productivos.json. La ecuacion define horas; el costo sale despues por tarifa horaria.\r\n");
+        }
+
+        private void GuardarBibliotecaEcuacionesProductivas()
+        {
+            dgvEcuacionesProductivas.EndEdit();
+            AplicarEditorEcuacionAFilaSeleccionada();
+
+            if (!ValidarBibliotecaEcuaciones(out List<string> errores, out _))
+            {
+                MostrarValidacionBibliotecaEcuaciones();
+                MessageBox.Show(
+                    "No se guardo porque hay errores criticos en la biblioteca:\n\n" +
+                    string.Join("\n", errores.Take(8)),
+                    "Validacion de ecuaciones",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning
+                );
+                return;
+            }
+
+            List<EcuacionProductivaDefinicion> lista = ConstruirListaEcuacionesDesdeGrilla();
+
+            CrearBackupEcuacionesProductivas();
+            BibliotecaEcuacionesProductivasJsonService.GuardarEcuaciones(lista);
+
+            if (cotizacion != null)
+            {
+                cotizacion.DesgloseProductivo = null;
+            }
+
+            CargarBibliotecaEcuacionesProductivasEnPantalla();
+            lblEstadoEcuacionesProductivas.Text =
+                "Ecuaciones guardadas. El pipeline y el desglose usaran esta biblioteca al recalcular.";
+        }
+
+        private List<EcuacionProductivaDefinicion> ConstruirListaEcuacionesDesdeGrilla()
+        {
+            return dgvEcuacionesProductivas.Rows
+                .Cast<DataGridViewRow>()
+                .Where(row => row != null && !row.IsNewRow)
+                .Select(ConstruirEcuacionDesdeFila)
+                .Where(e => e != null && !string.IsNullOrWhiteSpace(e.Clave))
+                .ToList();
+        }
+
+        private EcuacionProductivaDefinicion ConstruirEcuacionDesdeFila(DataGridViewRow row)
+        {
+            if (row == null || row.IsNewRow)
+            {
+                return null;
+            }
+
+            string clave = Convert.ToString(row.Cells["Clave"].Value) ?? "";
+            return new EcuacionProductivaDefinicion
+            {
+                Activa = Convert.ToBoolean(row.Cells["Activa"].Value ?? true),
+                Clave = clave.Trim(),
+                NombreVisible = Convert.ToString(row.Cells["NombreVisible"].Value) ?? "",
+                TipoEcuacion = Convert.ToString(row.Cells["TipoEcuacion"].Value) ?? "Variante",
+                EcuacionBase = Convert.ToString(row.Cells["EcuacionBase"].Value) ?? "",
+                Etapa = Convert.ToString(row.Cells["Etapa"].Value) ?? "",
+                SubEtapa = Convert.ToString(row.Cells["SubEtapa"].Value) ?? "",
+                Tokens = Convert.ToString(row.Cells["Tokens"].Value) ?? "",
+                Variables = Convert.ToString(row.Cells["Variables"].Value) ?? "",
+                CargosPermitidos = Convert.ToString(row.Cells["CargosPermitidos"].Value) ?? "",
+                CargosParticipantesJson = Convert.ToString(row.Cells["CargosParticipantesJson"].Value) ?? "",
+                FormulaReferencia = Convert.ToString(row.Cells["FormulaReferencia"].Value) ?? "",
+                Numerador = Convert.ToString(row.Cells["Numerador"].Value) ?? "",
+                Denominador = Convert.ToString(row.Cells["Denominador"].Value) ?? "",
+                Impacto = Convert.ToString(row.Cells["Impacto"].Value) ?? "",
+                Nota = Convert.ToString(row.Cells["Nota"].Value) ?? ""
+            };
+        }
+
+        private void CrearBackupEcuacionesProductivas()
+        {
+            try
+            {
+                string ruta = BibliotecaEcuacionesProductivasJsonService.ObtenerRutaEcuaciones();
+                if (!File.Exists(ruta))
+                {
+                    return;
+                }
+
+                string carpeta = Path.GetDirectoryName(ruta) ?? "";
+                string nombre = Path.GetFileNameWithoutExtension(ruta);
+                string extension = Path.GetExtension(ruta);
+                string backup = Path.Combine(
+                    carpeta,
+                    nombre + ".backup_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + extension
+                );
+                File.Copy(ruta, backup, false);
+            }
+            catch
+            {
+                // El backup es una medida de seguridad; no debe impedir guardar si el JSON principal esta disponible.
+            }
+        }
+
+        private void AgregarEcuacionProductiva(bool esBase)
+        {
+            int rowIndex = dgvEcuacionesProductivas.Rows.Add();
+            DataGridViewRow row = dgvEcuacionesProductivas.Rows[rowIndex];
+            string clave = esBase ? "NUEVA_BASE" : "NUEVA_VARIANTE";
+
+            row.Cells["Activa"].Value = true;
+            row.Cells["Clave"].Value = clave;
+            row.Cells["NombreVisible"].Value = esBase ? "Nueva ecuacion base" : "Nueva variante";
+            row.Cells["TipoEcuacion"].Value = esBase ? "Base" : "Variante";
+            row.Cells["EcuacionBase"].Value = esBase ? "" : "CALCULO_POR_CAPACIDAD";
+            row.Cells["Etapa"].Value = esBase ? "General" : "";
+            row.Cells["SubEtapa"].Value = "";
+            row.Cells["Tokens"].Value = "";
+            row.Cells["Variables"].Value = esBase ? "cantidad;unidad;capacidad;periodo;cargo" : "";
+            row.Cells["CargosPermitidos"].Value = "";
+            row.Cells["CargosParticipantesJson"].Value = "";
+            row.Cells["FormulaReferencia"].Value = esBase
+                ? "horas_base[cargo] = cantidad / capacidad_por_periodo[cargo]; horas_cargo = horas_base[cargo] * dedicacion[cargo]; costo_derivado = dot(horas_cargo, tarifa_horaria[cargo])"
+                : "";
+            row.Cells["Numerador"].Value = esBase ? "cantidad" : "";
+            row.Cells["Denominador"].Value = esBase ? "capacidad_por_periodo[cargo]" : "";
+            row.Cells["Impacto"].Value = esBase
+                ? "Define una regla madre reutilizable."
+                : "Variante que puede heredar variables y formula desde su ecuacion base.";
+            row.Cells["Nota"].Value = "";
+
+            dgvEcuacionesProductivas.CurrentCell = row.Cells["Clave"];
+            dgvEcuacionesProductivas.BeginEdit(true);
+        }
+
+        private void DuplicarEcuacionSeleccionadaDesdeBiblioteca()
+        {
+            if (lvBibliotecaEcuaciones == null || lvBibliotecaEcuaciones.SelectedItems.Count == 0)
+            {
+                return;
+            }
+
+            if (lvBibliotecaEcuaciones.SelectedItems[0].Tag is DataGridViewRow row)
+            {
+                SeleccionarFilaEcuacion(row);
+                DuplicarEcuacionProductiva(row);
+            }
+        }
+
+        private void DuplicarEcuacionProductiva(DataGridViewRow origen)
+        {
+            if (origen == null || origen.IsNewRow || dgvEcuacionesProductivas == null)
+            {
+                return;
+            }
+
+            AplicarEditorEcuacionAFilaSeleccionada();
+
+            string claveBase = ObtenerValorFilaEcuacion(origen, "Clave");
+            string nombreBase = ObtenerValorFilaEcuacion(origen, "NombreVisible");
+            string nuevaClave = CrearClaveCopiaEcuacion(claveBase);
+            string nuevoNombre = CrearNombreCopiaEcuacion(nombreBase);
+
+            int rowIndex = dgvEcuacionesProductivas.Rows.Add();
+            DataGridViewRow destino = dgvEcuacionesProductivas.Rows[rowIndex];
+
+            foreach (DataGridViewColumn columna in dgvEcuacionesProductivas.Columns)
+            {
+                destino.Cells[columna.Name].Value = origen.Cells[columna.Name].Value;
+            }
+
+            destino.Cells["Clave"].Value = nuevaClave;
+            destino.Cells["NombreVisible"].Value = nuevoNombre;
+            destino.Cells["Nota"].Value = (ObtenerValorFilaEcuacion(origen, "Nota") + " Copia creada desde " + claveBase + ".").Trim();
+
+            RefrescarComboBaseEditorEcuacion();
+            RefrescarFiltroEtapasEcuaciones();
+            RefrescarListaBibliotecaEcuaciones();
+            SeleccionarFilaEcuacion(destino);
+            CargarEditorEcuacionDesdeFila(destino);
+
+            lblEstadoEcuacionesProductivas.Text = "Copia creada: " + nuevoNombre + ". Recuerda guardar biblioteca para persistirla.";
+        }
+
+        private string CrearClaveCopiaEcuacion(string claveBase)
+        {
+            string baseLimpia = (claveBase ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(baseLimpia))
+            {
+                baseLimpia = "ECUACION";
+            }
+
+            string prefijo = baseLimpia + "_COPIA";
+            HashSet<string> claves = dgvEcuacionesProductivas.Rows
+                .Cast<DataGridViewRow>()
+                .Where(row => row != null && !row.IsNewRow)
+                .Select(row => ObtenerValorFilaEcuacion(row, "Clave"))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            if (!claves.Contains(prefijo))
+            {
+                return prefijo;
+            }
+
+            int indice = 2;
+            while (claves.Contains(prefijo + "_" + indice.ToString()))
+            {
+                indice++;
+            }
+
+            return prefijo + "_" + indice.ToString();
+        }
+
+        private string CrearNombreCopiaEcuacion(string nombreBase)
+        {
+            string baseLimpia = (nombreBase ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(baseLimpia))
+            {
+                baseLimpia = "Ecuacion";
+            }
+
+            string nombre = baseLimpia + " copia";
+            HashSet<string> nombres = dgvEcuacionesProductivas.Rows
+                .Cast<DataGridViewRow>()
+                .Where(row => row != null && !row.IsNewRow)
+                .Select(row => ObtenerValorFilaEcuacion(row, "NombreVisible"))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            if (!nombres.Contains(nombre))
+            {
+                return nombre;
+            }
+
+            int indice = 2;
+            while (nombres.Contains(baseLimpia + " copia (" + indice.ToString() + ")"))
+            {
+                indice++;
+            }
+
+            return baseLimpia + " copia (" + indice.ToString() + ")";
+        }
+
+        private void QuitarEcuacionProductiva()
+        {
+            if (dgvEcuacionesProductivas.CurrentRow != null)
+            {
+                dgvEcuacionesProductivas.Rows.Remove(dgvEcuacionesProductivas.CurrentRow);
+            }
+        }
+
+        private void RestaurarBibliotecaEcuacionesProductivas()
+        {
+            BibliotecaEcuacionesProductivasJsonService.RegenerarDesdeBase();
+            CargarBibliotecaEcuacionesProductivasEnPantalla();
+            lblEstadoEcuacionesProductivas.Text = "Biblioteca base de ecuaciones restaurada.";
+        }
+    }
+}

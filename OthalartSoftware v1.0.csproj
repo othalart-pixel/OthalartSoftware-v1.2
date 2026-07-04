@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<OutputType>WinExe</OutputType>
+		<TargetFramework>net8.0-windows</TargetFramework>
+		<SupportedOSPlatformVersion>7.0</SupportedOSPlatformVersion>
+		<Nullable>disable</Nullable>
+		<UseWindowsForms>true</UseWindowsForms>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<LangVersion>latest</LangVersion>
+		<StartupObject>Cotizador_animacion_Othalart.Program</StartupObject>
+		<AssemblyName>OthalartCotizadorDev</AssemblyName>
+		<UseAppHost>false</UseAppHost>
+		<GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+		<RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+		<NoWarn>$(NoWarn);CS8632;CA1416</NoWarn>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+		<DebugType>none</DebugType>
+		<DebugSymbols>false</DebugSymbols>
+		<Optimize>true</Optimize>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<Compile Remove="UI\Form1.InitCompat.cs" />
+		<Compile Remove="UI\Form1.MonedaCompat.cs" />
+		<Compile Remove="UI\AnimatedBackgroundPanel.cs" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<RuntimeHostConfigurationOption Include="System.Reflection.Metadata.MetadataUpdater.IsSupported" Value="false" />
+	</ItemGroup>
+
+</Project>

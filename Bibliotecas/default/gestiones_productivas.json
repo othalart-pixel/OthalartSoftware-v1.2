@@ -1,0 +1,57 @@
+[
+  {
+    "Id": 1,
+    "Activo": true,
+    "Area": "Coordinacion general",
+    "Cargo": "Productor / Project manager",
+    "NivelCargo": "t\u00EDpico",
+    "EtapaReferencia": "General",
+    "TokensAsociados": "*",
+    "MinutosPorDiaPersona": 10,
+    "Descripcion": "Seguimiento general del proyecto sobre todo el esfuerzo productivo."
+  },
+  {
+    "Id": 2,
+    "Activo": true,
+    "Area": "Direccion de animacion",
+    "Cargo": "Director/a de animaci\u00F3n",
+    "NivelCargo": "t\u00EDpico",
+    "EtapaReferencia": "Produccion",
+    "TokensAsociados": "animacion; rough; acting; clean; composicion; layout",
+    "MinutosPorDiaPersona": 10,
+    "Descripcion": "Revision de animacion, acting, rough, clean up y composicion."
+  },
+  {
+    "Id": 3,
+    "Activo": true,
+    "Area": "Direccion de arte",
+    "Cargo": "Director de arte",
+    "NivelCargo": "t\u00EDpico",
+    "EtapaReferencia": "Preproduccion",
+    "TokensAsociados": "personaje; fondo; background; prop; objeto; color; arte; visual; estilo; concept",
+    "MinutosPorDiaPersona": 10,
+    "Descripcion": "Revision visual de personajes, fondos, props, estilo y color."
+  },
+  {
+    "Id": 4,
+    "Activo": true,
+    "Area": "Direccion narrativa",
+    "Cargo": "Director narrativo",
+    "NivelCargo": "t\u00EDpico",
+    "EtapaReferencia": "Desarrollo",
+    "TokensAsociados": "guion; narrativa; escena; storyboard; animatic",
+    "MinutosPorDiaPersona": 10,
+    "Descripcion": "Revision narrativa de guion, escena, storyboard y animatic."
+  },
+  {
+    "Id": 5,
+    "Activo": true,
+    "Area": "Direccion tecnica",
+    "Cargo": "Director t\u00E9cnico 2D",
+    "NivelCargo": "t\u00EDpico",
+    "EtapaReferencia": "Postproduccion",
+    "TokensAsociados": "export; render; control; entrega; formato; tecnico",
+    "MinutosPorDiaPersona": 10,
+    "Descripcion": "Revision tecnica de export, render, control, entrega y formato."
+  }
+]
