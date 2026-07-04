@@ -197,6 +197,8 @@ namespace Cotizador_animacion_Othalart
             dgvProductos2D.SelectionChanged += DgvProductos2D_SelectionChanged;
             dgvProductos2D.CellEndEdit -= DgvProductos2D_CellEndEdit;
             dgvProductos2D.CellEndEdit += DgvProductos2D_CellEndEdit;
+            dgvProductos2D.CellClick -= DgvProductos2D_CellClick;
+            dgvProductos2D.CellClick += DgvProductos2D_CellClick;
             dgvProductos2D.CellDoubleClick -= DgvProductos2D_CellDoubleClick;
             dgvProductos2D.CellDoubleClick += DgvProductos2D_CellDoubleClick;
             dgvProductos2D.MouseDown -= DgvProductos2D_MouseDown;
@@ -233,6 +235,28 @@ namespace Cotizador_animacion_Othalart
             }
 
             return columna;
+        }
+
+        private void DgvProductos2D_CellClick(object sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex < 0 || e.ColumnIndex < 0)
+            {
+                return;
+            }
+
+            if (!(dgvProductos2D.Columns[e.ColumnIndex] is DataGridViewComboBoxColumn))
+            {
+                return;
+            }
+
+            dgvProductos2D.CurrentCell = dgvProductos2D.Rows[e.RowIndex].Cells[e.ColumnIndex];
+            dgvProductos2D.BeginEdit(true);
+
+            ComboBox combo = dgvProductos2D.EditingControl as ComboBox;
+            if (combo != null)
+            {
+                combo.DroppedDown = true;
+            }
         }
 
         private void DgvProductos2D_CellDoubleClick(object sender, DataGridViewCellEventArgs e)
