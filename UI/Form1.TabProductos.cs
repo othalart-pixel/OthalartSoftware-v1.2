@@ -140,7 +140,7 @@ namespace Cotizador_animacion_Othalart
             dgvProductos2D.RowHeadersVisible = false;
             dgvProductos2D.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
             dgvProductos2D.MultiSelect = false;
-            dgvProductos2D.EditMode = DataGridViewEditMode.EditOnEnter;
+            dgvProductos2D.EditMode = DataGridViewEditMode.EditProgrammatically;
             dgvProductos2D.AllowDrop = true;
             dgvProductos2D.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
             dgvProductos2D.BackgroundColor = Color.White;
@@ -172,6 +172,8 @@ namespace Cotizador_animacion_Othalart
             dgvProductos2D.SelectionChanged += DgvProductos2D_SelectionChanged;
             dgvProductos2D.CellEndEdit -= DgvProductos2D_CellEndEdit;
             dgvProductos2D.CellEndEdit += DgvProductos2D_CellEndEdit;
+            dgvProductos2D.CellDoubleClick -= DgvProductos2D_CellDoubleClick;
+            dgvProductos2D.CellDoubleClick += DgvProductos2D_CellDoubleClick;
             dgvProductos2D.MouseDown -= DgvProductos2D_MouseDown;
             dgvProductos2D.MouseDown += DgvProductos2D_MouseDown;
             dgvProductos2D.MouseMove -= DgvProductos2D_MouseMove;
@@ -180,6 +182,17 @@ namespace Cotizador_animacion_Othalart
             dgvProductos2D.DragOver += DgvProductos2D_DragOver;
             dgvProductos2D.DragDrop -= DgvProductos2D_DragDrop;
             dgvProductos2D.DragDrop += DgvProductos2D_DragDrop;
+        }
+
+        private void DgvProductos2D_CellDoubleClick(object sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex < 0 || e.ColumnIndex < 0)
+            {
+                return;
+            }
+
+            dgvProductos2D.CurrentCell = dgvProductos2D.Rows[e.RowIndex].Cells[e.ColumnIndex];
+            dgvProductos2D.BeginEdit(true);
         }
 
         private void AjustarColumnaProducto2D(string nombre, int ancho)
