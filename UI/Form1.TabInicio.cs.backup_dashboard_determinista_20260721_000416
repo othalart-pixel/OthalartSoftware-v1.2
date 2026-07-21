@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Drawing;
 using System.Windows.Forms;
 using System.Collections.Generic;
@@ -12,441 +12,52 @@ namespace Cotizador_animacion_Othalart
 {
     public partial class Form1
     {
-
         private void ConstruirTabInicio(TabPage tab)
         {
-            tab.SuspendLayout();
-
-            try
-            {
-                tab.Controls.Clear();
-                tab.BackColor = Color.FromArgb(244, 247, 250);
-                tab.Padding = new Padding(0);
-                tab.Controls.Add(CrearDashboardInicioOthalart());
-            }
-            finally
-            {
-                tab.ResumeLayout(true);
-            }
-        }
-
-        private Control CrearDashboardInicioOthalart()
-        {
-            Panel viewport = new Panel();
-            viewport.Dock = DockStyle.Fill;
-            viewport.AutoScroll = true;
-            viewport.BackColor = Color.FromArgb(244, 247, 250);
-            viewport.Padding = new Padding(30, 26, 30, 32);
+            tab.Controls.Clear();
+            tab.BackColor = Color.White;
 
             TableLayoutPanel root = new TableLayoutPanel();
-            root.Dock = DockStyle.Top;
-            root.AutoSize = true;
-            root.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            root.Dock = DockStyle.Fill;
             root.ColumnCount = 1;
             root.RowCount = 4;
-            root.BackColor = Color.Transparent;
+            root.Padding = new Padding(28, 24, 28, 28);
+            root.BackColor = Color.White;
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
-            root.Controls.Add(CrearHeroInicioOthalart(), 0, 0);
-            root.Controls.Add(CrearAccionesPrincipalesInicioOthalart(), 0, 1);
-            root.Controls.Add(CrearCuerpoDashboardInicioOthalart(), 0, 2);
-            root.Controls.Add(CrearPieDashboardInicioOthalart(), 0, 3);
+            Label titulo = new Label();
+            titulo.Text = "Othalart";
+            titulo.Font = new Font("Segoe UI", 20, FontStyle.Bold);
+            titulo.AutoSize = true;
 
-            viewport.Controls.Add(root);
-            return viewport;
+            Label ayuda = new Label();
+            ayuda.Text = "Elige si vas a cotizar un proyecto real o configurar las bibliotecas maestras del sistema.";
+            ayuda.Font = new Font("Segoe UI", 10f);
+            ayuda.ForeColor = Color.FromArgb(85, 85, 85);
+            ayuda.AutoSize = true;
+            ayuda.Margin = new Padding(0, 0, 0, 18);
+
+            TableLayoutPanel secciones = new TableLayoutPanel();
+            secciones.Dock = DockStyle.Top;
+            secciones.AutoSize = true;
+            secciones.ColumnCount = 2;
+            secciones.RowCount = 1;
+            secciones.Margin = new Padding(0);
+            secciones.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 300));
+            secciones.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 840));
+
+            secciones.Controls.Add(CrearPanelInicioProyecto(), 0, 0);
+            secciones.Controls.Add(CrearPanelInicioBibliotecas(), 1, 0);
+
+            root.Controls.Add(titulo, 0, 0);
+            root.Controls.Add(ayuda, 0, 1);
+            root.Controls.Add(secciones, 0, 2);
+
+            tab.Controls.Add(root);
         }
-
-        private Control CrearHeroInicioOthalart()
-        {
-            TableLayoutPanel hero = new TableLayoutPanel();
-            hero.Dock = DockStyle.Top;
-            hero.AutoSize = true;
-            hero.ColumnCount = 1;
-            hero.RowCount = 3;
-            hero.Margin = new Padding(0, 0, 0, 18);
-
-            Label marca = new Label
-            {
-                Text = "OTHALART",
-                AutoSize = true,
-                Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
-                ForeColor = Color.FromArgb(0, 126, 108),
-                Margin = new Padding(0, 0, 0, 3)
-            };
-
-            Label titulo = new Label
-            {
-                Text = "Centro de operación",
-                AutoSize = true,
-                Font = new Font("Segoe UI", 23f, FontStyle.Bold),
-                ForeColor = Color.FromArgb(25, 33, 44),
-                Margin = new Padding(0, 0, 0, 5)
-            };
-
-            Label descripcion = new Label
-            {
-                Text = "Crea cotizaciones, continúa proyectos y administra el sistema productivo desde un solo lugar.",
-                AutoSize = true,
-                MaximumSize = new Size(1020, 0),
-                Font = new Font("Segoe UI", 10.3f),
-                ForeColor = Color.FromArgb(93, 103, 116)
-            };
-
-            hero.Controls.Add(marca, 0, 0);
-            hero.Controls.Add(titulo, 0, 1);
-            hero.Controls.Add(descripcion, 0, 2);
-            return hero;
-        }
-
-        private Control CrearAccionesPrincipalesInicioOthalart()
-        {
-            FlowLayoutPanel panel = new FlowLayoutPanel
-            {
-                Dock = DockStyle.Top,
-                AutoSize = true,
-                FlowDirection = FlowDirection.LeftToRight,
-                WrapContents = true,
-                Margin = new Padding(0, 0, 0, 20)
-            };
-
-            Button nuevo = CrearBotonDashboardInicio("+ Crear nuevo proyecto", true, 205);
-            nuevo.Click += (s, e) => NuevoProyectoDesdeInicio();
-
-            Button abrir = CrearBotonDashboardInicio("Abrir proyecto existente", false, 215);
-            abrir.Click += BtnCargarProyecto_Click;
-
-            Button revisar = CrearBotonDashboardInicio("Revisar productos y servicios", false, 235);
-            revisar.Click += (s, e) => AbrirCatalogoProductosServicios();
-
-            panel.Controls.Add(nuevo);
-            panel.Controls.Add(abrir);
-            panel.Controls.Add(revisar);
-            return panel;
-        }
-
-        private Control CrearCuerpoDashboardInicioOthalart()
-        {
-            TableLayoutPanel cuerpo = new TableLayoutPanel
-            {
-                Dock = DockStyle.Top,
-                AutoSize = true,
-                ColumnCount = 2,
-                RowCount = 1,
-                Margin = new Padding(0, 0, 0, 18)
-            };
-
-            cuerpo.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 40));
-            cuerpo.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 60));
-            cuerpo.Controls.Add(CrearTarjetaProyectosInicioOthalart(), 0, 0);
-            cuerpo.Controls.Add(CrearTarjetaBibliotecasInicioOthalart(), 1, 0);
-            return cuerpo;
-        }
-
-        private Control CrearTarjetaProyectosInicioOthalart()
-        {
-            TableLayoutPanel tarjeta = CrearTarjetaDashboardInicio(
-                "Continuar trabajando",
-                "Accede rápidamente a tus proyectos guardados."
-            );
-
-            FlowLayoutPanel lista = new FlowLayoutPanel
-            {
-                Dock = DockStyle.Top,
-                AutoSize = true,
-                AutoSizeMode = AutoSizeMode.GrowAndShrink,
-                FlowDirection = FlowDirection.TopDown,
-                WrapContents = false,
-                BackColor = Color.White,
-                MinimumSize = new Size(330, 240)
-            };
-
-            List<ProyectoReciente> recientes = CargarProyectosGuardadosInicio();
-
-            if (recientes.Count == 0)
-            {
-                lista.Controls.Add(new Label
-                {
-                    Text = "No hay proyectos guardados todavía." + Environment.NewLine +
-                           "Crea uno nuevo o abre un archivo existente.",
-                    Width = 330,
-                    Height = 105,
-                    TextAlign = ContentAlignment.MiddleCenter,
-                    Font = new Font("Segoe UI", 9.5f),
-                    ForeColor = Color.FromArgb(105, 112, 122),
-                    BackColor = Color.FromArgb(249, 250, 252),
-                    Margin = new Padding(0, 0, 0, 8)
-                });
-            }
-            else
-            {
-                foreach (ProyectoReciente proyecto in recientes.Take(5))
-                {
-                    lista.Controls.Add(CrearBotonProyectoRecienteDashboardInicio(proyecto));
-                }
-            }
-
-            Button verTodos = CrearBotonDashboardInicio("Ver todos los proyectos", false, 330);
-            verTodos.Margin = new Padding(0, 6, 0, 0);
-            verTodos.Click += BtnCargarProyecto_Click;
-            lista.Controls.Add(verTodos);
-
-            tarjeta.Controls.Add(lista, 0, 2);
-            return tarjeta;
-        }
-
-        private Control CrearBotonProyectoRecienteDashboardInicio(ProyectoReciente proyecto)
-        {
-            string nombre = string.IsNullOrWhiteSpace(proyecto.Nombre)
-                ? Path.GetFileNameWithoutExtension(proyecto.Ruta)
-                : proyecto.Nombre;
-
-            string cliente = string.IsNullOrWhiteSpace(proyecto.Cliente)
-                ? "Sin cliente informado"
-                : proyecto.Cliente;
-
-            Button boton = new Button
-            {
-                Width = 330,
-                Height = 64,
-                TextAlign = ContentAlignment.MiddleLeft,
-                Padding = new Padding(12, 4, 8, 4),
-                Margin = new Padding(0, 0, 0, 8),
-                FlatStyle = FlatStyle.Flat,
-                BackColor = Color.White,
-                ForeColor = Color.FromArgb(35, 43, 54),
-                Font = new Font("Segoe UI", 9.1f, FontStyle.Bold),
-                UseVisualStyleBackColor = false,
-                Cursor = Cursors.Hand,
-                Tag = proyecto.Ruta,
-                Text = nombre + Environment.NewLine +
-                       cliente + " · " + proyecto.Fecha.ToString("dd-MM-yyyy HH:mm")
-            };
-
-            boton.FlatAppearance.BorderColor = Color.FromArgb(211, 217, 224);
-            boton.FlatAppearance.MouseOverBackColor = Color.FromArgb(244, 248, 251);
-            boton.Click += (s, e) =>
-                CargarProyectoRecienteDesdeInicio(
-                    Convert.ToString(((Control)s).Tag) ?? ""
-                );
-
-            return boton;
-        }
-
-        private Control CrearTarjetaBibliotecasInicioOthalart()
-        {
-            TableLayoutPanel tarjeta = CrearTarjetaDashboardInicio(
-                "Configurar el sistema",
-                "Bibliotecas maestras agrupadas según su función."
-            );
-
-            TableLayoutPanel columnas = new TableLayoutPanel
-            {
-                Dock = DockStyle.Top,
-                AutoSize = true,
-                ColumnCount = 3,
-                RowCount = 1
-            };
-
-            columnas.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33f));
-            columnas.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33f));
-            columnas.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.34f));
-
-            columnas.Controls.Add(
-                CrearGrupoBibliotecaInicioOthalart(
-                    "Producción",
-                    new[]
-                    {
-                        Tuple.Create("Productos", tabProductosPrincipal),
-                        Tuple.Create("Ecuaciones", tabEcuacionesPrincipal),
-                        Tuple.Create("Rendimientos", tabRendimientosPrincipal),
-                        Tuple.Create("Gestiones", tabGestionesPrincipal)
-                    }
-                ),
-                0,
-                0
-            );
-
-            columnas.Controls.Add(
-                CrearGrupoBibliotecaInicioOthalart(
-                    "Equipo y costos",
-                    new[]
-                    {
-                        Tuple.Create("Cargos", tabCargosPrincipal),
-                        Tuple.Create("Personal", tabPersonalPrincipal),
-                        Tuple.Create("Mano de obra", tabManoObraPrincipal),
-                        Tuple.Create("Rangos", tabRangosPrincipal),
-                        Tuple.Create("Costos", tabCostosPrincipal)
-                    }
-                ),
-                1,
-                0
-            );
-
-            columnas.Controls.Add(
-                CrearGrupoBibliotecaInicioOthalart(
-                    "Sistema",
-                    new[]
-                    {
-                        Tuple.Create("Moneda", tabMonedaPrincipal)
-                    }
-                ),
-                2,
-                0
-            );
-
-            FlowLayoutPanel acciones = new FlowLayoutPanel
-            {
-                Dock = DockStyle.Top,
-                AutoSize = true,
-                Margin = new Padding(0, 12, 0, 0)
-            };
-
-            Button configurar = CrearBotonDashboardInicio("Abrir modo configuración", true, 220);
-            configurar.Click += (s, e) =>
-                AplicarModoAplicacion(ModoAplicacion.Configuracion);
-
-            acciones.Controls.Add(configurar);
-
-            tarjeta.RowCount = 4;
-            tarjeta.Controls.Add(columnas, 0, 2);
-            tarjeta.Controls.Add(acciones, 0, 3);
-            return tarjeta;
-        }
-
-        private Control CrearGrupoBibliotecaInicioOthalart(
-            string titulo,
-            IEnumerable<Tuple<string, TabPage>> elementos)
-        {
-            TableLayoutPanel grupo = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                AutoSize = true,
-                ColumnCount = 1,
-                Padding = new Padding(10, 10, 10, 12),
-                Margin = new Padding(0, 0, 8, 0),
-                BackColor = Color.FromArgb(248, 250, 252),
-                CellBorderStyle = TableLayoutPanelCellBorderStyle.Single
-            };
-
-            grupo.Controls.Add(new Label
-            {
-                Text = titulo,
-                AutoSize = true,
-                Font = new Font("Segoe UI", 10f, FontStyle.Bold),
-                ForeColor = Color.FromArgb(45, 56, 72),
-                Margin = new Padding(0, 0, 0, 8)
-            });
-
-            foreach (Tuple<string, TabPage> elemento in elementos)
-            {
-                Button boton = CrearBotonDashboardInicio(elemento.Item1, false, 0);
-                boton.Dock = DockStyle.Top;
-                boton.TextAlign = ContentAlignment.MiddleLeft;
-                boton.Padding = new Padding(12, 0, 8, 0);
-                boton.Margin = new Padding(0, 0, 0, 6);
-
-                TabPage destino = elemento.Item2;
-                boton.Click += (s, e) => AbrirTabPrincipal(destino, true);
-                grupo.Controls.Add(boton);
-            }
-
-            return grupo;
-        }
-
-        private TableLayoutPanel CrearTarjetaDashboardInicio(
-            string titulo,
-            string descripcion)
-        {
-            TableLayoutPanel tarjeta = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                AutoSize = true,
-                AutoSizeMode = AutoSizeMode.GrowAndShrink,
-                ColumnCount = 1,
-                RowCount = 3,
-                Padding = new Padding(18, 16, 18, 18),
-                Margin = new Padding(0, 0, 14, 0),
-                BackColor = Color.White,
-                CellBorderStyle = TableLayoutPanelCellBorderStyle.Single,
-                MinimumSize = new Size(350, 350)
-            };
-
-            tarjeta.Controls.Add(new Label
-            {
-                Text = titulo,
-                AutoSize = true,
-                Font = new Font("Segoe UI", 13f, FontStyle.Bold),
-                ForeColor = Color.FromArgb(28, 36, 48),
-                Margin = new Padding(0, 0, 0, 3)
-            }, 0, 0);
-
-            tarjeta.Controls.Add(new Label
-            {
-                Text = descripcion,
-                AutoSize = true,
-                MaximumSize = new Size(560, 0),
-                Font = new Font("Segoe UI", 9.2f),
-                ForeColor = Color.FromArgb(105, 112, 122),
-                Margin = new Padding(0, 0, 0, 12)
-            }, 0, 1);
-
-            return tarjeta;
-        }
-
-        private Button CrearBotonDashboardInicio(
-            string texto,
-            bool principal,
-            int ancho)
-        {
-            Button boton = new Button
-            {
-                Text = texto,
-                Height = 38,
-                Width = ancho > 0 ? ancho : 170,
-                AutoSize = false,
-                Margin = new Padding(0, 0, 10, 8),
-                FlatStyle = FlatStyle.Flat,
-                BackColor = principal ? Color.FromArgb(0, 124, 105) : Color.White,
-                ForeColor = principal ? Color.White : Color.FromArgb(35, 43, 54),
-                Font = new Font("Segoe UI", 9.4f, FontStyle.Bold),
-                UseVisualStyleBackColor = false,
-                Cursor = Cursors.Hand
-            };
-
-            boton.FlatAppearance.BorderColor = principal
-                ? Color.FromArgb(0, 124, 105)
-                : Color.FromArgb(190, 198, 207);
-
-            boton.FlatAppearance.MouseOverBackColor = principal
-                ? Color.FromArgb(0, 108, 92)
-                : Color.FromArgb(242, 246, 249);
-
-            return boton;
-        }
-
-        private Control CrearPieDashboardInicioOthalart()
-        {
-            Panel panel = new Panel
-            {
-                Dock = DockStyle.Top,
-                Height = 68,
-                Padding = new Padding(16, 12, 16, 12),
-                BackColor = Color.FromArgb(236, 244, 250),
-                BorderStyle = BorderStyle.FixedSingle
-            };
-
-            panel.Controls.Add(new Label
-            {
-                Dock = DockStyle.Fill,
-                Text = "Abre un proyecto para activar el Gantt, el resumen comercial y el desglose productivo del panel derecho.",
-                Font = new Font("Segoe UI", 9.5f),
-                ForeColor = Color.FromArgb(53, 83, 111),
-                TextAlign = ContentAlignment.MiddleLeft
-            });
-
-            return panel;
-        }
-
-
 
         private Control CrearPanelInicioProyecto()
         {
