@@ -1,7 +1,7 @@
 {
   "Formato": "OthalartProject",
   "Version": 1,
-  "FechaGuardado": "2026-07-21T02:41:22.3575541-04:00",
+  "FechaGuardado": "2026-07-21T13:18:00.7633601-04:00",
   "Cotizacion": {
     "MonedaBase": "CLP",
     "Moneda": "CLP",
@@ -678,7 +678,7 @@
             "Bloque": "General",
             "TipoCargo": "Gestion",
             "SueldoMensualCLPMin": 1300000,
-            "SueldoMensualCLPTipico": 1800000,
+            "SueldoMensualCLPTipico": 1200000,
             "SueldoMensualCLPMax": 2800000,
             "SueldoMensualUSDMin": 0,
             "SueldoMensualUSDTipico": 0,
@@ -1798,7 +1798,7 @@
             "Bloque": "General",
             "TipoCargo": "Gestion",
             "SueldoMensualCLPMin": 1300000,
-            "SueldoMensualCLPTipico": 1800000,
+            "SueldoMensualCLPTipico": 1200000,
             "SueldoMensualCLPMax": 2800000,
             "SueldoMensualUSDMin": 0,
             "SueldoMensualUSDTipico": 0,
@@ -3009,7 +3009,7 @@
             "Bloque": "General",
             "TipoCargo": "Gestion",
             "SueldoMensualCLPMin": 1300000,
-            "SueldoMensualCLPTipico": 1800000,
+            "SueldoMensualCLPTipico": 1200000,
             "SueldoMensualCLPMax": 2800000,
             "SueldoMensualUSDMin": 0,
             "SueldoMensualUSDTipico": 0,
@@ -3921,7 +3921,7 @@
             "Bloque": "General",
             "TipoCargo": "Gestion",
             "SueldoMensualCLPMin": 1300000,
-            "SueldoMensualCLPTipico": 1800000,
+            "SueldoMensualCLPTipico": 1200000,
             "SueldoMensualCLPMax": 2800000,
             "SueldoMensualUSDMin": 0,
             "SueldoMensualUSDTipico": 0,
@@ -4456,7 +4456,7 @@
             "Bloque": "General",
             "TipoCargo": "Gestion",
             "SueldoMensualCLPMin": 1300000,
-            "SueldoMensualCLPTipico": 1800000,
+            "SueldoMensualCLPTipico": 1200000,
             "SueldoMensualCLPMax": 2800000,
             "SueldoMensualUSDMin": 0,
             "SueldoMensualUSDTipico": 0,
@@ -4694,7 +4694,7 @@
       "Descripcion": "",
       "MonedaId": "CLP",
       "FechaCreacion": "2026-07-20T17:48:32.6259362-04:00",
-      "FechaModificacion": "2026-07-21T02:41:22.3507371-04:00",
+      "FechaModificacion": "2026-07-21T13:18:00.7553218-04:00",
       "Grupos": [
         {
           "Id": "grp_direccion_gestion",
@@ -4721,7 +4721,7 @@
                 "FechaSnapshot": "2026-07-20T18:07:01.2932397-04:00"
               },
               "CotizacionSnapshotJson": "",
-              "FechaEdicionSnapshot": "2026-07-21T02:41:22.0255127-04:00",
+              "FechaEdicionSnapshot": "2026-07-21T13:17:44.2416644-04:00",
               "Parametros": {
                 "Complejidad": "",
                 "Acabado": "",
@@ -4780,54 +4780,6 @@
                   "Fecha": "2026-07-21T02:40:41.2422693-04:00"
                 },
                 {
-                  "Id": "c0e27dfe33a2476c98d541612251afca",
-                  "Campo": "Cantidad",
-                  "ValorJson": "\u002215\u0022",
-                  "Motivo": "Editado desde tabla de Productos y servicios",
-                  "Alcance": 3,
-                  "Estado": 1,
-                  "RutaElemento": "subproducto/sub_prod_animaci\u00F3n_de_personaje_2d_0_dise\u00F1o_de_personaje_0",
-                  "BibliotecaId": "bib_animaci\u00F3n_de_personaje_2d",
-                  "ValorPlantillaJson": "",
-                  "Fecha": "2026-07-21T02:40:43.7107618-04:00"
-                },
-                {
-                  "Id": "0591077b731f42ef972ab1ddb105aede",
-                  "Campo": "Cantidad",
-                  "ValorJson": "\u00221\u0022",
-                  "Motivo": "Editado desde tabla de Productos y servicios",
-                  "Alcance": 3,
-                  "Estado": 1,
-                  "RutaElemento": "proceso/proc_sub_prod_animaci\u00F3n_de_personaje_2d_0_dise\u00F1o_de_personaje_0_proc_preparacion_assets",
-                  "BibliotecaId": "bib_animaci\u00F3n_de_personaje_2d",
-                  "ValorPlantillaJson": "",
-                  "Fecha": "2026-07-21T02:40:45.3904843-04:00"
-                },
-                {
-                  "Id": "9de277e9350845d0a526cfeb31ef3a5c",
-                  "Campo": "Horas",
-                  "ValorJson": "\u00222\u0022",
-                  "Motivo": "Editado desde tabla de Productos y servicios",
-                  "Alcance": 3,
-                  "Estado": 1,
-                  "RutaElemento": "proceso/proc_sub_prod_animaci\u00F3n_de_personaje_2d_0_dise\u00F1o_de_personaje_0_proc_preparacion_assets",
-                  "BibliotecaId": "bib_animaci\u00F3n_de_personaje_2d",
-                  "ValorPlantillaJson": "",
-                  "Fecha": "2026-07-21T02:40:55.5153767-04:00"
-                },
-                {
-                  "Id": "68ffa6ba1cb0405ba843abc7d6e51a37",
-                  "Campo": "Horas",
-                  "ValorJson": "\u00220,93\u0022",
-                  "Motivo": "Editado desde tabla de Productos y servicios",
-                  "Alcance": 3,
-                  "Estado": 1,
-                  "RutaElemento": "subproducto/sub_prod_animaci\u00F3n_de_personaje_2d_0_rough_animation_1",
-                  "BibliotecaId": "bib_animaci\u00F3n_de_personaje_2d",
-                  "ValorPlantillaJson": "",
-                  "Fecha": "2026-07-21T02:41:00.8532665-04:00"
-                },
-                {
                   "Id": "49644323096a4f77b15854c2a819c379",
                   "Campo": "Cantidad",
                   "ValorJson": "\u002215\u0022",
@@ -4838,6 +4790,78 @@
                   "BibliotecaId": "bib_animaci\u00F3n_de_personaje_2d",
                   "ValorPlantillaJson": "",
                   "Fecha": "2026-07-21T02:41:22.0255341-04:00"
+                },
+                {
+                  "Id": "6438fae2a2f845a3885b80a31dafb7c2",
+                  "Campo": "Cantidad",
+                  "ValorJson": "\u00221\u0022",
+                  "Motivo": "Editado desde tabla de Productos y servicios",
+                  "Alcance": 3,
+                  "Estado": 1,
+                  "RutaElemento": "subproducto/sub_prod_animaci\u00F3n_de_personaje_2d_0_dise\u00F1o_de_personaje_0",
+                  "BibliotecaId": "bib_animaci\u00F3n_de_personaje_2d",
+                  "ValorPlantillaJson": "",
+                  "Fecha": "2026-07-21T13:09:11.4850839-04:00"
+                },
+                {
+                  "Id": "96b8ee7bf2a84f62bf1a47f403d75071",
+                  "Campo": "Cantidad",
+                  "ValorJson": "\u00221\u0022",
+                  "Motivo": "Editado desde tabla de Productos y servicios",
+                  "Alcance": 3,
+                  "Estado": 1,
+                  "RutaElemento": "proceso/proc_sub_prod_animaci\u00F3n_de_personaje_2d_0_dise\u00F1o_de_personaje_0_proc_preparacion_assets",
+                  "BibliotecaId": "bib_animaci\u00F3n_de_personaje_2d",
+                  "ValorPlantillaJson": "",
+                  "Fecha": "2026-07-21T13:09:20.4408842-04:00"
+                },
+                {
+                  "Id": "aa7cfb2cadc24b0ba0f47a47617e3aa2",
+                  "Campo": "Horas",
+                  "ValorJson": "\u00221\u0022",
+                  "Motivo": "Editado desde tabla de Productos y servicios",
+                  "Alcance": 3,
+                  "Estado": 1,
+                  "RutaElemento": "proceso/proc_sub_prod_animaci\u00F3n_de_personaje_2d_0_dise\u00F1o_de_personaje_0_proc_preparacion_assets",
+                  "BibliotecaId": "bib_animaci\u00F3n_de_personaje_2d",
+                  "ValorPlantillaJson": "",
+                  "Fecha": "2026-07-21T13:10:55.6232057-04:00"
+                },
+                {
+                  "Id": "c15a1de92fe24b8cb080e81a0554e6a8",
+                  "Campo": "Horas",
+                  "ValorJson": "\u0022176,18\u0022",
+                  "Motivo": "Editado desde tabla de Productos y servicios",
+                  "Alcance": 3,
+                  "Estado": 1,
+                  "RutaElemento": "item/prod_animaci\u00F3n_de_personaje_2d_0",
+                  "BibliotecaId": "bib_animaci\u00F3n_de_personaje_2d",
+                  "ValorPlantillaJson": "",
+                  "Fecha": "2026-07-21T13:14:58.6189584-04:00"
+                },
+                {
+                  "Id": "3f5d6c0848924d8c95446b9fb731e08d",
+                  "Campo": "Horas",
+                  "ValorJson": "\u002275,04\u0022",
+                  "Motivo": "Editado desde tabla de Productos y servicios",
+                  "Alcance": 3,
+                  "Estado": 1,
+                  "RutaElemento": "proceso/proc_sub_prod_animaci\u00F3n_de_personaje_2d_0_rough_animation_1_proc_rough",
+                  "BibliotecaId": "bib_animaci\u00F3n_de_personaje_2d",
+                  "ValorPlantillaJson": "",
+                  "Fecha": "2026-07-21T13:17:28.6566342-04:00"
+                },
+                {
+                  "Id": "f2bdf411d0304723960a19cbbfa22fa7",
+                  "Campo": "Horas",
+                  "ValorJson": "\u002275,04\u0022",
+                  "Motivo": "Editado desde tabla de Productos y servicios",
+                  "Alcance": 3,
+                  "Estado": 1,
+                  "RutaElemento": "subproducto/sub_prod_animaci\u00F3n_de_personaje_2d_0_rough_animation_1",
+                  "BibliotecaId": "bib_animaci\u00F3n_de_personaje_2d",
+                  "ValorPlantillaJson": "",
+                  "Fecha": "2026-07-21T13:17:44.241685-04:00"
                 }
               ],
               "Subproductos": [
@@ -4846,7 +4870,7 @@
                   "ProductoProyectoId": "prod_animaci\u00F3n_de_personaje_2d_0",
                   "SubproductoBibliotecaId": "subbib_dise\u00F1o_de_personaje",
                   "Nombre": "Dise\u00F1o de personaje",
-                  "Cantidad": 15,
+                  "Cantidad": 1,
                   "Unidad": "segundos",
                   "ModoCantidad": 0,
                   "Parametros": {
@@ -4886,11 +4910,11 @@
                           "ProcesoProyectoId": "proc_sub_prod_animaci\u00F3n_de_personaje_2d_0_dise\u00F1o_de_personaje_0_proc_preparacion_assets",
                           "CargoId": "Dise\u00F1ador de personajes (junior)",
                           "PersonaId": "",
-                          "HorasCalculadas": 1,
-                          "HorasAsignadas": 1,
+                          "HorasCalculadas": 0.5,
+                          "HorasAsignadas": 0.5,
                           "OrigenHoras": 2,
                           "DedicacionPorcentaje": 100,
-                          "CostoCalculado": 5681.81818181818,
+                          "CostoCalculado": 6250,
                           "Notas": "OK"
                         },
                         {
@@ -4898,18 +4922,18 @@
                           "ProcesoProyectoId": "proc_sub_prod_animaci\u00F3n_de_personaje_2d_0_dise\u00F1o_de_personaje_0_proc_preparacion_assets",
                           "CargoId": "Director de arte (t\u00EDpico)",
                           "PersonaId": "",
-                          "HorasCalculadas": 1,
-                          "HorasAsignadas": 1,
+                          "HorasCalculadas": 0.5,
+                          "HorasAsignadas": 0.5,
                           "OrigenHoras": 2,
                           "DedicacionPorcentaje": 100,
-                          "CostoCalculado": 10227.27272727272,
+                          "CostoCalculado": 6250,
                           "Notas": "Cargo de gestion/apoyo. Dedicacion calculada sobre el cuello de botella productivo."
                         }
                       ],
                       "Resultado": {
-                        "HorasCalculadas": 2,
-                        "HorasAsignadas": 2,
-                        "CostoCalculado": 15909.09090909090,
+                        "HorasCalculadas": 1,
+                        "HorasAsignadas": 1,
+                        "CostoCalculado": 12500,
                         "DuracionSemanas": 0,
                         "Diagnostico": "OK",
                         "Warnings": []
@@ -4957,8 +4981,8 @@
                       "SubetapaId": "rough_animation",
                       "Cantidad": 15,
                       "Unidad": "segundos",
-                      "Capacidad": 0,
-                      "Periodo": "",
+                      "Capacidad": 8,
+                      "Periodo": "semana",
                       "Paralelo": false,
                       "Dependencias": [],
                       "Asignaciones": [
@@ -4967,11 +4991,11 @@
                           "ProcesoProyectoId": "proc_sub_prod_animaci\u00F3n_de_personaje_2d_0_rough_animation_1_proc_rough",
                           "CargoId": "Animador 2D (junior)",
                           "PersonaId": "",
-                          "HorasCalculadas": 0.888888888888889,
-                          "HorasAsignadas": 0.888888888888889,
-                          "OrigenHoras": 0,
+                          "HorasCalculadas": 75,
+                          "HorasAsignadas": 75,
+                          "OrigenHoras": 2,
                           "DedicacionPorcentaje": 100,
-                          "CostoCalculado": 4797.9797979798,
+                          "CostoCalculado": 404829.545454546,
                           "Notas": "OK"
                         },
                         {
@@ -4979,80 +5003,37 @@
                           "ProcesoProyectoId": "proc_sub_prod_animaci\u00F3n_de_personaje_2d_0_rough_animation_1_proc_rough",
                           "CargoId": "Supervisor de animaci\u00F3n (t\u00EDpico)",
                           "PersonaId": "",
-                          "HorasCalculadas": 0.0444444444444444,
-                          "HorasAsignadas": 0.0444444444444444,
-                          "OrigenHoras": 0,
+                          "HorasCalculadas": 0.0444418122594018,
+                          "HorasAsignadas": 0.0444418122594018,
+                          "OrigenHoras": 2,
                           "DedicacionPorcentaje": 5,
-                          "CostoCalculado": 454.545454545455,
+                          "CostoCalculado": 454.518534471156,
                           "Notas": "Cargo de gestion/apoyo. Dedicacion calculada sobre el cuello de botella productivo."
                         }
                       ],
                       "Resultado": {
-                        "HorasCalculadas": 0.933333333333333,
-                        "HorasAsignadas": 0.93,
-                        "CostoCalculado": 5252.52525252525,
+                        "HorasCalculadas": 75.0444418122594,
+                        "HorasAsignadas": 75.0444418122594,
+                        "CostoCalculado": 405284.063989017,
                         "DuracionSemanas": 0,
                         "Diagnostico": "OK",
                         "Warnings": []
-                      },
-                      "Activo": true
-                    },
-                    {
-                      "Id": "proc_sub_prod_animaci\u00F3n_de_personaje_2d_0_rough_animation_1_proc_revision_rough",
-                      "ProcesoBibliotecaId": "proc_revision_rough",
-                      "Nombre": "Revision de rough animation",
-                      "TipoProceso": 2,
-                      "MetodoCalculo": 6,
-                      "AlcanceTemporal": 5,
-                      "EtapaId": "produccion",
-                      "SubetapaId": "revision_de_rough_animation",
-                      "Cantidad": 15,
-                      "Unidad": "segundos",
-                      "Capacidad": 0,
-                      "Periodo": "",
-                      "Paralelo": false,
-                      "Dependencias": [
-                        "proc_sub_prod_animaci\u00F3n_de_personaje_2d_0_rough_animation_1_proc_rough"
-                      ],
-                      "Asignaciones": [
-                        {
-                          "Id": "asg_proc_sub_prod_animaci\u00F3n_de_personaje_2d_0_rough_animation_1_proc_revision_rough_supervisor_de_animaci\u00F3n_t\u00EDpico_0",
-                          "ProcesoProyectoId": "proc_sub_prod_animaci\u00F3n_de_personaje_2d_0_rough_animation_1_proc_revision_rough",
-                          "CargoId": "Supervisor de animaci\u00F3n (t\u00EDpico)",
-                          "PersonaId": "",
-                          "HorasCalculadas": 0,
-                          "HorasAsignadas": 0,
-                          "OrigenHoras": 0,
-                          "DedicacionPorcentaje": 100,
-                          "CostoCalculado": 0,
-                          "Notas": "Cargo de gestion/apoyo. Espera un cargo productivo para estimar dedicacion."
-                        }
-                      ],
-                      "Resultado": {
-                        "HorasCalculadas": 0,
-                        "HorasAsignadas": 0,
-                        "CostoCalculado": 0,
-                        "DuracionSemanas": 0,
-                        "Diagnostico": "No se calcularon dias tecnicos desde la ecuacion; revisa rendimiento/capacidad/cargos.",
-                        "Warnings": [
-                          "No se calcularon dias tecnicos desde la ecuacion; revisa rendimiento/capacidad/cargos."
-                        ]
                       },
                       "Activo": true
                     }
                   ],
                   "Overrides": [
                     {
-                      "Id": "ovr_e3929bf68c40454bbbb82eef0f383821",
+                      "Id": "ovr_4e7867e7e21240fcb97b4895aebffd27",
                       "Campo": "Proceso.Quitado",
-                      "ValorJson": "\u0022proc_sub_prod_animaci\\u00F3n_de_personaje_2d_0_rough_animation_1_proc_correccion_rough\u0022",
+                      "ValorJson": "\u0022proc_sub_prod_animaci\\u00F3n_de_personaje_2d_0_rough_animation_1_proc_revision_rough\u0022",
                       "Motivo": "Proceso quitado en Productos y servicios",
                       "Alcance": 2,
                       "Estado": 1,
                       "RutaElemento": "subproducto:sub_prod_animaci\u00F3n_de_personaje_2d_0_rough_animation_1",
                       "BibliotecaId": "subbib_rough_animation",
                       "ValorPlantillaJson": "",
-                      "Fecha": "2026-07-20T18:08:17.3378314-04:00"
+                      "Fecha": "2026-07-21T13:17:35.9455513-04:00"
                     }
                   ],
                   "Activo": true,
@@ -5094,8 +5075,8 @@
                       "SubetapaId": "clean_up",
                       "Cantidad": 15,
                       "Unidad": "segundos",
-                      "Capacidad": 0,
-                      "Periodo": "",
+                      "Capacidad": 10,
+                      "Periodo": "semana",
                       "Paralelo": false,
                       "Dependencias": [],
                       "Asignaciones": [
@@ -5104,69 +5085,39 @@
                           "ProcesoProyectoId": "proc_sub_prod_animaci\u00F3n_de_personaje_2d_0_clean_up_2_proc_clean_up",
                           "CargoId": "Clean up artist (junior)",
                           "PersonaId": "",
-                          "HorasCalculadas": 4,
-                          "HorasAsignadas": 4,
-                          "OrigenHoras": 0,
+                          "HorasCalculadas": 60,
+                          "HorasAsignadas": 60,
+                          "OrigenHoras": 2,
                           "DedicacionPorcentaje": 100,
-                          "CostoCalculado": 18181.8181818182,
+                          "CostoCalculado": 272727.272727273,
                           "Notas": "OK"
                         }
                       ],
                       "Resultado": {
-                        "HorasCalculadas": 4,
-                        "HorasAsignadas": 4,
-                        "CostoCalculado": 18181.8181818182,
+                        "HorasCalculadas": 60,
+                        "HorasAsignadas": 60,
+                        "CostoCalculado": 272727.272727273,
                         "DuracionSemanas": 0,
                         "Diagnostico": "OK",
                         "Warnings": []
                       },
                       "Activo": true
-                    },
-                    {
-                      "Id": "proc_sub_prod_animaci\u00F3n_de_personaje_2d_0_clean_up_2_proc_revision_clean_up",
-                      "ProcesoBibliotecaId": "proc_revision_clean_up",
-                      "Nombre": "Revision de clean up",
-                      "TipoProceso": 2,
-                      "MetodoCalculo": 6,
-                      "AlcanceTemporal": 5,
-                      "EtapaId": "produccion",
-                      "SubetapaId": "revision_de_clean_up",
-                      "Cantidad": 15,
-                      "Unidad": "segundos",
-                      "Capacidad": 0,
-                      "Periodo": "",
-                      "Paralelo": false,
-                      "Dependencias": [
-                        "proc_sub_prod_animaci\u00F3n_de_personaje_2d_0_clean_up_2_proc_clean_up"
-                      ],
-                      "Asignaciones": [
-                        {
-                          "Id": "asg_proc_sub_prod_animaci\u00F3n_de_personaje_2d_0_clean_up_2_proc_revision_clean_up_supervisor_de_animaci\u00F3n_t\u00EDpico_0",
-                          "ProcesoProyectoId": "proc_sub_prod_animaci\u00F3n_de_personaje_2d_0_clean_up_2_proc_revision_clean_up",
-                          "CargoId": "Supervisor de animaci\u00F3n (t\u00EDpico)",
-                          "PersonaId": "",
-                          "HorasCalculadas": 0,
-                          "HorasAsignadas": 0,
-                          "OrigenHoras": 0,
-                          "DedicacionPorcentaje": 100,
-                          "CostoCalculado": 0,
-                          "Notas": "Cargo de gestion/apoyo. Espera un cargo productivo para estimar dedicacion."
-                        }
-                      ],
-                      "Resultado": {
-                        "HorasCalculadas": 0,
-                        "HorasAsignadas": 0,
-                        "CostoCalculado": 0,
-                        "DuracionSemanas": 0,
-                        "Diagnostico": "No se calcularon dias tecnicos desde la ecuacion; revisa rendimiento/capacidad/cargos.",
-                        "Warnings": [
-                          "No se calcularon dias tecnicos desde la ecuacion; revisa rendimiento/capacidad/cargos."
-                        ]
-                      },
-                      "Activo": true
                     }
                   ],
-                  "Overrides": [],
+                  "Overrides": [
+                    {
+                      "Id": "ovr_94630bf7b45242b7a9439e4cd321ffc9",
+                      "Campo": "Proceso.Quitado",
+                      "ValorJson": "\u0022proc_sub_prod_animaci\\u00F3n_de_personaje_2d_0_clean_up_2_proc_revision_clean_up\u0022",
+                      "Motivo": "Proceso quitado en Productos y servicios",
+                      "Alcance": 2,
+                      "Estado": 1,
+                      "RutaElemento": "subproducto:sub_prod_animaci\u00F3n_de_personaje_2d_0_clean_up_2",
+                      "BibliotecaId": "subbib_clean_up",
+                      "ValorPlantillaJson": "",
+                      "Fecha": "2026-07-21T13:17:48.4594121-04:00"
+                    }
+                  ],
                   "Activo": true,
                   "Orden": 2,
                   "Notas": ""
@@ -5206,8 +5157,8 @@
                       "SubetapaId": "color",
                       "Cantidad": 15,
                       "Unidad": "segundos",
-                      "Capacidad": 0,
-                      "Periodo": "",
+                      "Capacidad": 15,
+                      "Periodo": "semana",
                       "Paralelo": false,
                       "Dependencias": [],
                       "Asignaciones": [
@@ -5216,11 +5167,11 @@
                           "ProcesoProyectoId": "proc_sub_prod_animaci\u00F3n_de_personaje_2d_0_color_3_proc_color",
                           "CargoId": "Colorista (junior)",
                           "PersonaId": "",
-                          "HorasCalculadas": 2.66666666666667,
-                          "HorasAsignadas": 2.66666666666667,
-                          "OrigenHoras": 0,
+                          "HorasCalculadas": 40,
+                          "HorasAsignadas": 40,
+                          "OrigenHoras": 2,
                           "DedicacionPorcentaje": 100,
-                          "CostoCalculado": 11363.6363636364,
+                          "CostoCalculado": 189772.727272727,
                           "Notas": "OK"
                         },
                         {
@@ -5230,16 +5181,16 @@
                           "PersonaId": "",
                           "HorasCalculadas": 0.133333333333333,
                           "HorasAsignadas": 0.133333333333333,
-                          "OrigenHoras": 0,
+                          "OrigenHoras": 2,
                           "DedicacionPorcentaje": 5,
                           "CostoCalculado": 1287.87878787879,
                           "Notas": "Cargo de gestion/apoyo. Dedicacion calculada sobre el cuello de botella productivo."
                         }
                       ],
                       "Resultado": {
-                        "HorasCalculadas": 2.8,
-                        "HorasAsignadas": 2.8,
-                        "CostoCalculado": 12651.5151515152,
+                        "HorasCalculadas": 40.1333333333333,
+                        "HorasAsignadas": 40.1333333333333,
+                        "CostoCalculado": 191060.606060606,
                         "DuracionSemanas": 0,
                         "Diagnostico": "OK",
                         "Warnings": []
@@ -5299,7 +5250,7 @@
                           "PersonaId": "",
                           "HorasCalculadas": 0,
                           "HorasAsignadas": 0,
-                          "OrigenHoras": 0,
+                          "OrigenHoras": 2,
                           "DedicacionPorcentaje": 100,
                           "CostoCalculado": 0,
                           "Notas": "Cargo de gestion/apoyo. Espera un cargo productivo para estimar dedicacion."
@@ -5311,8 +5262,508 @@
                           "PersonaId": "",
                           "HorasCalculadas": 0,
                           "HorasAsignadas": 0,
-                          "OrigenHoras": 0,
+                          "OrigenHoras": 2,
                           "DedicacionPorcentaje": 5,
+                          "CostoCalculado": 0,
+                          "Notas": "Cargo de gestion/apoyo. Espera un cargo productivo para estimar dedicacion."
+                        }
+                      ],
+                      "Resultado": {
+                        "HorasCalculadas": 0,
+                        "HorasAsignadas": 0,
+                        "CostoCalculado": 0,
+                        "DuracionSemanas": 0,
+                        "Diagnostico": "No se calcularon dias tecnicos desde la ecuacion; revisa rendimiento/capacidad/cargos.",
+                        "Warnings": [
+                          "No se calcularon dias tecnicos desde la ecuacion; revisa rendimiento/capacidad/cargos."
+                        ]
+                      },
+                      "Activo": true
+                    }
+                  ],
+                  "Overrides": [],
+                  "Activo": true,
+                  "Orden": 4,
+                  "Notas": ""
+                }
+              ],
+              "Procesos": []
+            },
+            {
+              "Id": "prod_background_escenario_2d_1",
+              "Tipo": 0,
+              "BibliotecaId": "bib_background_escenario_2d",
+              "Nombre": "Background / escenario 2D",
+              "Descripcion": "",
+              "Cantidad": 1,
+              "Unidad": "fondos",
+              "Orden": 1,
+              "Activo": true,
+              "Snapshot": {
+                "NombreBiblioteca": "Background / escenario 2D",
+                "CategoriaBiblioteca": "Dise\u00F1o",
+                "UnidadBase": "fondos",
+                "JsonMinimo": "{\u0022Nombre\u0022:\u0022Background / escenario 2D\u0022,\u0022Industria\u0022:\u0022General\u0022,\u0022Categoria\u0022:\u0022Dise\\u00F1o\u0022,\u0022UnidadCantidadSugerida\u0022:\u0022fondos\u0022,\u0022UnidadDuracionSugerida\u0022:\u0022no aplica\u0022,\u0022DuracionSugerida\u0022:0,\u0022Subproductos\u0022:[\u0022Brief de escenario\u0022,\u0022Referencias visuales\u0022,\u0022Boceto de fondo\u0022,\u0022Fondo final\u0022,\u0022Separaci\\u00F3n por capas\u0022,\u0022Archivo editable / export\u0022]}",
+                "FechaSnapshot": "2026-07-21T13:13:45.0819715-04:00"
+              },
+              "CotizacionSnapshotJson": "",
+              "FechaEdicionSnapshot": "2026-07-21T13:14:04.67586-04:00",
+              "Parametros": {
+                "Complejidad": "",
+                "Acabado": "",
+                "CiclosRevision": 1,
+                "TasaRetrabajo": 10,
+                "Duracion": 0,
+                "PersonalizadoProyecto": true
+              },
+              "Overrides": [
+                {
+                  "Id": "ovr_18745f03bf674b37bb75e79525bb2001",
+                  "Campo": "Cantidad",
+                  "ValorJson": "1",
+                  "Motivo": "Cantidad definida al agregar desde biblioteca",
+                  "Alcance": 3,
+                  "Estado": 1,
+                  "RutaElemento": "producto:prod_background_escenario_2d_1",
+                  "BibliotecaId": "bib_background_escenario_2d",
+                  "ValorPlantillaJson": "",
+                  "Fecha": "2026-07-21T13:13:45.0855088-04:00"
+                },
+                {
+                  "Id": "ovr_28bef0cbcc6745c4b3b82655e7e3930f",
+                  "Campo": "Unidad",
+                  "ValorJson": "\u0022fondos\u0022",
+                  "Motivo": "Unidad definida al agregar desde biblioteca",
+                  "Alcance": 3,
+                  "Estado": 1,
+                  "RutaElemento": "producto:prod_background_escenario_2d_1",
+                  "BibliotecaId": "bib_background_escenario_2d",
+                  "ValorPlantillaJson": "\u0022fondos\u0022",
+                  "Fecha": "2026-07-21T13:13:45.0870472-04:00"
+                },
+                {
+                  "Id": "ovr_5b00cab4821349ac8e50d64adf190f4e",
+                  "Campo": "Parametros",
+                  "ValorJson": "{\u0022Complejidad\u0022:\u0022\u0022,\u0022Acabado\u0022:\u0022\u0022,\u0022CiclosRevision\u0022:1,\u0022TasaRetrabajo\u0022:10,\u0022Duracion\u0022:0,\u0022PersonalizadoProyecto\u0022:true}",
+                  "Motivo": "Parametros recomendados aplicados al proyecto",
+                  "Alcance": 3,
+                  "Estado": 1,
+                  "RutaElemento": "producto:prod_background_escenario_2d_1",
+                  "BibliotecaId": "bib_background_escenario_2d",
+                  "ValorPlantillaJson": "",
+                  "Fecha": "2026-07-21T13:13:45.0932139-04:00"
+                },
+                {
+                  "Id": "6cc06fbd77114954a1dfbd6f99e05d74",
+                  "Campo": "Horas",
+                  "ValorJson": "\u00220\u0022",
+                  "Motivo": "Editado desde tabla de Productos y servicios",
+                  "Alcance": 3,
+                  "Estado": 1,
+                  "RutaElemento": "item/prod_background_escenario_2d_1",
+                  "BibliotecaId": "bib_background_escenario_2d",
+                  "ValorPlantillaJson": "",
+                  "Fecha": "2026-07-21T13:14:04.6758778-04:00"
+                }
+              ],
+              "Subproductos": [
+                {
+                  "Id": "sub_prod_background_escenario_2d_1_brief_de_escenario_0",
+                  "ProductoProyectoId": "prod_background_escenario_2d_1",
+                  "SubproductoBibliotecaId": "subbib_brief_de_escenario",
+                  "Nombre": "Brief de escenario",
+                  "Cantidad": 1,
+                  "Unidad": "fondos",
+                  "ModoCantidad": 0,
+                  "Parametros": {
+                    "Categoria": "Desarrollo",
+                    "EtapaSugerida": "Desarrollo",
+                    "SubEtapaSugerida": "Definici\u00F3n de alcance",
+                    "EquationKey": "GUION",
+                    "EcuacionProductiva": "GUION | Guion / escena",
+                    "VariablesEcuacion": "cantidad;unidad;complejidad;revisiones;cargo",
+                    "CargosSugeridos": "Productor / Project manager (t\u00EDpico); Director creativo (t\u00EDpico)",
+                    "Complejidad": "",
+                    "Acabado": "",
+                    "CiclosRevision": 1,
+                    "TasaRetrabajo": 10,
+                    "Duracion": 0
+                  },
+                  "Instancias": [],
+                  "Procesos": [
+                    {
+                      "Id": "proc_sub_prod_background_escenario_2d_1_brief_de_escenario_0_proc_guion",
+                      "ProcesoBibliotecaId": "proc_guion",
+                      "Nombre": "Guion / escena",
+                      "TipoProceso": 1,
+                      "MetodoCalculo": 3,
+                      "AlcanceTemporal": 5,
+                      "EtapaId": "desarrollo",
+                      "SubetapaId": "guion_estructura_narrativa",
+                      "Cantidad": 1,
+                      "Unidad": "fondos",
+                      "Capacidad": 0,
+                      "Periodo": "",
+                      "Paralelo": false,
+                      "Dependencias": [],
+                      "Asignaciones": [
+                        {
+                          "Id": "asg_proc_sub_prod_background_escenario_2d_1_brief_de_escenario_0_proc_guion_guionista_junior_0",
+                          "ProcesoProyectoId": "proc_sub_prod_background_escenario_2d_1_brief_de_escenario_0_proc_guion",
+                          "CargoId": "Guionista (junior)",
+                          "PersonaId": "",
+                          "HorasCalculadas": 0,
+                          "HorasAsignadas": 0,
+                          "OrigenHoras": 2,
+                          "DedicacionPorcentaje": 100,
+                          "CostoCalculado": 0,
+                          "Notas": "No hay rendimiento compatible para cargo/unidad/proceso."
+                        },
+                        {
+                          "Id": "asg_proc_sub_prod_background_escenario_2d_1_brief_de_escenario_0_proc_guion_director_a_de_animaci\u00F3n_t\u00EDpico_1",
+                          "ProcesoProyectoId": "proc_sub_prod_background_escenario_2d_1_brief_de_escenario_0_proc_guion",
+                          "CargoId": "Director/a de animaci\u00F3n (t\u00EDpico)",
+                          "PersonaId": "",
+                          "HorasCalculadas": 0,
+                          "HorasAsignadas": 0,
+                          "OrigenHoras": 2,
+                          "DedicacionPorcentaje": 100,
+                          "CostoCalculado": 0,
+                          "Notas": "Cargo de gestion/apoyo. Espera un cargo productivo para estimar dedicacion."
+                        }
+                      ],
+                      "Resultado": {
+                        "HorasCalculadas": 0,
+                        "HorasAsignadas": 0,
+                        "CostoCalculado": 0,
+                        "DuracionSemanas": 0,
+                        "Diagnostico": "GUION: sin rendimiento compatible para Guionista (junior) / fondos.; No se calcularon dias tecnicos desde la ecuacion; revisa rendimiento/capacidad/cargos.",
+                        "Warnings": [
+                          "GUION: sin rendimiento compatible para Guionista (junior) / fondos.",
+                          "No se calcularon dias tecnicos desde la ecuacion; revisa rendimiento/capacidad/cargos."
+                        ]
+                      },
+                      "Activo": true
+                    }
+                  ],
+                  "Overrides": [],
+                  "Activo": true,
+                  "Orden": 0,
+                  "Notas": ""
+                },
+                {
+                  "Id": "sub_prod_background_escenario_2d_1_referencias_visuales_1",
+                  "ProductoProyectoId": "prod_background_escenario_2d_1",
+                  "SubproductoBibliotecaId": "subbib_referencias_visuales",
+                  "Nombre": "Referencias visuales",
+                  "Cantidad": 1,
+                  "Unidad": "fondos",
+                  "ModoCantidad": 0,
+                  "Parametros": {
+                    "Categoria": "Desarrollo",
+                    "EtapaSugerida": "Desarrollo",
+                    "SubEtapaSugerida": "Investigaci\u00F3n de referencias",
+                    "EquationKey": "DIRECCION_VISUAL",
+                    "EcuacionProductiva": "DIRECCION_VISUAL | Direccion visual",
+                    "VariablesEcuacion": "cantidad;calidad;referencias;cargo",
+                    "CargosSugeridos": "Director de arte (t\u00EDpico); Concept artist (t\u00EDpico); Productor / Project manager (t\u00EDpico)",
+                    "Complejidad": "",
+                    "Acabado": "",
+                    "CiclosRevision": 1,
+                    "TasaRetrabajo": 10,
+                    "Duracion": 0
+                  },
+                  "Instancias": [],
+                  "Procesos": [
+                    {
+                      "Id": "proc_sub_prod_background_escenario_2d_1_referencias_visuales_1_proc_direccion_visual",
+                      "ProcesoBibliotecaId": "proc_direccion_visual",
+                      "Nombre": "Direccion visual",
+                      "TipoProceso": 5,
+                      "MetodoCalculo": 7,
+                      "AlcanceTemporal": 7,
+                      "EtapaId": "desarrollo",
+                      "SubetapaId": "direccion_visual_referencias_de_estilo",
+                      "Cantidad": 1,
+                      "Unidad": "fondos",
+                      "Capacidad": 0,
+                      "Periodo": "",
+                      "Paralelo": true,
+                      "Dependencias": [],
+                      "Asignaciones": [
+                        {
+                          "Id": "asg_proc_sub_prod_background_escenario_2d_1_referencias_visuales_1_proc_direccion_visual_director_de_arte_t\u00EDpico_0",
+                          "ProcesoProyectoId": "proc_sub_prod_background_escenario_2d_1_referencias_visuales_1_proc_direccion_visual",
+                          "CargoId": "Director de arte (t\u00EDpico)",
+                          "PersonaId": "",
+                          "HorasCalculadas": 0,
+                          "HorasAsignadas": 0,
+                          "OrigenHoras": 2,
+                          "DedicacionPorcentaje": 5,
+                          "CostoCalculado": 0,
+                          "Notas": "Cargo de gestion/apoyo. Espera un cargo productivo para estimar dedicacion."
+                        },
+                        {
+                          "Id": "asg_proc_sub_prod_background_escenario_2d_1_referencias_visuales_1_proc_direccion_visual_director_a_de_animaci\u00F3n_t\u00EDpico_1",
+                          "ProcesoProyectoId": "proc_sub_prod_background_escenario_2d_1_referencias_visuales_1_proc_direccion_visual",
+                          "CargoId": "Director/a de animaci\u00F3n (t\u00EDpico)",
+                          "PersonaId": "",
+                          "HorasCalculadas": 0,
+                          "HorasAsignadas": 0,
+                          "OrigenHoras": 2,
+                          "DedicacionPorcentaje": 100,
+                          "CostoCalculado": 0,
+                          "Notas": "Cargo de gestion/apoyo. Espera un cargo productivo para estimar dedicacion."
+                        }
+                      ],
+                      "Resultado": {
+                        "HorasCalculadas": 0,
+                        "HorasAsignadas": 0,
+                        "CostoCalculado": 0,
+                        "DuracionSemanas": 0,
+                        "Diagnostico": "No se calcularon dias tecnicos desde la ecuacion; revisa rendimiento/capacidad/cargos.",
+                        "Warnings": [
+                          "No se calcularon dias tecnicos desde la ecuacion; revisa rendimiento/capacidad/cargos."
+                        ]
+                      },
+                      "Activo": true
+                    }
+                  ],
+                  "Overrides": [],
+                  "Activo": true,
+                  "Orden": 1,
+                  "Notas": ""
+                },
+                {
+                  "Id": "sub_prod_background_escenario_2d_1_boceto_de_fondo_2",
+                  "ProductoProyectoId": "prod_background_escenario_2d_1",
+                  "SubproductoBibliotecaId": "subbib_boceto_de_fondo",
+                  "Nombre": "Boceto de fondo",
+                  "Cantidad": 1,
+                  "Unidad": "fondos",
+                  "ModoCantidad": 0,
+                  "Parametros": {
+                    "Categoria": "Preproducci\u00F3n",
+                    "EtapaSugerida": "Preproduccion",
+                    "SubEtapaSugerida": "Dise\u00F1o visual",
+                    "EquationKey": "ANIMATIC",
+                    "EcuacionProductiva": "ANIMATIC | Animatic / timing",
+                    "VariablesEcuacion": "duracion;segundos;planos;revisiones;cargo",
+                    "CargosSugeridos": "Director de arte (t\u00EDpico); Dise\u00F1ador visual (t\u00EDpico); Concept artist (t\u00EDpico)",
+                    "Complejidad": "",
+                    "Acabado": "",
+                    "CiclosRevision": 1,
+                    "TasaRetrabajo": 10,
+                    "Duracion": 0
+                  },
+                  "Instancias": [],
+                  "Procesos": [
+                    {
+                      "Id": "proc_sub_prod_background_escenario_2d_1_boceto_de_fondo_2_proc_animatic",
+                      "ProcesoBibliotecaId": "proc_animatic",
+                      "Nombre": "Animatic / timing",
+                      "TipoProceso": 1,
+                      "MetodoCalculo": 3,
+                      "AlcanceTemporal": 5,
+                      "EtapaId": "preproduccion",
+                      "SubetapaId": "animatic",
+                      "Cantidad": 1,
+                      "Unidad": "fondos",
+                      "Capacidad": 0,
+                      "Periodo": "",
+                      "Paralelo": false,
+                      "Dependencias": [],
+                      "Asignaciones": [
+                        {
+                          "Id": "asg_proc_sub_prod_background_escenario_2d_1_boceto_de_fondo_2_proc_animatic_animatic_editor_junior_0",
+                          "ProcesoProyectoId": "proc_sub_prod_background_escenario_2d_1_boceto_de_fondo_2_proc_animatic",
+                          "CargoId": "Animatic editor (junior)",
+                          "PersonaId": "",
+                          "HorasCalculadas": 0,
+                          "HorasAsignadas": 0,
+                          "OrigenHoras": 2,
+                          "DedicacionPorcentaje": 100,
+                          "CostoCalculado": 0,
+                          "Notas": "No hay rendimiento compatible para cargo/unidad/proceso."
+                        },
+                        {
+                          "Id": "asg_proc_sub_prod_background_escenario_2d_1_boceto_de_fondo_2_proc_animatic_postproductor_junior_1",
+                          "ProcesoProyectoId": "proc_sub_prod_background_escenario_2d_1_boceto_de_fondo_2_proc_animatic",
+                          "CargoId": "Postproductor (junior)",
+                          "PersonaId": "",
+                          "HorasCalculadas": 0,
+                          "HorasAsignadas": 0,
+                          "OrigenHoras": 2,
+                          "DedicacionPorcentaje": 5,
+                          "CostoCalculado": 0,
+                          "Notas": "Cargo de gestion/apoyo. Espera un cargo productivo para estimar dedicacion."
+                        }
+                      ],
+                      "Resultado": {
+                        "HorasCalculadas": 0,
+                        "HorasAsignadas": 0,
+                        "CostoCalculado": 0,
+                        "DuracionSemanas": 0,
+                        "Diagnostico": "ANIMATIC: sin rendimiento compatible para Animatic editor (junior) / fondos.; No se calcularon dias tecnicos desde la ecuacion; revisa rendimiento/capacidad/cargos.",
+                        "Warnings": [
+                          "ANIMATIC: sin rendimiento compatible para Animatic editor (junior) / fondos.",
+                          "No se calcularon dias tecnicos desde la ecuacion; revisa rendimiento/capacidad/cargos."
+                        ]
+                      },
+                      "Activo": true
+                    }
+                  ],
+                  "Overrides": [],
+                  "Activo": true,
+                  "Orden": 2,
+                  "Notas": ""
+                },
+                {
+                  "Id": "sub_prod_background_escenario_2d_1_fondo_final_3",
+                  "ProductoProyectoId": "prod_background_escenario_2d_1",
+                  "SubproductoBibliotecaId": "subbib_fondo_final",
+                  "Nombre": "Fondo final",
+                  "Cantidad": 1,
+                  "Unidad": "fondos",
+                  "ModoCantidad": 0,
+                  "Parametros": {
+                    "Categoria": "Producci\u00F3n",
+                    "EtapaSugerida": "Produccion",
+                    "SubEtapaSugerida": "Arte final",
+                    "EquationKey": "AUDIO",
+                    "EcuacionProductiva": "AUDIO | Audio / mezcla",
+                    "VariablesEcuacion": "segundos;minutos;piezas;capacidad;cargo",
+                    "CargosSugeridos": "Ilustrador (t\u00EDpico); Director de arte (t\u00EDpico); Artista de fondos (t\u00EDpico)",
+                    "Complejidad": "",
+                    "Acabado": "",
+                    "CiclosRevision": 1,
+                    "TasaRetrabajo": 10,
+                    "Duracion": 0
+                  },
+                  "Instancias": [],
+                  "Procesos": [
+                    {
+                      "Id": "proc_sub_prod_background_escenario_2d_1_fondo_final_3_proc_audio",
+                      "ProcesoBibliotecaId": "proc_audio",
+                      "Nombre": "Audio / mezcla",
+                      "TipoProceso": 1,
+                      "MetodoCalculo": 3,
+                      "AlcanceTemporal": 5,
+                      "EtapaId": "produccion",
+                      "SubetapaId": "audio",
+                      "Cantidad": 1,
+                      "Unidad": "fondos",
+                      "Capacidad": 0,
+                      "Periodo": "",
+                      "Paralelo": false,
+                      "Dependencias": [],
+                      "Asignaciones": [
+                        {
+                          "Id": "asg_proc_sub_prod_background_escenario_2d_1_fondo_final_3_proc_audio_editor_de_audio_t\u00EDpico_0",
+                          "ProcesoProyectoId": "proc_sub_prod_background_escenario_2d_1_fondo_final_3_proc_audio",
+                          "CargoId": "Editor de audio (t\u00EDpico)",
+                          "PersonaId": "",
+                          "HorasCalculadas": 0,
+                          "HorasAsignadas": 0,
+                          "OrigenHoras": 2,
+                          "DedicacionPorcentaje": 100,
+                          "CostoCalculado": 0,
+                          "Notas": "No hay rendimiento compatible para cargo/unidad/proceso."
+                        },
+                        {
+                          "Id": "asg_proc_sub_prod_background_escenario_2d_1_fondo_final_3_proc_audio_m\u00FAsico_compositor_musical_t\u00EDpico_1",
+                          "ProcesoProyectoId": "proc_sub_prod_background_escenario_2d_1_fondo_final_3_proc_audio",
+                          "CargoId": "M\u00FAsico / compositor musical (t\u00EDpico)",
+                          "PersonaId": "",
+                          "HorasCalculadas": 0,
+                          "HorasAsignadas": 0,
+                          "OrigenHoras": 2,
+                          "DedicacionPorcentaje": 100,
+                          "CostoCalculado": 0,
+                          "Notas": "No hay rendimiento compatible para cargo/unidad/proceso."
+                        }
+                      ],
+                      "Resultado": {
+                        "HorasCalculadas": 0,
+                        "HorasAsignadas": 0,
+                        "CostoCalculado": 0,
+                        "DuracionSemanas": 0,
+                        "Diagnostico": "AUDIO: sin rendimiento compatible para Editor de audio (t\u00EDpico) / fondos.; AUDIO: sin rendimiento compatible para M\u00FAsico / compositor musical (t\u00EDpico) / fondos.; No se calcularon dias tecnicos desde la ecuacion; revisa rendimiento/capacidad/cargos.",
+                        "Warnings": [
+                          "AUDIO: sin rendimiento compatible para Editor de audio (t\u00EDpico) / fondos.",
+                          "AUDIO: sin rendimiento compatible para M\u00FAsico / compositor musical (t\u00EDpico) / fondos.",
+                          "No se calcularon dias tecnicos desde la ecuacion; revisa rendimiento/capacidad/cargos."
+                        ]
+                      },
+                      "Activo": true
+                    }
+                  ],
+                  "Overrides": [],
+                  "Activo": true,
+                  "Orden": 3,
+                  "Notas": ""
+                },
+                {
+                  "Id": "sub_prod_background_escenario_2d_1_archivo_editable_export_4",
+                  "ProductoProyectoId": "prod_background_escenario_2d_1",
+                  "SubproductoBibliotecaId": "subbib_archivo_editable_export",
+                  "Nombre": "Archivo editable / export",
+                  "Cantidad": 1,
+                  "Unidad": "fondos",
+                  "ModoCantidad": 0,
+                  "Parametros": {
+                    "Categoria": "Postproducci\u00F3n",
+                    "EtapaSugerida": "Postproduccion",
+                    "SubEtapaSugerida": "Entrega final",
+                    "EquationKey": "EXPORT",
+                    "EcuacionProductiva": "EXPORT | Export / entrega final",
+                    "VariablesEcuacion": "piezas;formatos;revisiones;cargo",
+                    "CargosSugeridos": "Productor / Project manager (t\u00EDpico); Editor (t\u00EDpico)",
+                    "Complejidad": "",
+                    "Acabado": "",
+                    "CiclosRevision": 1,
+                    "TasaRetrabajo": 10,
+                    "Duracion": 0
+                  },
+                  "Instancias": [],
+                  "Procesos": [
+                    {
+                      "Id": "proc_sub_prod_background_escenario_2d_1_archivo_editable_export_4_proc_export",
+                      "ProcesoBibliotecaId": "proc_export",
+                      "Nombre": "Export / entrega final",
+                      "TipoProceso": 2,
+                      "MetodoCalculo": 5,
+                      "AlcanceTemporal": 5,
+                      "EtapaId": "postproduccion",
+                      "SubetapaId": "entrega_final",
+                      "Cantidad": 1,
+                      "Unidad": "fondos",
+                      "Capacidad": 0,
+                      "Periodo": "",
+                      "Paralelo": false,
+                      "Dependencias": [],
+                      "Asignaciones": [
+                        {
+                          "Id": "asg_proc_sub_prod_background_escenario_2d_1_archivo_editable_export_4_proc_export_render_export_manager_junior_0",
+                          "ProcesoProyectoId": "proc_sub_prod_background_escenario_2d_1_archivo_editable_export_4_proc_export",
+                          "CargoId": "Render / export manager (junior)",
+                          "PersonaId": "",
+                          "HorasCalculadas": 0,
+                          "HorasAsignadas": 0,
+                          "OrigenHoras": 2,
+                          "DedicacionPorcentaje": 100,
+                          "CostoCalculado": 0,
+                          "Notas": "Cargo de gestion/apoyo. Espera un cargo productivo para estimar dedicacion."
+                        },
+                        {
+                          "Id": "asg_proc_sub_prod_background_escenario_2d_1_archivo_editable_export_4_proc_export_control_de_calidad_t\u00E9cnico_junior_1",
+                          "ProcesoProyectoId": "proc_sub_prod_background_escenario_2d_1_archivo_editable_export_4_proc_export",
+                          "CargoId": "Control de calidad t\u00E9cnico (junior)",
+                          "PersonaId": "",
+                          "HorasCalculadas": 0,
+                          "HorasAsignadas": 0,
+                          "OrigenHoras": 2,
+                          "DedicacionPorcentaje": 100,
                           "CostoCalculado": 0,
                           "Notas": "Cargo de gestion/apoyo. Espera un cargo productivo para estimar dedicacion."
                         }
@@ -5380,8 +5831,8 @@
       },
       "Warnings": []
     },
-    "HorasProyectoProductivo": 9.733333333333336,
-    "CostoProyectoProductivoCLP": 51994.94949494954,
+    "HorasProyectoProductivo": 176.17777514559273,
+    "CostoProyectoProductivoCLP": 881571.942776896,
     "FechaInicioCliente": null,
     "FechaEntregaCliente": null,
     "PlazoClienteSemanas": 0,
@@ -5416,19 +5867,19 @@
     "PresupuestoCliente": 800000,
     "MonedaPresupuestoCliente": "CLP",
     "TasaImprevistos": 0.1,
-    "CostoBase": 51994.94949494954,
-    "Imprevistos": 5199.494949494954,
-    "CostoTotal": 57194.444444444496,
+    "CostoBase": 881571.942776896,
+    "Imprevistos": 88157.1942776896,
+    "CostoTotal": 969729.1370545855,
     "MargenObjetivo": 0.3,
-    "PrecioRecomendado": 81706.34920634929,
+    "PrecioRecomendado": 1385327.338649408,
     "PrecioVentaEvaluado": 224117.06349206358,
     "PaisImpuestoVenta": "Chile",
     "TasaImpuestoVenta": 0.19,
     "ImpuestoVenta": 42582.24206349208,
     "PrecioVentaConImpuesto": 266699.3055555557,
-    "UtilidadEvaluada": 166922.61904761908,
-    "MargenEvaluado": 0.7448010269576378,
-    "MarkupEvaluado": 2.918511066398388
+    "UtilidadEvaluada": -745612.073562522,
+    "MargenEvaluado": -3.3268866812050013,
+    "MarkupEvaluado": -0.7688869448918619
   },
   "ProyectoProductivo": {
     "SchemaVersion": 1,
@@ -5438,7 +5889,7 @@
     "Descripcion": "",
     "MonedaId": "CLP",
     "FechaCreacion": "2026-07-20T17:48:32.6259362-04:00",
-    "FechaModificacion": "2026-07-21T02:41:22.3507371-04:00",
+    "FechaModificacion": "2026-07-21T13:18:00.7553218-04:00",
     "Grupos": [
       {
         "Id": "grp_direccion_gestion",
@@ -5465,7 +5916,7 @@
               "FechaSnapshot": "2026-07-20T18:07:01.2932397-04:00"
             },
             "CotizacionSnapshotJson": "",
-            "FechaEdicionSnapshot": "2026-07-21T02:41:22.0255127-04:00",
+            "FechaEdicionSnapshot": "2026-07-21T13:17:44.2416644-04:00",
             "Parametros": {
               "Complejidad": "",
               "Acabado": "",
@@ -5524,54 +5975,6 @@
                 "Fecha": "2026-07-21T02:40:41.2422693-04:00"
               },
               {
-                "Id": "c0e27dfe33a2476c98d541612251afca",
-                "Campo": "Cantidad",
-                "ValorJson": "\u002215\u0022",
-                "Motivo": "Editado desde tabla de Productos y servicios",
-                "Alcance": 3,
-                "Estado": 1,
-                "RutaElemento": "subproducto/sub_prod_animaci\u00F3n_de_personaje_2d_0_dise\u00F1o_de_personaje_0",
-                "BibliotecaId": "bib_animaci\u00F3n_de_personaje_2d",
-                "ValorPlantillaJson": "",
-                "Fecha": "2026-07-21T02:40:43.7107618-04:00"
-              },
-              {
-                "Id": "0591077b731f42ef972ab1ddb105aede",
-                "Campo": "Cantidad",
-                "ValorJson": "\u00221\u0022",
-                "Motivo": "Editado desde tabla de Productos y servicios",
-                "Alcance": 3,
-                "Estado": 1,
-                "RutaElemento": "proceso/proc_sub_prod_animaci\u00F3n_de_personaje_2d_0_dise\u00F1o_de_personaje_0_proc_preparacion_assets",
-                "BibliotecaId": "bib_animaci\u00F3n_de_personaje_2d",
-                "ValorPlantillaJson": "",
-                "Fecha": "2026-07-21T02:40:45.3904843-04:00"
-              },
-              {
-                "Id": "9de277e9350845d0a526cfeb31ef3a5c",
-                "Campo": "Horas",
-                "ValorJson": "\u00222\u0022",
-                "Motivo": "Editado desde tabla de Productos y servicios",
-                "Alcance": 3,
-                "Estado": 1,
-                "RutaElemento": "proceso/proc_sub_prod_animaci\u00F3n_de_personaje_2d_0_dise\u00F1o_de_personaje_0_proc_preparacion_assets",
-                "BibliotecaId": "bib_animaci\u00F3n_de_personaje_2d",
-                "ValorPlantillaJson": "",
-                "Fecha": "2026-07-21T02:40:55.5153767-04:00"
-              },
-              {
-                "Id": "68ffa6ba1cb0405ba843abc7d6e51a37",
-                "Campo": "Horas",
-                "ValorJson": "\u00220,93\u0022",
-                "Motivo": "Editado desde tabla de Productos y servicios",
-                "Alcance": 3,
-                "Estado": 1,
-                "RutaElemento": "subproducto/sub_prod_animaci\u00F3n_de_personaje_2d_0_rough_animation_1",
-                "BibliotecaId": "bib_animaci\u00F3n_de_personaje_2d",
-                "ValorPlantillaJson": "",
-                "Fecha": "2026-07-21T02:41:00.8532665-04:00"
-              },
-              {
                 "Id": "49644323096a4f77b15854c2a819c379",
                 "Campo": "Cantidad",
                 "ValorJson": "\u002215\u0022",
@@ -5582,6 +5985,78 @@
                 "BibliotecaId": "bib_animaci\u00F3n_de_personaje_2d",
                 "ValorPlantillaJson": "",
                 "Fecha": "2026-07-21T02:41:22.0255341-04:00"
+              },
+              {
+                "Id": "6438fae2a2f845a3885b80a31dafb7c2",
+                "Campo": "Cantidad",
+                "ValorJson": "\u00221\u0022",
+                "Motivo": "Editado desde tabla de Productos y servicios",
+                "Alcance": 3,
+                "Estado": 1,
+                "RutaElemento": "subproducto/sub_prod_animaci\u00F3n_de_personaje_2d_0_dise\u00F1o_de_personaje_0",
+                "BibliotecaId": "bib_animaci\u00F3n_de_personaje_2d",
+                "ValorPlantillaJson": "",
+                "Fecha": "2026-07-21T13:09:11.4850839-04:00"
+              },
+              {
+                "Id": "96b8ee7bf2a84f62bf1a47f403d75071",
+                "Campo": "Cantidad",
+                "ValorJson": "\u00221\u0022",
+                "Motivo": "Editado desde tabla de Productos y servicios",
+                "Alcance": 3,
+                "Estado": 1,
+                "RutaElemento": "proceso/proc_sub_prod_animaci\u00F3n_de_personaje_2d_0_dise\u00F1o_de_personaje_0_proc_preparacion_assets",
+                "BibliotecaId": "bib_animaci\u00F3n_de_personaje_2d",
+                "ValorPlantillaJson": "",
+                "Fecha": "2026-07-21T13:09:20.4408842-04:00"
+              },
+              {
+                "Id": "aa7cfb2cadc24b0ba0f47a47617e3aa2",
+                "Campo": "Horas",
+                "ValorJson": "\u00221\u0022",
+                "Motivo": "Editado desde tabla de Productos y servicios",
+                "Alcance": 3,
+                "Estado": 1,
+                "RutaElemento": "proceso/proc_sub_prod_animaci\u00F3n_de_personaje_2d_0_dise\u00F1o_de_personaje_0_proc_preparacion_assets",
+                "BibliotecaId": "bib_animaci\u00F3n_de_personaje_2d",
+                "ValorPlantillaJson": "",
+                "Fecha": "2026-07-21T13:10:55.6232057-04:00"
+              },
+              {
+                "Id": "c15a1de92fe24b8cb080e81a0554e6a8",
+                "Campo": "Horas",
+                "ValorJson": "\u0022176,18\u0022",
+                "Motivo": "Editado desde tabla de Productos y servicios",
+                "Alcance": 3,
+                "Estado": 1,
+                "RutaElemento": "item/prod_animaci\u00F3n_de_personaje_2d_0",
+                "BibliotecaId": "bib_animaci\u00F3n_de_personaje_2d",
+                "ValorPlantillaJson": "",
+                "Fecha": "2026-07-21T13:14:58.6189584-04:00"
+              },
+              {
+                "Id": "3f5d6c0848924d8c95446b9fb731e08d",
+                "Campo": "Horas",
+                "ValorJson": "\u002275,04\u0022",
+                "Motivo": "Editado desde tabla de Productos y servicios",
+                "Alcance": 3,
+                "Estado": 1,
+                "RutaElemento": "proceso/proc_sub_prod_animaci\u00F3n_de_personaje_2d_0_rough_animation_1_proc_rough",
+                "BibliotecaId": "bib_animaci\u00F3n_de_personaje_2d",
+                "ValorPlantillaJson": "",
+                "Fecha": "2026-07-21T13:17:28.6566342-04:00"
+              },
+              {
+                "Id": "f2bdf411d0304723960a19cbbfa22fa7",
+                "Campo": "Horas",
+                "ValorJson": "\u002275,04\u0022",
+                "Motivo": "Editado desde tabla de Productos y servicios",
+                "Alcance": 3,
+                "Estado": 1,
+                "RutaElemento": "subproducto/sub_prod_animaci\u00F3n_de_personaje_2d_0_rough_animation_1",
+                "BibliotecaId": "bib_animaci\u00F3n_de_personaje_2d",
+                "ValorPlantillaJson": "",
+                "Fecha": "2026-07-21T13:17:44.241685-04:00"
               }
             ],
             "Subproductos": [
@@ -5590,7 +6065,7 @@
                 "ProductoProyectoId": "prod_animaci\u00F3n_de_personaje_2d_0",
                 "SubproductoBibliotecaId": "subbib_dise\u00F1o_de_personaje",
                 "Nombre": "Dise\u00F1o de personaje",
-                "Cantidad": 15,
+                "Cantidad": 1,
                 "Unidad": "segundos",
                 "ModoCantidad": 0,
                 "Parametros": {
@@ -5630,11 +6105,11 @@
                         "ProcesoProyectoId": "proc_sub_prod_animaci\u00F3n_de_personaje_2d_0_dise\u00F1o_de_personaje_0_proc_preparacion_assets",
                         "CargoId": "Dise\u00F1ador de personajes (junior)",
                         "PersonaId": "",
-                        "HorasCalculadas": 1,
-                        "HorasAsignadas": 1,
+                        "HorasCalculadas": 0.5,
+                        "HorasAsignadas": 0.5,
                         "OrigenHoras": 2,
                         "DedicacionPorcentaje": 100,
-                        "CostoCalculado": 5681.81818181818,
+                        "CostoCalculado": 6250,
                         "Notas": "OK"
                       },
                       {
@@ -5642,18 +6117,18 @@
                         "ProcesoProyectoId": "proc_sub_prod_animaci\u00F3n_de_personaje_2d_0_dise\u00F1o_de_personaje_0_proc_preparacion_assets",
                         "CargoId": "Director de arte (t\u00EDpico)",
                         "PersonaId": "",
-                        "HorasCalculadas": 1,
-                        "HorasAsignadas": 1,
+                        "HorasCalculadas": 0.5,
+                        "HorasAsignadas": 0.5,
                         "OrigenHoras": 2,
                         "DedicacionPorcentaje": 100,
-                        "CostoCalculado": 10227.27272727272,
+                        "CostoCalculado": 6250,
                         "Notas": "Cargo de gestion/apoyo. Dedicacion calculada sobre el cuello de botella productivo."
                       }
                     ],
                     "Resultado": {
-                      "HorasCalculadas": 2,
-                      "HorasAsignadas": 2,
-                      "CostoCalculado": 15909.09090909090,
+                      "HorasCalculadas": 1,
+                      "HorasAsignadas": 1,
+                      "CostoCalculado": 12500,
                       "DuracionSemanas": 0,
                       "Diagnostico": "OK",
                       "Warnings": []
@@ -5701,8 +6176,8 @@
                     "SubetapaId": "rough_animation",
                     "Cantidad": 15,
                     "Unidad": "segundos",
-                    "Capacidad": 0,
-                    "Periodo": "",
+                    "Capacidad": 8,
+                    "Periodo": "semana",
                     "Paralelo": false,
                     "Dependencias": [],
                     "Asignaciones": [
@@ -5711,11 +6186,11 @@
                         "ProcesoProyectoId": "proc_sub_prod_animaci\u00F3n_de_personaje_2d_0_rough_animation_1_proc_rough",
                         "CargoId": "Animador 2D (junior)",
                         "PersonaId": "",
-                        "HorasCalculadas": 0.888888888888889,
-                        "HorasAsignadas": 0.888888888888889,
-                        "OrigenHoras": 0,
+                        "HorasCalculadas": 75,
+                        "HorasAsignadas": 75,
+                        "OrigenHoras": 2,
                         "DedicacionPorcentaje": 100,
-                        "CostoCalculado": 4797.9797979798,
+                        "CostoCalculado": 404829.545454546,
                         "Notas": "OK"
                       },
                       {
@@ -5723,80 +6198,37 @@
                         "ProcesoProyectoId": "proc_sub_prod_animaci\u00F3n_de_personaje_2d_0_rough_animation_1_proc_rough",
                         "CargoId": "Supervisor de animaci\u00F3n (t\u00EDpico)",
                         "PersonaId": "",
-                        "HorasCalculadas": 0.0444444444444444,
-                        "HorasAsignadas": 0.0444444444444444,
-                        "OrigenHoras": 0,
+                        "HorasCalculadas": 0.0444418122594018,
+                        "HorasAsignadas": 0.0444418122594018,
+                        "OrigenHoras": 2,
                         "DedicacionPorcentaje": 5,
-                        "CostoCalculado": 454.545454545455,
+                        "CostoCalculado": 454.518534471156,
                         "Notas": "Cargo de gestion/apoyo. Dedicacion calculada sobre el cuello de botella productivo."
                       }
                     ],
                     "Resultado": {
-                      "HorasCalculadas": 0.933333333333333,
-                      "HorasAsignadas": 0.93,
-                      "CostoCalculado": 5252.52525252525,
+                      "HorasCalculadas": 75.0444418122594,
+                      "HorasAsignadas": 75.0444418122594,
+                      "CostoCalculado": 405284.063989017,
                       "DuracionSemanas": 0,
                       "Diagnostico": "OK",
                       "Warnings": []
-                    },
-                    "Activo": true
-                  },
-                  {
-                    "Id": "proc_sub_prod_animaci\u00F3n_de_personaje_2d_0_rough_animation_1_proc_revision_rough",
-                    "ProcesoBibliotecaId": "proc_revision_rough",
-                    "Nombre": "Revision de rough animation",
-                    "TipoProceso": 2,
-                    "MetodoCalculo": 6,
-                    "AlcanceTemporal": 5,
-                    "EtapaId": "produccion",
-                    "SubetapaId": "revision_de_rough_animation",
-                    "Cantidad": 15,
-                    "Unidad": "segundos",
-                    "Capacidad": 0,
-                    "Periodo": "",
-                    "Paralelo": false,
-                    "Dependencias": [
-                      "proc_sub_prod_animaci\u00F3n_de_personaje_2d_0_rough_animation_1_proc_rough"
-                    ],
-                    "Asignaciones": [
-                      {
-                        "Id": "asg_proc_sub_prod_animaci\u00F3n_de_personaje_2d_0_rough_animation_1_proc_revision_rough_supervisor_de_animaci\u00F3n_t\u00EDpico_0",
-                        "ProcesoProyectoId": "proc_sub_prod_animaci\u00F3n_de_personaje_2d_0_rough_animation_1_proc_revision_rough",
-                        "CargoId": "Supervisor de animaci\u00F3n (t\u00EDpico)",
-                        "PersonaId": "",
-                        "HorasCalculadas": 0,
-                        "HorasAsignadas": 0,
-                        "OrigenHoras": 0,
-                        "DedicacionPorcentaje": 100,
-                        "CostoCalculado": 0,
-                        "Notas": "Cargo de gestion/apoyo. Espera un cargo productivo para estimar dedicacion."
-                      }
-                    ],
-                    "Resultado": {
-                      "HorasCalculadas": 0,
-                      "HorasAsignadas": 0,
-                      "CostoCalculado": 0,
-                      "DuracionSemanas": 0,
-                      "Diagnostico": "No se calcularon dias tecnicos desde la ecuacion; revisa rendimiento/capacidad/cargos.",
-                      "Warnings": [
-                        "No se calcularon dias tecnicos desde la ecuacion; revisa rendimiento/capacidad/cargos."
-                      ]
                     },
                     "Activo": true
                   }
                 ],
                 "Overrides": [
                   {
-                    "Id": "ovr_e3929bf68c40454bbbb82eef0f383821",
+                    "Id": "ovr_4e7867e7e21240fcb97b4895aebffd27",
                     "Campo": "Proceso.Quitado",
-                    "ValorJson": "\u0022proc_sub_prod_animaci\\u00F3n_de_personaje_2d_0_rough_animation_1_proc_correccion_rough\u0022",
+                    "ValorJson": "\u0022proc_sub_prod_animaci\\u00F3n_de_personaje_2d_0_rough_animation_1_proc_revision_rough\u0022",
                     "Motivo": "Proceso quitado en Productos y servicios",
                     "Alcance": 2,
                     "Estado": 1,
                     "RutaElemento": "subproducto:sub_prod_animaci\u00F3n_de_personaje_2d_0_rough_animation_1",
                     "BibliotecaId": "subbib_rough_animation",
                     "ValorPlantillaJson": "",
-                    "Fecha": "2026-07-20T18:08:17.3378314-04:00"
+                    "Fecha": "2026-07-21T13:17:35.9455513-04:00"
                   }
                 ],
                 "Activo": true,
@@ -5838,8 +6270,8 @@
                     "SubetapaId": "clean_up",
                     "Cantidad": 15,
                     "Unidad": "segundos",
-                    "Capacidad": 0,
-                    "Periodo": "",
+                    "Capacidad": 10,
+                    "Periodo": "semana",
                     "Paralelo": false,
                     "Dependencias": [],
                     "Asignaciones": [
@@ -5848,69 +6280,39 @@
                         "ProcesoProyectoId": "proc_sub_prod_animaci\u00F3n_de_personaje_2d_0_clean_up_2_proc_clean_up",
                         "CargoId": "Clean up artist (junior)",
                         "PersonaId": "",
-                        "HorasCalculadas": 4,
-                        "HorasAsignadas": 4,
-                        "OrigenHoras": 0,
+                        "HorasCalculadas": 60,
+                        "HorasAsignadas": 60,
+                        "OrigenHoras": 2,
                         "DedicacionPorcentaje": 100,
-                        "CostoCalculado": 18181.8181818182,
+                        "CostoCalculado": 272727.272727273,
                         "Notas": "OK"
                       }
                     ],
                     "Resultado": {
-                      "HorasCalculadas": 4,
-                      "HorasAsignadas": 4,
-                      "CostoCalculado": 18181.8181818182,
+                      "HorasCalculadas": 60,
+                      "HorasAsignadas": 60,
+                      "CostoCalculado": 272727.272727273,
                       "DuracionSemanas": 0,
                       "Diagnostico": "OK",
                       "Warnings": []
                     },
                     "Activo": true
-                  },
-                  {
-                    "Id": "proc_sub_prod_animaci\u00F3n_de_personaje_2d_0_clean_up_2_proc_revision_clean_up",
-                    "ProcesoBibliotecaId": "proc_revision_clean_up",
-                    "Nombre": "Revision de clean up",
-                    "TipoProceso": 2,
-                    "MetodoCalculo": 6,
-                    "AlcanceTemporal": 5,
-                    "EtapaId": "produccion",
-                    "SubetapaId": "revision_de_clean_up",
-                    "Cantidad": 15,
-                    "Unidad": "segundos",
-                    "Capacidad": 0,
-                    "Periodo": "",
-                    "Paralelo": false,
-                    "Dependencias": [
-                      "proc_sub_prod_animaci\u00F3n_de_personaje_2d_0_clean_up_2_proc_clean_up"
-                    ],
-                    "Asignaciones": [
-                      {
-                        "Id": "asg_proc_sub_prod_animaci\u00F3n_de_personaje_2d_0_clean_up_2_proc_revision_clean_up_supervisor_de_animaci\u00F3n_t\u00EDpico_0",
-                        "ProcesoProyectoId": "proc_sub_prod_animaci\u00F3n_de_personaje_2d_0_clean_up_2_proc_revision_clean_up",
-                        "CargoId": "Supervisor de animaci\u00F3n (t\u00EDpico)",
-                        "PersonaId": "",
-                        "HorasCalculadas": 0,
-                        "HorasAsignadas": 0,
-                        "OrigenHoras": 0,
-                        "DedicacionPorcentaje": 100,
-                        "CostoCalculado": 0,
-                        "Notas": "Cargo de gestion/apoyo. Espera un cargo productivo para estimar dedicacion."
-                      }
-                    ],
-                    "Resultado": {
-                      "HorasCalculadas": 0,
-                      "HorasAsignadas": 0,
-                      "CostoCalculado": 0,
-                      "DuracionSemanas": 0,
-                      "Diagnostico": "No se calcularon dias tecnicos desde la ecuacion; revisa rendimiento/capacidad/cargos.",
-                      "Warnings": [
-                        "No se calcularon dias tecnicos desde la ecuacion; revisa rendimiento/capacidad/cargos."
-                      ]
-                    },
-                    "Activo": true
                   }
                 ],
-                "Overrides": [],
+                "Overrides": [
+                  {
+                    "Id": "ovr_94630bf7b45242b7a9439e4cd321ffc9",
+                    "Campo": "Proceso.Quitado",
+                    "ValorJson": "\u0022proc_sub_prod_animaci\\u00F3n_de_personaje_2d_0_clean_up_2_proc_revision_clean_up\u0022",
+                    "Motivo": "Proceso quitado en Productos y servicios",
+                    "Alcance": 2,
+                    "Estado": 1,
+                    "RutaElemento": "subproducto:sub_prod_animaci\u00F3n_de_personaje_2d_0_clean_up_2",
+                    "BibliotecaId": "subbib_clean_up",
+                    "ValorPlantillaJson": "",
+                    "Fecha": "2026-07-21T13:17:48.4594121-04:00"
+                  }
+                ],
                 "Activo": true,
                 "Orden": 2,
                 "Notas": ""
@@ -5950,8 +6352,8 @@
                     "SubetapaId": "color",
                     "Cantidad": 15,
                     "Unidad": "segundos",
-                    "Capacidad": 0,
-                    "Periodo": "",
+                    "Capacidad": 15,
+                    "Periodo": "semana",
                     "Paralelo": false,
                     "Dependencias": [],
                     "Asignaciones": [
@@ -5960,11 +6362,11 @@
                         "ProcesoProyectoId": "proc_sub_prod_animaci\u00F3n_de_personaje_2d_0_color_3_proc_color",
                         "CargoId": "Colorista (junior)",
                         "PersonaId": "",
-                        "HorasCalculadas": 2.66666666666667,
-                        "HorasAsignadas": 2.66666666666667,
-                        "OrigenHoras": 0,
+                        "HorasCalculadas": 40,
+                        "HorasAsignadas": 40,
+                        "OrigenHoras": 2,
                         "DedicacionPorcentaje": 100,
-                        "CostoCalculado": 11363.6363636364,
+                        "CostoCalculado": 189772.727272727,
                         "Notas": "OK"
                       },
                       {
@@ -5974,16 +6376,16 @@
                         "PersonaId": "",
                         "HorasCalculadas": 0.133333333333333,
                         "HorasAsignadas": 0.133333333333333,
-                        "OrigenHoras": 0,
+                        "OrigenHoras": 2,
                         "DedicacionPorcentaje": 5,
                         "CostoCalculado": 1287.87878787879,
                         "Notas": "Cargo de gestion/apoyo. Dedicacion calculada sobre el cuello de botella productivo."
                       }
                     ],
                     "Resultado": {
-                      "HorasCalculadas": 2.8,
-                      "HorasAsignadas": 2.8,
-                      "CostoCalculado": 12651.5151515152,
+                      "HorasCalculadas": 40.1333333333333,
+                      "HorasAsignadas": 40.1333333333333,
+                      "CostoCalculado": 191060.606060606,
                       "DuracionSemanas": 0,
                       "Diagnostico": "OK",
                       "Warnings": []
@@ -6043,7 +6445,7 @@
                         "PersonaId": "",
                         "HorasCalculadas": 0,
                         "HorasAsignadas": 0,
-                        "OrigenHoras": 0,
+                        "OrigenHoras": 2,
                         "DedicacionPorcentaje": 100,
                         "CostoCalculado": 0,
                         "Notas": "Cargo de gestion/apoyo. Espera un cargo productivo para estimar dedicacion."
@@ -6055,8 +6457,508 @@
                         "PersonaId": "",
                         "HorasCalculadas": 0,
                         "HorasAsignadas": 0,
-                        "OrigenHoras": 0,
+                        "OrigenHoras": 2,
                         "DedicacionPorcentaje": 5,
+                        "CostoCalculado": 0,
+                        "Notas": "Cargo de gestion/apoyo. Espera un cargo productivo para estimar dedicacion."
+                      }
+                    ],
+                    "Resultado": {
+                      "HorasCalculadas": 0,
+                      "HorasAsignadas": 0,
+                      "CostoCalculado": 0,
+                      "DuracionSemanas": 0,
+                      "Diagnostico": "No se calcularon dias tecnicos desde la ecuacion; revisa rendimiento/capacidad/cargos.",
+                      "Warnings": [
+                        "No se calcularon dias tecnicos desde la ecuacion; revisa rendimiento/capacidad/cargos."
+                      ]
+                    },
+                    "Activo": true
+                  }
+                ],
+                "Overrides": [],
+                "Activo": true,
+                "Orden": 4,
+                "Notas": ""
+              }
+            ],
+            "Procesos": []
+          },
+          {
+            "Id": "prod_background_escenario_2d_1",
+            "Tipo": 0,
+            "BibliotecaId": "bib_background_escenario_2d",
+            "Nombre": "Background / escenario 2D",
+            "Descripcion": "",
+            "Cantidad": 1,
+            "Unidad": "fondos",
+            "Orden": 1,
+            "Activo": true,
+            "Snapshot": {
+              "NombreBiblioteca": "Background / escenario 2D",
+              "CategoriaBiblioteca": "Dise\u00F1o",
+              "UnidadBase": "fondos",
+              "JsonMinimo": "{\u0022Nombre\u0022:\u0022Background / escenario 2D\u0022,\u0022Industria\u0022:\u0022General\u0022,\u0022Categoria\u0022:\u0022Dise\\u00F1o\u0022,\u0022UnidadCantidadSugerida\u0022:\u0022fondos\u0022,\u0022UnidadDuracionSugerida\u0022:\u0022no aplica\u0022,\u0022DuracionSugerida\u0022:0,\u0022Subproductos\u0022:[\u0022Brief de escenario\u0022,\u0022Referencias visuales\u0022,\u0022Boceto de fondo\u0022,\u0022Fondo final\u0022,\u0022Separaci\\u00F3n por capas\u0022,\u0022Archivo editable / export\u0022]}",
+              "FechaSnapshot": "2026-07-21T13:13:45.0819715-04:00"
+            },
+            "CotizacionSnapshotJson": "",
+            "FechaEdicionSnapshot": "2026-07-21T13:14:04.67586-04:00",
+            "Parametros": {
+              "Complejidad": "",
+              "Acabado": "",
+              "CiclosRevision": 1,
+              "TasaRetrabajo": 10,
+              "Duracion": 0,
+              "PersonalizadoProyecto": true
+            },
+            "Overrides": [
+              {
+                "Id": "ovr_18745f03bf674b37bb75e79525bb2001",
+                "Campo": "Cantidad",
+                "ValorJson": "1",
+                "Motivo": "Cantidad definida al agregar desde biblioteca",
+                "Alcance": 3,
+                "Estado": 1,
+                "RutaElemento": "producto:prod_background_escenario_2d_1",
+                "BibliotecaId": "bib_background_escenario_2d",
+                "ValorPlantillaJson": "",
+                "Fecha": "2026-07-21T13:13:45.0855088-04:00"
+              },
+              {
+                "Id": "ovr_28bef0cbcc6745c4b3b82655e7e3930f",
+                "Campo": "Unidad",
+                "ValorJson": "\u0022fondos\u0022",
+                "Motivo": "Unidad definida al agregar desde biblioteca",
+                "Alcance": 3,
+                "Estado": 1,
+                "RutaElemento": "producto:prod_background_escenario_2d_1",
+                "BibliotecaId": "bib_background_escenario_2d",
+                "ValorPlantillaJson": "\u0022fondos\u0022",
+                "Fecha": "2026-07-21T13:13:45.0870472-04:00"
+              },
+              {
+                "Id": "ovr_5b00cab4821349ac8e50d64adf190f4e",
+                "Campo": "Parametros",
+                "ValorJson": "{\u0022Complejidad\u0022:\u0022\u0022,\u0022Acabado\u0022:\u0022\u0022,\u0022CiclosRevision\u0022:1,\u0022TasaRetrabajo\u0022:10,\u0022Duracion\u0022:0,\u0022PersonalizadoProyecto\u0022:true}",
+                "Motivo": "Parametros recomendados aplicados al proyecto",
+                "Alcance": 3,
+                "Estado": 1,
+                "RutaElemento": "producto:prod_background_escenario_2d_1",
+                "BibliotecaId": "bib_background_escenario_2d",
+                "ValorPlantillaJson": "",
+                "Fecha": "2026-07-21T13:13:45.0932139-04:00"
+              },
+              {
+                "Id": "6cc06fbd77114954a1dfbd6f99e05d74",
+                "Campo": "Horas",
+                "ValorJson": "\u00220\u0022",
+                "Motivo": "Editado desde tabla de Productos y servicios",
+                "Alcance": 3,
+                "Estado": 1,
+                "RutaElemento": "item/prod_background_escenario_2d_1",
+                "BibliotecaId": "bib_background_escenario_2d",
+                "ValorPlantillaJson": "",
+                "Fecha": "2026-07-21T13:14:04.6758778-04:00"
+              }
+            ],
+            "Subproductos": [
+              {
+                "Id": "sub_prod_background_escenario_2d_1_brief_de_escenario_0",
+                "ProductoProyectoId": "prod_background_escenario_2d_1",
+                "SubproductoBibliotecaId": "subbib_brief_de_escenario",
+                "Nombre": "Brief de escenario",
+                "Cantidad": 1,
+                "Unidad": "fondos",
+                "ModoCantidad": 0,
+                "Parametros": {
+                  "Categoria": "Desarrollo",
+                  "EtapaSugerida": "Desarrollo",
+                  "SubEtapaSugerida": "Definici\u00F3n de alcance",
+                  "EquationKey": "GUION",
+                  "EcuacionProductiva": "GUION | Guion / escena",
+                  "VariablesEcuacion": "cantidad;unidad;complejidad;revisiones;cargo",
+                  "CargosSugeridos": "Productor / Project manager (t\u00EDpico); Director creativo (t\u00EDpico)",
+                  "Complejidad": "",
+                  "Acabado": "",
+                  "CiclosRevision": 1,
+                  "TasaRetrabajo": 10,
+                  "Duracion": 0
+                },
+                "Instancias": [],
+                "Procesos": [
+                  {
+                    "Id": "proc_sub_prod_background_escenario_2d_1_brief_de_escenario_0_proc_guion",
+                    "ProcesoBibliotecaId": "proc_guion",
+                    "Nombre": "Guion / escena",
+                    "TipoProceso": 1,
+                    "MetodoCalculo": 3,
+                    "AlcanceTemporal": 5,
+                    "EtapaId": "desarrollo",
+                    "SubetapaId": "guion_estructura_narrativa",
+                    "Cantidad": 1,
+                    "Unidad": "fondos",
+                    "Capacidad": 0,
+                    "Periodo": "",
+                    "Paralelo": false,
+                    "Dependencias": [],
+                    "Asignaciones": [
+                      {
+                        "Id": "asg_proc_sub_prod_background_escenario_2d_1_brief_de_escenario_0_proc_guion_guionista_junior_0",
+                        "ProcesoProyectoId": "proc_sub_prod_background_escenario_2d_1_brief_de_escenario_0_proc_guion",
+                        "CargoId": "Guionista (junior)",
+                        "PersonaId": "",
+                        "HorasCalculadas": 0,
+                        "HorasAsignadas": 0,
+                        "OrigenHoras": 2,
+                        "DedicacionPorcentaje": 100,
+                        "CostoCalculado": 0,
+                        "Notas": "No hay rendimiento compatible para cargo/unidad/proceso."
+                      },
+                      {
+                        "Id": "asg_proc_sub_prod_background_escenario_2d_1_brief_de_escenario_0_proc_guion_director_a_de_animaci\u00F3n_t\u00EDpico_1",
+                        "ProcesoProyectoId": "proc_sub_prod_background_escenario_2d_1_brief_de_escenario_0_proc_guion",
+                        "CargoId": "Director/a de animaci\u00F3n (t\u00EDpico)",
+                        "PersonaId": "",
+                        "HorasCalculadas": 0,
+                        "HorasAsignadas": 0,
+                        "OrigenHoras": 2,
+                        "DedicacionPorcentaje": 100,
+                        "CostoCalculado": 0,
+                        "Notas": "Cargo de gestion/apoyo. Espera un cargo productivo para estimar dedicacion."
+                      }
+                    ],
+                    "Resultado": {
+                      "HorasCalculadas": 0,
+                      "HorasAsignadas": 0,
+                      "CostoCalculado": 0,
+                      "DuracionSemanas": 0,
+                      "Diagnostico": "GUION: sin rendimiento compatible para Guionista (junior) / fondos.; No se calcularon dias tecnicos desde la ecuacion; revisa rendimiento/capacidad/cargos.",
+                      "Warnings": [
+                        "GUION: sin rendimiento compatible para Guionista (junior) / fondos.",
+                        "No se calcularon dias tecnicos desde la ecuacion; revisa rendimiento/capacidad/cargos."
+                      ]
+                    },
+                    "Activo": true
+                  }
+                ],
+                "Overrides": [],
+                "Activo": true,
+                "Orden": 0,
+                "Notas": ""
+              },
+              {
+                "Id": "sub_prod_background_escenario_2d_1_referencias_visuales_1",
+                "ProductoProyectoId": "prod_background_escenario_2d_1",
+                "SubproductoBibliotecaId": "subbib_referencias_visuales",
+                "Nombre": "Referencias visuales",
+                "Cantidad": 1,
+                "Unidad": "fondos",
+                "ModoCantidad": 0,
+                "Parametros": {
+                  "Categoria": "Desarrollo",
+                  "EtapaSugerida": "Desarrollo",
+                  "SubEtapaSugerida": "Investigaci\u00F3n de referencias",
+                  "EquationKey": "DIRECCION_VISUAL",
+                  "EcuacionProductiva": "DIRECCION_VISUAL | Direccion visual",
+                  "VariablesEcuacion": "cantidad;calidad;referencias;cargo",
+                  "CargosSugeridos": "Director de arte (t\u00EDpico); Concept artist (t\u00EDpico); Productor / Project manager (t\u00EDpico)",
+                  "Complejidad": "",
+                  "Acabado": "",
+                  "CiclosRevision": 1,
+                  "TasaRetrabajo": 10,
+                  "Duracion": 0
+                },
+                "Instancias": [],
+                "Procesos": [
+                  {
+                    "Id": "proc_sub_prod_background_escenario_2d_1_referencias_visuales_1_proc_direccion_visual",
+                    "ProcesoBibliotecaId": "proc_direccion_visual",
+                    "Nombre": "Direccion visual",
+                    "TipoProceso": 5,
+                    "MetodoCalculo": 7,
+                    "AlcanceTemporal": 7,
+                    "EtapaId": "desarrollo",
+                    "SubetapaId": "direccion_visual_referencias_de_estilo",
+                    "Cantidad": 1,
+                    "Unidad": "fondos",
+                    "Capacidad": 0,
+                    "Periodo": "",
+                    "Paralelo": true,
+                    "Dependencias": [],
+                    "Asignaciones": [
+                      {
+                        "Id": "asg_proc_sub_prod_background_escenario_2d_1_referencias_visuales_1_proc_direccion_visual_director_de_arte_t\u00EDpico_0",
+                        "ProcesoProyectoId": "proc_sub_prod_background_escenario_2d_1_referencias_visuales_1_proc_direccion_visual",
+                        "CargoId": "Director de arte (t\u00EDpico)",
+                        "PersonaId": "",
+                        "HorasCalculadas": 0,
+                        "HorasAsignadas": 0,
+                        "OrigenHoras": 2,
+                        "DedicacionPorcentaje": 5,
+                        "CostoCalculado": 0,
+                        "Notas": "Cargo de gestion/apoyo. Espera un cargo productivo para estimar dedicacion."
+                      },
+                      {
+                        "Id": "asg_proc_sub_prod_background_escenario_2d_1_referencias_visuales_1_proc_direccion_visual_director_a_de_animaci\u00F3n_t\u00EDpico_1",
+                        "ProcesoProyectoId": "proc_sub_prod_background_escenario_2d_1_referencias_visuales_1_proc_direccion_visual",
+                        "CargoId": "Director/a de animaci\u00F3n (t\u00EDpico)",
+                        "PersonaId": "",
+                        "HorasCalculadas": 0,
+                        "HorasAsignadas": 0,
+                        "OrigenHoras": 2,
+                        "DedicacionPorcentaje": 100,
+                        "CostoCalculado": 0,
+                        "Notas": "Cargo de gestion/apoyo. Espera un cargo productivo para estimar dedicacion."
+                      }
+                    ],
+                    "Resultado": {
+                      "HorasCalculadas": 0,
+                      "HorasAsignadas": 0,
+                      "CostoCalculado": 0,
+                      "DuracionSemanas": 0,
+                      "Diagnostico": "No se calcularon dias tecnicos desde la ecuacion; revisa rendimiento/capacidad/cargos.",
+                      "Warnings": [
+                        "No se calcularon dias tecnicos desde la ecuacion; revisa rendimiento/capacidad/cargos."
+                      ]
+                    },
+                    "Activo": true
+                  }
+                ],
+                "Overrides": [],
+                "Activo": true,
+                "Orden": 1,
+                "Notas": ""
+              },
+              {
+                "Id": "sub_prod_background_escenario_2d_1_boceto_de_fondo_2",
+                "ProductoProyectoId": "prod_background_escenario_2d_1",
+                "SubproductoBibliotecaId": "subbib_boceto_de_fondo",
+                "Nombre": "Boceto de fondo",
+                "Cantidad": 1,
+                "Unidad": "fondos",
+                "ModoCantidad": 0,
+                "Parametros": {
+                  "Categoria": "Preproducci\u00F3n",
+                  "EtapaSugerida": "Preproduccion",
+                  "SubEtapaSugerida": "Dise\u00F1o visual",
+                  "EquationKey": "ANIMATIC",
+                  "EcuacionProductiva": "ANIMATIC | Animatic / timing",
+                  "VariablesEcuacion": "duracion;segundos;planos;revisiones;cargo",
+                  "CargosSugeridos": "Director de arte (t\u00EDpico); Dise\u00F1ador visual (t\u00EDpico); Concept artist (t\u00EDpico)",
+                  "Complejidad": "",
+                  "Acabado": "",
+                  "CiclosRevision": 1,
+                  "TasaRetrabajo": 10,
+                  "Duracion": 0
+                },
+                "Instancias": [],
+                "Procesos": [
+                  {
+                    "Id": "proc_sub_prod_background_escenario_2d_1_boceto_de_fondo_2_proc_animatic",
+                    "ProcesoBibliotecaId": "proc_animatic",
+                    "Nombre": "Animatic / timing",
+                    "TipoProceso": 1,
+                    "MetodoCalculo": 3,
+                    "AlcanceTemporal": 5,
+                    "EtapaId": "preproduccion",
+                    "SubetapaId": "animatic",
+                    "Cantidad": 1,
+                    "Unidad": "fondos",
+                    "Capacidad": 0,
+                    "Periodo": "",
+                    "Paralelo": false,
+                    "Dependencias": [],
+                    "Asignaciones": [
+                      {
+                        "Id": "asg_proc_sub_prod_background_escenario_2d_1_boceto_de_fondo_2_proc_animatic_animatic_editor_junior_0",
+                        "ProcesoProyectoId": "proc_sub_prod_background_escenario_2d_1_boceto_de_fondo_2_proc_animatic",
+                        "CargoId": "Animatic editor (junior)",
+                        "PersonaId": "",
+                        "HorasCalculadas": 0,
+                        "HorasAsignadas": 0,
+                        "OrigenHoras": 2,
+                        "DedicacionPorcentaje": 100,
+                        "CostoCalculado": 0,
+                        "Notas": "No hay rendimiento compatible para cargo/unidad/proceso."
+                      },
+                      {
+                        "Id": "asg_proc_sub_prod_background_escenario_2d_1_boceto_de_fondo_2_proc_animatic_postproductor_junior_1",
+                        "ProcesoProyectoId": "proc_sub_prod_background_escenario_2d_1_boceto_de_fondo_2_proc_animatic",
+                        "CargoId": "Postproductor (junior)",
+                        "PersonaId": "",
+                        "HorasCalculadas": 0,
+                        "HorasAsignadas": 0,
+                        "OrigenHoras": 2,
+                        "DedicacionPorcentaje": 5,
+                        "CostoCalculado": 0,
+                        "Notas": "Cargo de gestion/apoyo. Espera un cargo productivo para estimar dedicacion."
+                      }
+                    ],
+                    "Resultado": {
+                      "HorasCalculadas": 0,
+                      "HorasAsignadas": 0,
+                      "CostoCalculado": 0,
+                      "DuracionSemanas": 0,
+                      "Diagnostico": "ANIMATIC: sin rendimiento compatible para Animatic editor (junior) / fondos.; No se calcularon dias tecnicos desde la ecuacion; revisa rendimiento/capacidad/cargos.",
+                      "Warnings": [
+                        "ANIMATIC: sin rendimiento compatible para Animatic editor (junior) / fondos.",
+                        "No se calcularon dias tecnicos desde la ecuacion; revisa rendimiento/capacidad/cargos."
+                      ]
+                    },
+                    "Activo": true
+                  }
+                ],
+                "Overrides": [],
+                "Activo": true,
+                "Orden": 2,
+                "Notas": ""
+              },
+              {
+                "Id": "sub_prod_background_escenario_2d_1_fondo_final_3",
+                "ProductoProyectoId": "prod_background_escenario_2d_1",
+                "SubproductoBibliotecaId": "subbib_fondo_final",
+                "Nombre": "Fondo final",
+                "Cantidad": 1,
+                "Unidad": "fondos",
+                "ModoCantidad": 0,
+                "Parametros": {
+                  "Categoria": "Producci\u00F3n",
+                  "EtapaSugerida": "Produccion",
+                  "SubEtapaSugerida": "Arte final",
+                  "EquationKey": "AUDIO",
+                  "EcuacionProductiva": "AUDIO | Audio / mezcla",
+                  "VariablesEcuacion": "segundos;minutos;piezas;capacidad;cargo",
+                  "CargosSugeridos": "Ilustrador (t\u00EDpico); Director de arte (t\u00EDpico); Artista de fondos (t\u00EDpico)",
+                  "Complejidad": "",
+                  "Acabado": "",
+                  "CiclosRevision": 1,
+                  "TasaRetrabajo": 10,
+                  "Duracion": 0
+                },
+                "Instancias": [],
+                "Procesos": [
+                  {
+                    "Id": "proc_sub_prod_background_escenario_2d_1_fondo_final_3_proc_audio",
+                    "ProcesoBibliotecaId": "proc_audio",
+                    "Nombre": "Audio / mezcla",
+                    "TipoProceso": 1,
+                    "MetodoCalculo": 3,
+                    "AlcanceTemporal": 5,
+                    "EtapaId": "produccion",
+                    "SubetapaId": "audio",
+                    "Cantidad": 1,
+                    "Unidad": "fondos",
+                    "Capacidad": 0,
+                    "Periodo": "",
+                    "Paralelo": false,
+                    "Dependencias": [],
+                    "Asignaciones": [
+                      {
+                        "Id": "asg_proc_sub_prod_background_escenario_2d_1_fondo_final_3_proc_audio_editor_de_audio_t\u00EDpico_0",
+                        "ProcesoProyectoId": "proc_sub_prod_background_escenario_2d_1_fondo_final_3_proc_audio",
+                        "CargoId": "Editor de audio (t\u00EDpico)",
+                        "PersonaId": "",
+                        "HorasCalculadas": 0,
+                        "HorasAsignadas": 0,
+                        "OrigenHoras": 2,
+                        "DedicacionPorcentaje": 100,
+                        "CostoCalculado": 0,
+                        "Notas": "No hay rendimiento compatible para cargo/unidad/proceso."
+                      },
+                      {
+                        "Id": "asg_proc_sub_prod_background_escenario_2d_1_fondo_final_3_proc_audio_m\u00FAsico_compositor_musical_t\u00EDpico_1",
+                        "ProcesoProyectoId": "proc_sub_prod_background_escenario_2d_1_fondo_final_3_proc_audio",
+                        "CargoId": "M\u00FAsico / compositor musical (t\u00EDpico)",
+                        "PersonaId": "",
+                        "HorasCalculadas": 0,
+                        "HorasAsignadas": 0,
+                        "OrigenHoras": 2,
+                        "DedicacionPorcentaje": 100,
+                        "CostoCalculado": 0,
+                        "Notas": "No hay rendimiento compatible para cargo/unidad/proceso."
+                      }
+                    ],
+                    "Resultado": {
+                      "HorasCalculadas": 0,
+                      "HorasAsignadas": 0,
+                      "CostoCalculado": 0,
+                      "DuracionSemanas": 0,
+                      "Diagnostico": "AUDIO: sin rendimiento compatible para Editor de audio (t\u00EDpico) / fondos.; AUDIO: sin rendimiento compatible para M\u00FAsico / compositor musical (t\u00EDpico) / fondos.; No se calcularon dias tecnicos desde la ecuacion; revisa rendimiento/capacidad/cargos.",
+                      "Warnings": [
+                        "AUDIO: sin rendimiento compatible para Editor de audio (t\u00EDpico) / fondos.",
+                        "AUDIO: sin rendimiento compatible para M\u00FAsico / compositor musical (t\u00EDpico) / fondos.",
+                        "No se calcularon dias tecnicos desde la ecuacion; revisa rendimiento/capacidad/cargos."
+                      ]
+                    },
+                    "Activo": true
+                  }
+                ],
+                "Overrides": [],
+                "Activo": true,
+                "Orden": 3,
+                "Notas": ""
+              },
+              {
+                "Id": "sub_prod_background_escenario_2d_1_archivo_editable_export_4",
+                "ProductoProyectoId": "prod_background_escenario_2d_1",
+                "SubproductoBibliotecaId": "subbib_archivo_editable_export",
+                "Nombre": "Archivo editable / export",
+                "Cantidad": 1,
+                "Unidad": "fondos",
+                "ModoCantidad": 0,
+                "Parametros": {
+                  "Categoria": "Postproducci\u00F3n",
+                  "EtapaSugerida": "Postproduccion",
+                  "SubEtapaSugerida": "Entrega final",
+                  "EquationKey": "EXPORT",
+                  "EcuacionProductiva": "EXPORT | Export / entrega final",
+                  "VariablesEcuacion": "piezas;formatos;revisiones;cargo",
+                  "CargosSugeridos": "Productor / Project manager (t\u00EDpico); Editor (t\u00EDpico)",
+                  "Complejidad": "",
+                  "Acabado": "",
+                  "CiclosRevision": 1,
+                  "TasaRetrabajo": 10,
+                  "Duracion": 0
+                },
+                "Instancias": [],
+                "Procesos": [
+                  {
+                    "Id": "proc_sub_prod_background_escenario_2d_1_archivo_editable_export_4_proc_export",
+                    "ProcesoBibliotecaId": "proc_export",
+                    "Nombre": "Export / entrega final",
+                    "TipoProceso": 2,
+                    "MetodoCalculo": 5,
+                    "AlcanceTemporal": 5,
+                    "EtapaId": "postproduccion",
+                    "SubetapaId": "entrega_final",
+                    "Cantidad": 1,
+                    "Unidad": "fondos",
+                    "Capacidad": 0,
+                    "Periodo": "",
+                    "Paralelo": false,
+                    "Dependencias": [],
+                    "Asignaciones": [
+                      {
+                        "Id": "asg_proc_sub_prod_background_escenario_2d_1_archivo_editable_export_4_proc_export_render_export_manager_junior_0",
+                        "ProcesoProyectoId": "proc_sub_prod_background_escenario_2d_1_archivo_editable_export_4_proc_export",
+                        "CargoId": "Render / export manager (junior)",
+                        "PersonaId": "",
+                        "HorasCalculadas": 0,
+                        "HorasAsignadas": 0,
+                        "OrigenHoras": 2,
+                        "DedicacionPorcentaje": 100,
+                        "CostoCalculado": 0,
+                        "Notas": "Cargo de gestion/apoyo. Espera un cargo productivo para estimar dedicacion."
+                      },
+                      {
+                        "Id": "asg_proc_sub_prod_background_escenario_2d_1_archivo_editable_export_4_proc_export_control_de_calidad_t\u00E9cnico_junior_1",
+                        "ProcesoProyectoId": "proc_sub_prod_background_escenario_2d_1_archivo_editable_export_4_proc_export",
+                        "CargoId": "Control de calidad t\u00E9cnico (junior)",
+                        "PersonaId": "",
+                        "HorasCalculadas": 0,
+                        "HorasAsignadas": 0,
+                        "OrigenHoras": 2,
+                        "DedicacionPorcentaje": 100,
                         "CostoCalculado": 0,
                         "Notas": "Cargo de gestion/apoyo. Espera un cargo productivo para estimar dedicacion."
                       }
@@ -7821,7 +8723,7 @@
       "Bloque": "General",
       "TipoCargo": "Apoyo",
       "SueldoMensualCLPMin": 1300000,
-      "SueldoMensualCLPTipico": 1800000,
+      "SueldoMensualCLPTipico": 800000,
       "SueldoMensualCLPMax": 2800000,
       "SueldoMensualUSDMin": 0,
       "SueldoMensualUSDTipico": 0,
@@ -17543,8 +18445,8 @@
       "SubEtapa": "Rough animation",
       "Tokens": "rough;animacion base;acting;animacion 2d final",
       "Variables": "segundos;calidad",
-      "CargosPermitidos": "Animador 2D (tipico)|1;Supervisor de animacion (tipico)|0.05",
-      "CargosParticipantesJson": "[{\u0022Cargo\u0022:\u0022Animador 2D (tipico)\u0022,\u0022TarifaDiariaCLP\u0022:43182,\u0022HorasPorDia\u0022:8,\u0022DedicacionPorcentaje\u0022:100,\u0022ModoCalculo\u0022:\u0022Trabaja durante todo el periodo productivo\u0022,\u0022VariableBase\u0022:\u0022segundos\u0022,\u0022CantidadFactor\u0022:1,\u0022FormulaPersonalizada\u0022:\u0022\u0022},{\u0022Cargo\u0022:\u0022Supervisor de animacion (tipico)\u0022,\u0022TarifaDiariaCLP\u0022:81818,\u0022HorasPorDia\u0022:8,\u0022DedicacionPorcentaje\u0022:5,\u0022ModoCalculo\u0022:\u0022Trabaja durante todo el periodo productivo\u0022,\u0022VariableBase\u0022:\u0022segundos\u0022,\u0022CantidadFactor\u0022:1,\u0022FormulaPersonalizada\u0022:\u0022\u0022}]",
+      "CargosPermitidos": "Animador 2D (tipico)|1",
+      "CargosParticipantesJson": "[{\u0022Cargo\u0022:\u0022Animador 2D (tipico)\u0022,\u0022Activo\u0022:true,\u0022TarifaDiariaCLP\u0022:43182,\u0022HorasPorDia\u0022:8,\u0022DedicacionPorcentaje\u0022:100,\u0022ModoCalculo\u0022:\u0022Trabaja durante todo el periodo productivo\u0022,\u0022VariableBase\u0022:\u0022segundos\u0022,\u0022CantidadFactor\u0022:1,\u0022FormulaPersonalizada\u0022:\u0022\u0022}]",
       "Impacto": "Calcula animacion base y acting en segundos productivos.",
       "FormulaReferencia": "horas_base[cargo] = segundos / capacidad_por_periodo[cargo]; horas_cargo = horas_base[cargo] * participacion[cargo]; costo_derivado = dot(horas_cargo, tarifa_horaria[cargo])",
       "Numerador": "segundos",

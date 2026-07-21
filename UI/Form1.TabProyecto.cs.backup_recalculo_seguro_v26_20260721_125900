@@ -7461,108 +7461,13 @@ namespace Cotizador_animacion_Othalart
             }
         }
         // DiagnosticoRecalculoHorasV23
-        // RecalculoTransaccionalSeguroV26
-
-
-
-        // RecalculoLocalSinSnapshotV27
-        private bool ValidarRecalculoLocalV27(
-            DesgloseProductivoProyecto anterior,
-            DesgloseProductivoProyecto nuevo,
-            out string motivo)
-        {
-            motivo = "";
-
-            List<RequerimientoProduccionInterna> antes =
-                anterior?.Requerimientos?
-                    .Where(r => r != null)
-                    .ToList() ??
-                new List<RequerimientoProduccionInterna>();
-
-            List<RequerimientoProduccionInterna> despues =
-                nuevo?.Requerimientos?
-                    .Where(r => r != null)
-                    .ToList() ??
-                new List<RequerimientoProduccionInterna>();
-
-            if (despues.Count == 0)
-            {
-                motivo =
-                    "El motor devolvió cero requerimientos.";
-                return false;
-            }
-
-            if (antes.Count > 0 &&
-                despues.Count != antes.Count)
-            {
-                motivo =
-                    "Cambió la cantidad de requerimientos (" +
-                    antes.Count +
-                    " -> " +
-                    despues.Count +
-                    ").";
-                return false;
-            }
-
-            int cantidadesPositivasAntes =
-                antes.Count(r => r.Cantidad > 0.0);
-
-            int cantidadesPositivasDespues =
-                despues.Count(r => r.Cantidad > 0.0);
-
-            if (cantidadesPositivasDespues <
-                cantidadesPositivasAntes)
-            {
-                motivo =
-                    "Se perdieron cantidades productivas durante el cálculo.";
-                return false;
-            }
-
-            double horasNuevas =
-                despues.Sum(r =>
-                    Math.Max(
-                        0.0,
-                        r.HorasEstandar
-                    ));
-
-            if (horasNuevas <= 0.0)
-            {
-                motivo =
-                    "El total calculado de horas quedó en cero.";
-                return false;
-            }
-
-            foreach (RequerimientoProduccionInterna req in despues)
-            {
-                if (double.IsNaN(req.HorasEstandar) ||
-                    double.IsInfinity(req.HorasEstandar) ||
-                    req.HorasEstandar < 0.0)
-                {
-                    motivo =
-                        "Se detectaron horas inválidas en " +
-                        (req.NombreRequerimiento ??
-                            "un proceso") +
-                        ".";
-                    return false;
-                }
-
-                if (double.IsNaN(req.CostoEstandarCLP) ||
-                    double.IsInfinity(req.CostoEstandarCLP) ||
-                    req.CostoEstandarCLP < 0.0)
-                {
-                    motivo =
-                        "Se detectaron costos inválidos en " +
-                        (req.NombreRequerimiento ??
-                            "un proceso") +
-                        ".";
-                    return false;
-                }
-            }
-
-            return true;
-        }
         private void RecalcularProyectoProductivoActual()
         {
+            LimpiarDiagnosticoRecalculoHorasV23();
+
+            EscribirDiagnosticoRecalculoHorasV23(
+                "Inicio del recálculo autoritativo."
+            );
             if (proyectoCotizacionActual == null)
             {
                 lblEstadoProyecto.Text =
@@ -7570,53 +7475,30 @@ namespace Cotizador_animacion_Othalart
                 return;
             }
 
-            double diasHabilesSemana =
-                cotizacion != null &&
-                cotizacion.DiasHabilesEstudioPorSemana > 0.0
-                    ? cotizacion.DiasHabilesEstudioPorSemana
-                    : 5.0;
+            List<ItemProyecto> items =
+                (proyectoCotizacionActual.Grupos ??
+                    new List<GrupoProyecto>())
+                .Where(g => g != null && g.Activo)
+                .SelectMany(g =>
+                    g.Items ??
+                    new List<ItemProyecto>())
+                .Where(i => i != null && i.Activo)
+                .ToList();
 
-            DesgloseProductivoProyecto globalOriginal =
-                ProyectoDesgloseGlobalService.Construir(
-                    proyectoCotizacionActual,
-                    cotizacion
-                );
-
-            if (globalOriginal?.Requerimientos == null ||
-                globalOriginal.Requerimientos.Count == 0)
+            if (items.Count == 0)
             {
                 lblEstadoProyecto.Text =
-                    "No se encontraron procesos locales para recalcular.";
-
-                MessageBox.Show(
-                    this,
-                    "El proyecto no contiene requerimientos productivos locales.",
-                    "Recalcular proyecto",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Warning
-                );
-
+                    "El proyecto no contiene productos activos.";
                 return;
             }
 
-            string jsonSeguridad =
-                JsonSerializer.Serialize(
-                    globalOriginal
-                );
+            object seleccionAnterior =
+                nodoProyectoSeleccionado;
 
-            DesgloseProductivoProyecto globalTrabajo =
-                JsonSerializer.Deserialize<DesgloseProductivoProyecto>(
-                    jsonSeguridad
-                );
+            ItemProyecto itemAnterior =
+                itemProyectoSeleccionado;
 
-            if (globalTrabajo?.Requerimientos == null)
-            {
-                lblEstadoProyecto.Text =
-                    "No se pudo crear una copia segura del desglose.";
-                return;
-            }
-
-            int exitosos = 0;
+            int recalculados = 0;
             List<string> errores =
                 new List<string>();
 
@@ -7627,81 +7509,153 @@ namespace Cotizador_animacion_Othalart
                 Cursor = Cursors.WaitCursor;
                 Enabled = false;
 
-                foreach (RequerimientoProduccionInterna req in
-                    globalTrabajo.Requerimientos
-                        .Where(r => r != null))
+                foreach (ItemProyecto item in items)
                 {
                     try
                     {
-                        // La cantidad proviene de la estructura local:
-                        // item/subproducto/proceso. No se usa snapshot.
-                        bool calculado =
-                            RecalcularRequerimientoDesdeEcuacionV16(
-                                req,
-                                diasHabilesSemana
+                        decimal cantidadActual =
+                            Math.Max(
+                                0m,
+                                item.Cantidad
                             );
 
-                        if (!calculado)
+                        // Esta llamada vuelve a ejecutar el flujo completo:
+                        // cantidad actual -> ecuacion vigente -> capacidad
+                        // -> horas -> costos -> proceso local -> tabla.
+                        EscribirDiagnosticoRecalculoHorasV23(
+                            "ITEM: " +
+                            (item.Nombre ?? "(sin nombre)") +
+                            " | Cantidad actual: " +
+                            cantidadActual.ToString("0.####") +
+                            " | Unidad: " +
+                            (item.Unidad ?? "")
+                        );
+
+                        SincronizarCantidadProductoYDescendientesV4(
+                            item,
+                            cantidadActual
+                        );
+
+                        Cotizacion snapshotDiagnostico =
+                            CargarSnapshotCotizacionItemProyecto(item);
+
+                        List<RequerimientoProduccionInterna>
+                            requerimientosDiagnostico =
+                                snapshotDiagnostico?
+                                    .DesgloseProductivo?
+                                    .Requerimientos?
+                                    .Where(r => r != null)
+                                    .ToList() ??
+                                new List<RequerimientoProduccionInterna>();
+
+                        foreach (
+                            RequerimientoProduccionInterna reqDiag
+                            in requerimientosDiagnostico)
                         {
-                            errores.Add(
-                                (req.NombreRequerimiento ??
-                                    "Proceso sin nombre") +
-                                ": " +
-                                (req.DiagnosticoParametros ??
-                                    "no pudo calcularse.")
+                            EscribirDiagnosticoRecalculoHorasV23(
+                                "  REQ: " +
+                                (reqDiag.NombreRequerimiento ?? "(sin nombre)") +
+                                " | ProcesoId: " +
+                                (reqDiag.ProcesoId ?? "") +
+                                " | Cantidad: " +
+                                reqDiag.Cantidad.ToString("0.####") +
+                                " " +
+                                (reqDiag.Unidad ?? "") +
+                                " | Ecuacion: " +
+                                (reqDiag.EcuacionUsada ?? "") +
+                                " | Modo: " +
+                                (reqDiag.ModoCalculoProductivo ?? "") +
+                                " | Capacidad: " +
+                                reqDiag.RendimientoCantidad.ToString("0.####") +
+                                " / " +
+                                (reqDiag.RendimientoPeriodo ?? "") +
+                                " | Horas: " +
+                                reqDiag.HorasEstandar.ToString("0.####") +
+                                " | Costo: " +
+                                reqDiag.CostoEstandarCLP.ToString("0.##") +
+                                " | Override: " +
+                                reqDiag.TieneOverrideLocalCalculo +
+                                " | Editado: " +
+                                reqDiag.EditadoManualmente +
+                                " | Origen: " +
+                                (reqDiag.OrigenHoras ?? "") +
+                                " | Diagnostico: " +
+                                (reqDiag.DiagnosticoParametros ?? "")
                             );
-                            continue;
                         }
 
-                        exitosos++;
+                        foreach (
+                            ProcesoProyecto procDiag
+                            in ObtenerProcesosItemProyecto(item)
+                                .Where(p => p != null))
+                        {
+                            EscribirDiagnosticoRecalculoHorasV23(
+                                "  PROC LOCAL: " +
+                                (procDiag.Nombre ?? "(sin nombre)") +
+                                " | Id: " +
+                                (procDiag.Id ?? "") +
+                                " | Cantidad: " +
+                                procDiag.Cantidad.ToString("0.####") +
+                                " " +
+                                (procDiag.Unidad ?? "") +
+                                " | Metodo local: " +
+                                procDiag.MetodoCalculo +
+                                " | Capacidad: " +
+                                procDiag.Capacidad.ToString("0.####") +
+                                " / " +
+                                (procDiag.Periodo ?? "") +
+                                " | Horas resultado: " +
+                                (procDiag.Resultado?
+                                    .HorasCalculadas ?? 0m)
+                                    .ToString("0.####") +
+                                " | Horas asignadas: " +
+                                (procDiag.Resultado?
+                                    .HorasAsignadas ?? 0m)
+                                    .ToString("0.####") +
+                                " | Costo: " +
+                                (procDiag.Resultado?
+                                    .CostoCalculado ?? 0m)
+                                    .ToString("0.##")
+                            );
+
+                            foreach (
+                                AsignacionProductiva asigDiag
+                                in (procDiag.Asignaciones ??
+                                    new List<AsignacionProductiva>())
+                                    .Where(a => a != null))
+                            {
+                                EscribirDiagnosticoRecalculoHorasV23(
+                                    "    ASIG: " +
+                                    (asigDiag.CargoId ?? "") +
+                                    " | Origen: " +
+                                    asigDiag.OrigenHoras +
+                                    " | Horas calc: " +
+                                    asigDiag.HorasCalculadas
+                                        .ToString("0.####") +
+                                    " | Horas asignadas: " +
+                                    asigDiag.HorasAsignadas
+                                        .ToString("0.####") +
+                                    " | Costo: " +
+                                    asigDiag.CostoCalculado
+                                        .ToString("0.##")
+                                );
+                            }
+                        }
+
+                        EscribirDiagnosticoRecalculoHorasV23(
+                            "--------------------------------------------------"
+                        );
+
+                        recalculados++;
                     }
                     catch (Exception ex)
                     {
                         errores.Add(
-                            (req.NombreRequerimiento ??
-                                "Proceso sin nombre") +
+                            (item.Nombre ?? "Producto sin nombre") +
                             ": " +
                             ex.Message
                         );
                     }
-                }
-
-                bool resultadoValido =
-                    ValidarRecalculoLocalV27(
-                        globalOriginal,
-                        globalTrabajo,
-                        out string motivoValidacion
-                    );
-
-                if (!resultadoValido)
-                {
-                    MessageBox.Show(
-                        this,
-                        "El recálculo fue descartado y el proyecto quedó intacto." +
-                        Environment.NewLine +
-                        Environment.NewLine +
-                        motivoValidacion,
-                        "Recalculo seguro",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Warning
-                    );
-
-                    lblEstadoProyecto.Text =
-                        "Recalculo descartado sin modificar el proyecto.";
-
-                    return;
-                }
-
-                ProyectoDesgloseGlobalService.Aplicar(
-                    proyectoCotizacionActual,
-                    globalTrabajo,
-                    cotizacion
-                );
-
-                if (cotizacion != null)
-                {
-                    cotizacion.DesgloseProductivo =
-                        globalTrabajo;
                 }
             }
             finally
@@ -7710,29 +7664,59 @@ namespace Cotizador_animacion_Othalart
                 Cursor = cursorAnterior;
             }
 
+            itemProyectoSeleccionado =
+                itemAnterior;
+
+            nodoProyectoSeleccionado =
+                seleccionAnterior;
+
             RefrescarProyectoUI();
 
-            lblEstadoProyecto.Text =
-                "Recalculo local completo: " +
-                exitosos +
-                " requerimiento(s) actualizados desde ecuaciones vigentes.";
-
-            if (errores.Count > 0)
+            if (errores.Count == 0)
             {
+                lblEstadoProyecto.Text =
+                    "Recalculo completo: " +
+                    recalculados +
+                    " producto(s). Log: diagnostico-recalculo-horas.log";
+
+                EscribirDiagnosticoRecalculoHorasV23(
+                    "FIN CORRECTO. Productos recalculados: " +
+                    recalculados
+                );
+
                 MessageBox.Show(
                     this,
-                    "El recálculo terminó con advertencias:" +
+                    "Se genero el diagnostico en:" +
                     Environment.NewLine +
-                    Environment.NewLine +
-                    string.Join(
-                        Environment.NewLine,
-                        errores
-                    ),
-                    "Recalcular proyecto",
+                    RutaDiagnosticoRecalculoHorasV23(),
+                    "Diagnostico de recálculo",
                     MessageBoxButtons.OK,
-                    MessageBoxIcon.Warning
+                    MessageBoxIcon.Information
                 );
+
+                return;
             }
+
+            lblEstadoProyecto.Text =
+                "Recalculo parcial: " +
+                recalculados +
+                " producto(s) actualizados y " +
+                errores.Count +
+                " con errores.";
+
+            MessageBox.Show(
+                this,
+                "El proyecto se recalculo parcialmente." +
+                Environment.NewLine +
+                Environment.NewLine +
+                string.Join(
+                    Environment.NewLine,
+                    errores
+                ),
+                "Recalcular proyecto",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning
+            );
         }
     }
 

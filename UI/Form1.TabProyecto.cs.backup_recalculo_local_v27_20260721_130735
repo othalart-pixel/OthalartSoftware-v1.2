@@ -7462,64 +7462,120 @@ namespace Cotizador_animacion_Othalart
         }
         // DiagnosticoRecalculoHorasV23
         // RecalculoTransaccionalSeguroV26
+        private void AplicarCantidadActualAlBriefSeguroV26(
+            ItemProyecto item,
+            Cotizacion snapshot)
+        {
+            if (item == null ||
+                snapshot?.BriefProducto?
+                    .EntregablesSeleccionados == null)
+            {
+                return;
+            }
 
+            double cantidadActual =
+                Convert.ToDouble(
+                    Math.Max(
+                        0m,
+                        item.Cantidad
+                    )
+                );
 
+            foreach (EntregableBrief entregable in
+                snapshot.BriefProducto
+                    .EntregablesSeleccionados
+                    .Where(e => e != null))
+            {
+                string unidadDuracion =
+                    NormalizarUnidadCantidadProyectoV4(
+                        entregable.UnidadDuracion
+                    );
 
-        // RecalculoLocalSinSnapshotV27
-        private bool ValidarRecalculoLocalV27(
-            DesgloseProductivoProyecto anterior,
-            DesgloseProductivoProyecto nuevo,
+                if (unidadDuracion != "segundo")
+                {
+                    continue;
+                }
+
+                entregable.Cantidad = 1;
+                entregable.DuracionPorUnidad =
+                    cantidadActual;
+                entregable.UnidadDuracion =
+                    "segundos";
+
+                if (!ModosCalculoProductivo.EsTiempoAsignado(
+                        entregable.ModoCalculoProductivo))
+                {
+                    entregable.HorasAsignadasMin = 0.0;
+                    entregable.HorasAsignadasStd = 0.0;
+                    entregable.HorasAsignadasHolgura = 0.0;
+                }
+            }
+        }
+
+        private bool ValidarDesgloseRecalculadoV26(
+            DesgloseProductivoProyecto desglose,
+            int requerimientosAntes,
+            int procesosAntes,
+            double horasAntes,
             out string motivo)
         {
             motivo = "";
 
-            List<RequerimientoProduccionInterna> antes =
-                anterior?.Requerimientos?
-                    .Where(r => r != null)
-                    .ToList() ??
-                new List<RequerimientoProduccionInterna>();
-
-            List<RequerimientoProduccionInterna> despues =
-                nuevo?.Requerimientos?
-                    .Where(r => r != null)
-                    .ToList() ??
-                new List<RequerimientoProduccionInterna>();
-
-            if (despues.Count == 0)
+            if (desglose?.Requerimientos == null)
             {
                 motivo =
-                    "El motor devolvió cero requerimientos.";
+                    "el motor devolvió un desglose nulo.";
+
                 return false;
             }
 
-            if (antes.Count > 0 &&
-                despues.Count != antes.Count)
+            List<RequerimientoProduccionInterna> reqs =
+                desglose.Requerimientos
+                    .Where(r => r != null)
+                    .ToList();
+
+            if (reqs.Count == 0)
             {
                 motivo =
-                    "Cambió la cantidad de requerimientos (" +
-                    antes.Count +
-                    " -> " +
-                    despues.Count +
-                    ").";
+                    "el motor devolvió cero requerimientos.";
+
                 return false;
             }
 
-            int cantidadesPositivasAntes =
-                antes.Count(r => r.Cantidad > 0.0);
-
-            int cantidadesPositivasDespues =
-                despues.Count(r => r.Cantidad > 0.0);
-
-            if (cantidadesPositivasDespues <
-                cantidadesPositivasAntes)
+            if (requerimientosAntes > 0 &&
+                reqs.Count <
+                    Math.Max(
+                        1,
+                        requerimientosAntes / 2
+                    ))
             {
                 motivo =
-                    "Se perdieron cantidades productivas durante el cálculo.";
+                    "desapareció más de la mitad de los requerimientos.";
+
+                return false;
+            }
+
+            int conCantidadCero =
+                reqs.Count(r =>
+                    r.Cantidad <= 0.0 &&
+                    !ModosCalculoProductivo.EsTiempoAsignado(
+                        r.ModoCalculoProductivo
+                    ));
+
+            if (conCantidadCero >
+                Math.Max(
+                    1,
+                    reqs.Count / 3
+                ))
+            {
+                motivo =
+                    "demasiados procesos quedaron con cantidad cero.";
+
                 return false;
             }
 
             double horasNuevas =
-                despues.Sum(r =>
+                reqs.Sum(r =>
                     Math.Max(
                         0.0,
                         r.HorasEstandar
@@ -7528,35 +7584,22 @@ namespace Cotizador_animacion_Othalart
             if (horasNuevas <= 0.0)
             {
                 motivo =
-                    "El total calculado de horas quedó en cero.";
+                    "el total de horas quedó en cero.";
+
                 return false;
             }
 
-            foreach (RequerimientoProduccionInterna req in despues)
+            if (horasAntes > 0.0 &&
+                horasNuevas > horasAntes * 10.0)
             {
-                if (double.IsNaN(req.HorasEstandar) ||
-                    double.IsInfinity(req.HorasEstandar) ||
-                    req.HorasEstandar < 0.0)
-                {
-                    motivo =
-                        "Se detectaron horas inválidas en " +
-                        (req.NombreRequerimiento ??
-                            "un proceso") +
-                        ".";
-                    return false;
-                }
+                motivo =
+                    "las horas aumentaron más de 10 veces (" +
+                    horasAntes.ToString("0.##") +
+                    " -> " +
+                    horasNuevas.ToString("0.##") +
+                    ").";
 
-                if (double.IsNaN(req.CostoEstandarCLP) ||
-                    double.IsInfinity(req.CostoEstandarCLP) ||
-                    req.CostoEstandarCLP < 0.0)
-                {
-                    motivo =
-                        "Se detectaron costos inválidos en " +
-                        (req.NombreRequerimiento ??
-                            "un proceso") +
-                        ".";
-                    return false;
-                }
+                return false;
             }
 
             return true;
@@ -7570,55 +7613,27 @@ namespace Cotizador_animacion_Othalart
                 return;
             }
 
-            double diasHabilesSemana =
-                cotizacion != null &&
-                cotizacion.DiasHabilesEstudioPorSemana > 0.0
-                    ? cotizacion.DiasHabilesEstudioPorSemana
-                    : 5.0;
+            List<ItemProyecto> items =
+                (proyectoCotizacionActual.Grupos ??
+                    new List<GrupoProyecto>())
+                .Where(g => g != null && g.Activo)
+                .SelectMany(g =>
+                    g.Items ??
+                    new List<ItemProyecto>())
+                .Where(i => i != null && i.Activo)
+                .ToList();
 
-            DesgloseProductivoProyecto globalOriginal =
-                ProyectoDesgloseGlobalService.Construir(
-                    proyectoCotizacionActual,
-                    cotizacion
-                );
-
-            if (globalOriginal?.Requerimientos == null ||
-                globalOriginal.Requerimientos.Count == 0)
+            if (items.Count == 0)
             {
                 lblEstadoProyecto.Text =
-                    "No se encontraron procesos locales para recalcular.";
-
-                MessageBox.Show(
-                    this,
-                    "El proyecto no contiene requerimientos productivos locales.",
-                    "Recalcular proyecto",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Warning
-                );
-
+                    "El proyecto no contiene productos activos.";
                 return;
             }
 
-            string jsonSeguridad =
-                JsonSerializer.Serialize(
-                    globalOriginal
-                );
-
-            DesgloseProductivoProyecto globalTrabajo =
-                JsonSerializer.Deserialize<DesgloseProductivoProyecto>(
-                    jsonSeguridad
-                );
-
-            if (globalTrabajo?.Requerimientos == null)
-            {
-                lblEstadoProyecto.Text =
-                    "No se pudo crear una copia segura del desglose.";
-                return;
-            }
-
-            int exitosos = 0;
             List<string> errores =
                 new List<string>();
+
+            int recalculados = 0;
 
             Cursor cursorAnterior = Cursor;
 
@@ -7627,82 +7642,110 @@ namespace Cotizador_animacion_Othalart
                 Cursor = Cursors.WaitCursor;
                 Enabled = false;
 
-                foreach (RequerimientoProduccionInterna req in
-                    globalTrabajo.Requerimientos
-                        .Where(r => r != null))
+                foreach (ItemProyecto item in items)
                 {
-                    try
-                    {
-                        // La cantidad proviene de la estructura local:
-                        // item/subproducto/proceso. No se usa snapshot.
-                        bool calculado =
-                            RecalcularRequerimientoDesdeEcuacionV16(
-                                req,
-                                diasHabilesSemana
-                            );
+                    Cotizacion snapshotOriginal =
+                        CargarSnapshotCotizacionItemProyecto(item);
 
-                        if (!calculado)
-                        {
-                            errores.Add(
-                                (req.NombreRequerimiento ??
-                                    "Proceso sin nombre") +
-                                ": " +
-                                (req.DiagnosticoParametros ??
-                                    "no pudo calcularse.")
-                            );
-                            continue;
-                        }
-
-                        exitosos++;
-                    }
-                    catch (Exception ex)
+                    if (snapshotOriginal == null)
                     {
                         errores.Add(
-                            (req.NombreRequerimiento ??
-                                "Proceso sin nombre") +
-                            ": " +
-                            ex.Message
+                            (item.Nombre ?? "Producto sin nombre") +
+                            ": no tiene snapshot válido. " +
+                            "Se conserva sin cambios."
                         );
+                        continue;
                     }
-                }
 
-                bool resultadoValido =
-                    ValidarRecalculoLocalV27(
-                        globalOriginal,
-                        globalTrabajo,
-                        out string motivoValidacion
+                    string jsonOriginal =
+                        JsonSerializer.Serialize(
+                            snapshotOriginal
+                        );
+
+                    Cotizacion copiaTrabajo =
+                        JsonSerializer.Deserialize<Cotizacion>(
+                            jsonOriginal
+                        );
+
+                    if (copiaTrabajo == null)
+                    {
+                        errores.Add(
+                            (item.Nombre ?? "Producto sin nombre") +
+                            ": no se pudo crear copia de trabajo."
+                        );
+                        continue;
+                    }
+
+                    int procesosAntes =
+                        ObtenerProcesosItemProyecto(item)
+                            .Count(p => p != null);
+
+                    int requerimientosAntes =
+                        snapshotOriginal
+                            .DesgloseProductivo?
+                            .Requerimientos?
+                            .Count(r => r != null) ?? 0;
+
+                    double horasAntes =
+                        snapshotOriginal
+                            .DesgloseProductivo?
+                            .Requerimientos?
+                            .Where(r => r != null)
+                            .Sum(r => Math.Max(
+                                0.0,
+                                r.HorasEstandar
+                            )) ?? 0.0;
+
+                    AplicarCantidadActualAlBriefSeguroV26(
+                        item,
+                        copiaTrabajo
                     );
 
-                if (!resultadoValido)
-                {
-                    MessageBox.Show(
-                        this,
-                        "El recálculo fue descartado y el proyecto quedó intacto." +
-                        Environment.NewLine +
-                        Environment.NewLine +
-                        motivoValidacion,
-                        "Recalculo seguro",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Warning
+                    DesgloseProductivoProyecto nuevoDesglose =
+                        DesgloseProductivoService.Generar(
+                            copiaTrabajo
+                        );
+
+                    if (!ValidarDesgloseRecalculadoV26(
+                            nuevoDesglose,
+                            requerimientosAntes,
+                            procesosAntes,
+                            horasAntes,
+                            out string motivo))
+                    {
+                        errores.Add(
+                            (item.Nombre ?? "Producto sin nombre") +
+                            ": recálculo descartado. " +
+                            motivo
+                        );
+                        continue;
+                    }
+
+                    copiaTrabajo.DesgloseProductivo =
+                        nuevoDesglose;
+
+                    GuardarSnapshotCotizacionItemProyecto(
+                        item,
+                        copiaTrabajo
                     );
 
-                    lblEstadoProyecto.Text =
-                        "Recalculo descartado sin modificar el proyecto.";
+                    SincronizarResultadosLocalesDesdeSnapshotV18(
+                        item,
+                        copiaTrabajo
+                    );
 
-                    return;
+                    item.FechaEdicionSnapshot =
+                        DateTime.Now;
+
+                    recalculados++;
                 }
-
-                ProyectoDesgloseGlobalService.Aplicar(
-                    proyectoCotizacionActual,
-                    globalTrabajo,
-                    cotizacion
+            }
+            catch (Exception ex)
+            {
+                errores.Add(
+                    "Error general: " +
+                    ex.Message
                 );
-
-                if (cotizacion != null)
-                {
-                    cotizacion.DesgloseProductivo =
-                        globalTrabajo;
-                }
             }
             finally
             {
@@ -7712,27 +7755,34 @@ namespace Cotizador_animacion_Othalart
 
             RefrescarProyectoUI();
 
-            lblEstadoProyecto.Text =
-                "Recalculo local completo: " +
-                exitosos +
-                " requerimiento(s) actualizados desde ecuaciones vigentes.";
-
-            if (errores.Count > 0)
+            if (errores.Count == 0)
             {
-                MessageBox.Show(
-                    this,
-                    "El recálculo terminó con advertencias:" +
-                    Environment.NewLine +
-                    Environment.NewLine +
-                    string.Join(
-                        Environment.NewLine,
-                        errores
-                    ),
-                    "Recalcular proyecto",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Warning
-                );
+                lblEstadoProyecto.Text =
+                    "Recalculo seguro completado: " +
+                    recalculados +
+                    " producto(s).";
+
+                return;
             }
+
+            lblEstadoProyecto.Text =
+                "Recalculo seguro: " +
+                recalculados +
+                " producto(s) actualizados; " +
+                errores.Count +
+                " descartados sin modificar.";
+
+            MessageBox.Show(
+                this,
+                string.Join(
+                    Environment.NewLine +
+                    Environment.NewLine,
+                    errores
+                ),
+                "Recalculo seguro",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning
+            );
         }
     }
 
