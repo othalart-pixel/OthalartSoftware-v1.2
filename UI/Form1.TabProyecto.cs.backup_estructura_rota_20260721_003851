@@ -2361,164 +2361,23 @@ namespace Cotizador_animacion_Othalart
 
             if (columna == "Cantidad")
             {
-                if (!TryParseDecimalProyecto(valor, out decimal cantidad) || cantidad < 0m)
+                if (!TryParseDecimalProyecto(valor, out decimal cantidad) ||
+                    cantidad < 0m)
                 {
-                    MessageBox.Show(this, "La cantidad debe ser un numero mayor o igual a 0.", "Productos y servicios", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageBox.Show(
+                        this,
+                        "La cantidad debe ser un numero mayor o igual a 0.",
+                        "Productos y servicios",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning
+                    );
                     return false;
                 }
 
-                foreach (RequerimientoProduccionInterna req in requerimientos)
-                {
-                    req.Cantidad = Convert.ToDouble(cantidad);
-                    req.EditadoManualmente = true;
-                    req.TieneOverrideLocalCalculo = true;
-                }
-            }
-            else if (columna == "Unidad")
-            {
-                foreach (RequerimientoProduccionInterna req in requerimientos)
-                {
-                    req.Unidad = valor ?? "";
-                    req.EditadoManualmente = true;
-                    req.TieneOverrideLocalCalculo = true;
-                }
-            }
-            else if (columna == "Horas")
-            {
-                if (!TryParseDecimalProyecto(valor, out decimal horas) || horas < 0m)
-                {
-                    MessageBox.Show(this, "Las horas deben ser un numero mayor o igual a 0.", "Productos y servicios", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return false;
-                }
-
-                foreach (RequerimientoProduccionInterna req in requerimientos)
-                {
-                    AplicarHorasARequerimientoSnapshot(req, horas);
-                }
-            }
-            else if (columna == "Capacidad")
-            {
-                if (!TryParseDecimalProyecto(valor, out decimal capacidad) || capacidad <= 0m)
-                {
-                    MessageBox.Show(this, "La capacidad debe ser mayor a 0.", "Productos y servicios", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return false;
-                }
-
-                foreach (RequerimientoProduccionInterna req in requerimientos)
-                {
-                    AplicarRendimientoOverrideARequerimiento(req, capacidad, null);
-                }
-            }
-            else if (columna == "Periodo")
-            {
-                if (string.IsNullOrWhiteSpace(valor))
-                {
-                    return false;
-                }
-
-                foreach (RequerimientoProduccionInterna req in requerimientos)
-                {
-                    AplicarRendimientoOverrideARequerimiento(req, null, valor);
-                }
-            }
-            else
-            {
-                return false;
-            }
-
-            GuardarSnapshotCotizacionItemProyecto(item, snapshot);
-            return true;
-        }
-
-        private List<RequerimientoProduccionInterna> ObtenerRequerimientosFilaExpandida(
-            Cotizacion snapshot,
-            FilaProductivaProyecto fila)
-        {
-            List<RequerimientoProduccionInterna> todos = snapshot?.DesgloseProductivo?.Requerimientos?
-                .Where(r => r != null)
-                .ToList() ?? new List<RequerimientoProduccionInterna>();
-            if (fila == null || todos.Count == 0)
-            {
-                return new List<RequerimientoProduccionInterna>();
-            }
-
-            List<RequerimientoProduccionInterna> exactosPorId = todos
-                .Where(r => !string.IsNullOrWhiteSpace(fila.ProcesoProyectoId) &&
-                    string.Equals(r.ProcesoId, fila.ProcesoProyectoId, StringComparison.OrdinalIgnoreCase))
-                .ToList();
-            if (exactosPorId.Count > 0)
-            {
-                return exactosPorId;
-            }
-
-            List<RequerimientoProduccionInterna> exactosPorBiblioteca = todos
-                .Where(r => !string.IsNullOrWhiteSpace(fila.ProcesoBibliotecaId) &&
-                    (string.Equals(r.EcuacionUsada, fila.ProcesoBibliotecaId, StringComparison.OrdinalIgnoreCase) ||
-                     string.Equals(r.TipoInterno, fila.ProcesoBibliotecaId, StringComparison.OrdinalIgnoreCase)))
-                .ToList();
-            if (exactosPorBiblioteca.Count > 0)
-            {
-                return exactosPorBiblioteca;
-            }
-
-            List<RequerimientoProduccionInterna> relacionados = todos
-                .Where(r => CoincideRequerimientoConFilaExpandida(r, fila) &&
-                    (TextoRelacionadoProyecto(r.ProcesoId, fila.ProcesoProyectoId) ||
-                     TextoRelacionadoProyecto(r.EcuacionUsada, fila.ProcesoBibliotecaId) ||
-                     TextoRelacionadoProyecto(r.TipoInterno, fila.ProcesoBibliotecaId)))
-                .ToList();
-            if (relacionados.Count > 0)
-            {
-                return relacionados;
-            }
-
-            return todos
-                .Where(r => !string.IsNullOrWhiteSpace(fila.CargoId) &&
-                    TextoRelacionadoProyecto(r.CargoId, fila.CargoId))
-                .ToList();
-        }
-
-        private bool CoincideRequerimientoConFilaExpandida(RequerimientoProduccionInterna req, FilaProductivaProyecto fila)
-        {
-            if (req == null || fila == null)
-            {
-                return false;
-            }
-
-            return TextoRelacionadoProyecto(req.ProcesoId, fila.ProcesoProyectoId) ||
-                TextoRelacionadoProyecto(req.EcuacionUsada, fila.ProcesoBibliotecaId) ||
-                TextoRelacionadoProyecto(req.TipoInterno, fila.ProcesoBibliotecaId) ||
-                (!string.IsNullOrWhiteSpace(fila.CargoId) && TextoRelacionadoProyecto(req.CargoId, fila.CargoId));
-        }
-        private bool AplicarCambioGrupoTablaProyecto(GrupoProyecto grupo, string columna, string valor)
-        {
-            if (grupo == null) return false;
-            if (columna == "Elemento") { grupo.Nombre = LimpiarNombreJerarquiaProyecto(valor); return true; }
-            if (columna == "Cantidad") { return false; }
-            if (columna == "Unidad") { return false; }
-            if (columna == "Horas") { return false; }
-            if (columna == "Estado") { grupo.Activo = EsEstadoActivoProyecto(valor); return true; }
-            return false;
-        }
-
-        private bool AplicarCambioItemTablaProyecto(ItemProyecto item, string columna, string valor)
-        {
-            if (item == null) return false;
-            if (columna == "Elemento") { item.Nombre = LimpiarNombreJerarquiaProyecto(valor); return true; }
-            if (columna == "Cantidad")
-            {
-                if (!TryParseDecimalProyecto(valor, out decimal cantidad) || cantidad < 0m)
-                {
-                    MessageBox.Show(this, "La cantidad debe ser un numero mayor o igual a 0.", "Productos y servicios", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return false;
-                }
-                item.Cantidad = cantidad;
-                SincronizarCantidadProductoYDescendientesV4(
+                return AplicarCantidadMaestraProductoV3(
                     item,
                     cantidad
                 );
-
-                return true;
             }
             if (columna == "Unidad") { item.Unidad = valor; return true; }
             if (columna == "Horas")
@@ -2551,28 +2410,279 @@ namespace Cotizador_animacion_Othalart
             return false;
         }
 
-        private void SincronizarCantidadProductoYDescendientesV4(
+        private bool AplicarCantidadMaestraProductoV3(
             ItemProyecto item,
-            decimal cantidad)
+            decimal cantidadNueva)
         {
-            if (item == null || cantidad < 0m)
+            if (item == null || cantidadNueva < 0m)
+            {
+                return false;
+            }
+
+            decimal cantidadAnterior = item.Cantidad;
+
+            if (cantidadAnterior == cantidadNueva)
+            {
+                return true;
+            }
+
+            string unidadMaestra =
+                ObtenerUnidadVisibleItem(item);
+
+            if (!EsUnidadSegundosCantidadMaestraV3(unidadMaestra) ||
+                cantidadAnterior <= 0m)
+            {
+                item.Cantidad = cantidadNueva;
+                ActualizarCantidadSnapshotItemProyecto(
+                    item,
+                    cantidadNueva
+                );
+                return true;
+            }
+
+            decimal factor =
+                cantidadNueva / cantidadAnterior;
+
+            int subproductosCompatibles =
+                (item.Subproductos ??
+                    new List<SubproductoProyecto>())
+                .Count(s =>
+                    s != null &&
+                    UnidadesCompatiblesCantidadMaestraV3(
+                        unidadMaestra,
+                        s.Unidad
+                    ));
+
+            int procesosCompatibles =
+                ObtenerProcesosCantidadMaestraV3(item)
+                .Count(p =>
+                    p != null &&
+                    p.MetodoCalculo !=
+                        MetodoCalculoProceso.Manual &&
+                    UnidadesCompatiblesCantidadMaestraV3(
+                        unidadMaestra,
+                        p.Unidad
+                    ));
+
+            DialogResult confirmacion = MessageBox.Show(
+                this,
+                "Cambiar la cantidad del producto de " +
+                cantidadAnterior.ToString("0.##") +
+                " a " +
+                cantidadNueva.ToString("0.##") +
+                " " +
+                unidadMaestra +
+                " actualizara:" +
+                Environment.NewLine +
+                Environment.NewLine +
+                "- " +
+                subproductosCompatibles +
+                " subproductos en segundos" +
+                Environment.NewLine +
+                "- " +
+                procesosCompatibles +
+                " procesos calculados" +
+                Environment.NewLine +
+                "- los requerimientos compatibles del snapshot" +
+                Environment.NewLine +
+                Environment.NewLine +
+                "Las horas declaradas manualmente se conservaran.",
+                "Escalar producto completo",
+                MessageBoxButtons.OKCancel,
+                MessageBoxIcon.Question
+            );
+
+            if (confirmacion != DialogResult.OK)
+            {
+                return false;
+            }
+
+            item.Cantidad = cantidadNueva;
+
+            foreach (SubproductoProyecto subproducto in
+                item.Subproductos ??
+                new List<SubproductoProyecto>())
+            {
+                if (subproducto == null)
+                {
+                    continue;
+                }
+
+                if (UnidadesCompatiblesCantidadMaestraV3(
+                    unidadMaestra,
+                    subproducto.Unidad))
+                {
+                    subproducto.Cantidad = Math.Round(
+                        subproducto.Cantidad * factor,
+                        4
+                    );
+                }
+
+                foreach (ProcesoProyecto proceso in
+                    subproducto.Procesos ??
+                    new List<ProcesoProyecto>())
+                {
+                    EscalarProcesoCantidadMaestraV3(
+                        proceso,
+                        unidadMaestra,
+                        factor
+                    );
+                }
+
+                foreach (InstanciaSubproducto instancia in
+                    subproducto.Instancias ??
+                    new List<InstanciaSubproducto>())
+                {
+                    if (instancia == null)
+                    {
+                        continue;
+                    }
+
+                    if (instancia.CantidadEquivalente > 0m)
+                    {
+                        instancia.CantidadEquivalente =
+                            Math.Round(
+                                instancia.CantidadEquivalente *
+                                factor,
+                                4
+                            );
+                    }
+
+                    foreach (ProcesoProyecto proceso in
+                        instancia.Procesos ??
+                        new List<ProcesoProyecto>())
+                    {
+                        EscalarProcesoCantidadMaestraV3(
+                            proceso,
+                            unidadMaestra,
+                            factor
+                        );
+                    }
+                }
+            }
+
+            foreach (ProcesoProyecto proceso in
+                item.Procesos ??
+                new List<ProcesoProyecto>())
+            {
+                EscalarProcesoCantidadMaestraV3(
+                    proceso,
+                    unidadMaestra,
+                    factor
+                );
+            }
+
+            Cotizacion snapshot =
+                CargarSnapshotCotizacionItemProyecto(item);
+
+            if (snapshot?.DesgloseProductivo?.Requerimientos != null)
+            {
+                foreach (RequerimientoProduccionInterna requerimiento in
+                    snapshot.DesgloseProductivo.Requerimientos
+                        .Where(r => r != null))
+                {
+                    bool esManual =
+                        ModosCalculoProductivo.EsTiempoAsignado(
+                            requerimiento.ModoCalculoProductivo
+                        );
+
+                    if (esManual ||
+                        !UnidadesCompatiblesCantidadMaestraV3(
+                            unidadMaestra,
+                            requerimiento.Unidad))
+                    {
+                        continue;
+                    }
+
+                    requerimiento.Cantidad = Math.Round(
+                        requerimiento.Cantidad *
+                        Convert.ToDouble(factor),
+                        6
+                    );
+                }
+
+                GuardarSnapshotCotizacionItemProyecto(
+                    item,
+                    snapshot
+                );
+            }
+            else
+            {
+                ActualizarCantidadSnapshotItemProyecto(
+                    item,
+                    cantidadNueva
+                );
+            }
+
+            item.FechaEdicionSnapshot = DateTime.Now;
+
+            lblEstadoProyecto.Text =
+                "Cantidad maestra actualizada. " +
+                "Recalculando horas y costos...";
+
+            return true;
+        }
+
+        private void EscalarProcesoCantidadMaestraV3(
+            ProcesoProyecto proceso,
+            string unidadMaestra,
+            decimal factor)
+        {
+            if (proceso == null ||
+                proceso.MetodoCalculo ==
+                    MetodoCalculoProceso.Manual ||
+                !UnidadesCompatiblesCantidadMaestraV3(
+                    unidadMaestra,
+                    proceso.Unidad))
             {
                 return;
             }
 
-            string unidadProducto =
-                NormalizarUnidadCantidadProyectoV4(
-                    ObtenerUnidadVisibleItem(item)
-                );
-
-            ActualizarCantidadSnapshotItemProyecto(
-                item,
-                cantidad
+            proceso.Cantidad = Math.Round(
+                proceso.Cantidad * factor,
+                4
             );
 
-            if (unidadProducto != "segundo")
+            if (proceso.Resultado != null)
             {
-                return;
+                proceso.Resultado.HorasCalculadas = 0m;
+                proceso.Resultado.CostoCalculado = 0m;
+                proceso.Resultado.DuracionSemanas = 0m;
+            }
+
+            foreach (AsignacionProductiva asignacion in
+                proceso.Asignaciones ??
+                new List<AsignacionProductiva>())
+            {
+                if (asignacion == null ||
+                    asignacion.OrigenHoras !=
+                        OrigenHorasProductivas.Calculado)
+                {
+                    continue;
+                }
+
+                asignacion.HorasCalculadas = 0m;
+                asignacion.CostoCalculado = 0m;
+            }
+        }
+
+        private IEnumerable<ProcesoProyecto>
+            ObtenerProcesosCantidadMaestraV3(
+                ItemProyecto item)
+        {
+            if (item == null)
+            {
+                yield break;
+            }
+
+            foreach (ProcesoProyecto proceso in
+                item.Procesos ??
+                new List<ProcesoProyecto>())
+            {
+                if (proceso != null)
+                {
+                    yield return proceso;
+                }
             }
 
             foreach (SubproductoProyecto subproducto in
@@ -2584,27 +2694,14 @@ namespace Cotizador_animacion_Othalart
                     continue;
                 }
 
-                if (NormalizarUnidadCantidadProyectoV4(
-                        subproducto.Unidad) == "segundo")
-                {
-                    subproducto.Cantidad = cantidad;
-
-                    ActualizarCantidadSnapshotSubproductoProyecto(
-                        item,
-                        subproducto,
-                        cantidad
-                    );
-                }
-
                 foreach (ProcesoProyecto proceso in
                     subproducto.Procesos ??
                     new List<ProcesoProyecto>())
                 {
-                    SincronizarCantidadProcesoV4(
-                        item,
-                        proceso,
-                        cantidad
-                    );
+                    if (proceso != null)
+                    {
+                        yield return proceso;
+                    }
                 }
 
                 foreach (InstanciaSubproducto instancia in
@@ -2620,115 +2717,41 @@ namespace Cotizador_animacion_Othalart
                         instancia.Procesos ??
                         new List<ProcesoProyecto>())
                     {
-                        SincronizarCantidadProcesoV4(
-                            item,
-                            proceso,
-                            cantidad
-                        );
+                        if (proceso != null)
+                        {
+                            yield return proceso;
+                        }
                     }
                 }
             }
-
-            foreach (ProcesoProyecto proceso in
-                item.Procesos ??
-                new List<ProcesoProyecto>())
-            {
-                SincronizarCantidadProcesoV4(
-                    item,
-                    proceso,
-                    cantidad
-                );
-            }
-
-            SincronizarRequerimientosSnapshotConCantidadMaestraV5(
-
-                item,
-
-                cantidad
-
-            );
-
-
-            item.FechaEdicionSnapshot = DateTime.Now;
-
-            lblEstadoProyecto.Text =
-                "Cantidad sincronizada inicialmente en todos " +
-                "los subproductos y procesos medidos en segundos.";
         }
 
-        private void SincronizarRequerimientosSnapshotConCantidadMaestraV5(
-            ItemProyecto item,
-            decimal cantidad)
+        private bool EsUnidadSegundosCantidadMaestraV3(
+            string unidad)
         {
-            if (item == null || cantidad < 0m)
-            {
-                return;
-            }
-
-            Cotizacion snapshot =
-                CargarSnapshotCotizacionItemProyecto(item);
-
-            if (snapshot?.DesgloseProductivo?.Requerimientos == null)
-            {
-                ActualizarCantidadSnapshotItemProyecto(
-                    item,
-                    cantidad
-                );
-                return;
-            }
-
-            foreach (RequerimientoProduccionInterna requerimiento in
-                snapshot.DesgloseProductivo.Requerimientos
-                    .Where(r => r != null))
-            {
-                bool esManual =
-                    ModosCalculoProductivo.EsTiempoAsignado(
-                        requerimiento.ModoCalculoProductivo
-                    );
-
-                bool usaSegundos =
-                    NormalizarUnidadCantidadProyectoV4(
-                        requerimiento.Unidad
-                    ) == "segundo";
-
-                if (esManual || !usaSegundos)
-                {
-                    continue;
-                }
-
-                requerimiento.Cantidad =
-                    Convert.ToDouble(cantidad);
-            }
-
-            GuardarSnapshotCotizacionItemProyecto(
-                item,
-                snapshot
-            );
+            return NormalizarUnidadCantidadMaestraV3(
+                unidad
+            ) == "segundo";
         }
-        private void SincronizarCantidadProcesoV4(
-            ItemProyecto item,
-            ProcesoProyecto proceso,
-            decimal cantidad)
+
+        private bool UnidadesCompatiblesCantidadMaestraV3(
+            string unidadA,
+            string unidadB)
         {
-            if (proceso == null ||
-                proceso.MetodoCalculo ==
-                    MetodoCalculoProceso.Manual ||
-                NormalizarUnidadCantidadProyectoV4(
-                    proceso.Unidad) != "segundo")
-            {
-                return;
-            }
+            string a =
+                NormalizarUnidadCantidadMaestraV3(unidadA);
+            string b =
+                NormalizarUnidadCantidadMaestraV3(unidadB);
 
-            proceso.Cantidad = cantidad;
-
-            ActualizarCantidadSnapshotProcesoProyecto(
-                item,
-                proceso,
-                cantidad
-            );
+            return !string.IsNullOrWhiteSpace(a) &&
+                string.Equals(
+                    a,
+                    b,
+                    StringComparison.OrdinalIgnoreCase
+                );
         }
 
-        private string NormalizarUnidadCantidadProyectoV4(
+        private string NormalizarUnidadCantidadMaestraV3(
             string unidad)
         {
             string valor = (unidad ?? "")
@@ -2749,7 +2772,10 @@ namespace Cotizador_animacion_Othalart
                 return "segundo";
             }
 
-            return valor;
+            return valor.EndsWith("s") &&
+                valor.Length > 1
+                ? valor.Substring(0, valor.Length - 1)
+                : valor;
         }
         private bool AplicarCambioSubproductoTablaProyecto(SubproductoProyecto subproducto, string columna, string valor)
         {

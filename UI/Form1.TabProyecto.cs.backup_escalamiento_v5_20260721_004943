@@ -2640,15 +2640,6 @@ namespace Cotizador_animacion_Othalart
                 );
             }
 
-            SincronizarRequerimientosSnapshotConCantidadMaestraV5(
-
-                item,
-
-                cantidad
-
-            );
-
-
             item.FechaEdicionSnapshot = DateTime.Now;
 
             lblEstadoProyecto.Text =
@@ -2656,55 +2647,6 @@ namespace Cotizador_animacion_Othalart
                 "los subproductos y procesos medidos en segundos.";
         }
 
-        private void SincronizarRequerimientosSnapshotConCantidadMaestraV5(
-            ItemProyecto item,
-            decimal cantidad)
-        {
-            if (item == null || cantidad < 0m)
-            {
-                return;
-            }
-
-            Cotizacion snapshot =
-                CargarSnapshotCotizacionItemProyecto(item);
-
-            if (snapshot?.DesgloseProductivo?.Requerimientos == null)
-            {
-                ActualizarCantidadSnapshotItemProyecto(
-                    item,
-                    cantidad
-                );
-                return;
-            }
-
-            foreach (RequerimientoProduccionInterna requerimiento in
-                snapshot.DesgloseProductivo.Requerimientos
-                    .Where(r => r != null))
-            {
-                bool esManual =
-                    ModosCalculoProductivo.EsTiempoAsignado(
-                        requerimiento.ModoCalculoProductivo
-                    );
-
-                bool usaSegundos =
-                    NormalizarUnidadCantidadProyectoV4(
-                        requerimiento.Unidad
-                    ) == "segundo";
-
-                if (esManual || !usaSegundos)
-                {
-                    continue;
-                }
-
-                requerimiento.Cantidad =
-                    Convert.ToDouble(cantidad);
-            }
-
-            GuardarSnapshotCotizacionItemProyecto(
-                item,
-                snapshot
-            );
-        }
         private void SincronizarCantidadProcesoV4(
             ItemProyecto item,
             ProcesoProyecto proceso,
