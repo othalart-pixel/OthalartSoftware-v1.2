@@ -1,0 +1,40 @@
+{
+  "Industrias": [
+    "General",
+    "Animacion",
+    "Diseno",
+    "Audiovisual",
+    "Publicidad / marketing",
+    "Videojuegos"
+  ],
+  "Categorias": [
+    "Animacion",
+    "Preproduccion",
+    "Produccion",
+    "Postproduccion",
+    "Diseno",
+    "Audiovisual",
+    "Audio",
+    "Assets",
+    "Narrativa visual",
+    "Producto final"
+  ],
+  "UnidadesCantidad": [
+    "piezas",
+    "personajes",
+    "fondos",
+    "assets",
+    "sets",
+    "paginas",
+    "cinematicas",
+    "loops",
+    "unidades"
+  ],
+  "UnidadesDuracion": [
+    "segundos",
+    "minutos",
+    "horas",
+    "dias",
+    "no aplica"
+  ]
+}

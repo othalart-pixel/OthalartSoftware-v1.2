@@ -11,6 +11,8 @@ namespace Cotizador_animacion_Othalart.Models
 
         public Cotizacion Cotizacion { get; set; } = new Cotizacion();
 
+        public ProyectoCotizacion ProyectoProductivo { get; set; } = null;
+
         public string TipoSolicitudDatosGuardado { get; set; } = "";
         public string ProductoServicioDatosGuardado { get; set; } = "";
 
@@ -25,6 +27,9 @@ namespace Cotizador_animacion_Othalart.Models
 
         public List<CategoriaTrabajador> BibliotecaCargos { get; set; } =
             new List<CategoriaTrabajador>();
+
+        public List<PersonaEquipo> BibliotecaPersonal { get; set; } =
+            new List<PersonaEquipo>();
 
         public List<Producto2DDefinicion> BibliotecaProductos2D { get; set; } =
             new List<Producto2DDefinicion>();

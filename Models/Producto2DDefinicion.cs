@@ -15,6 +15,11 @@ namespace Cotizador_animacion_Othalart.Models
 
         public string Nota { get; set; } = "";
 
+        public string UnidadComercialPrincipal { get; set; } = "";
+
+        public List<QuoteParameterDefinition> ParametrosCotizacion { get; set; } =
+            new List<QuoteParameterDefinition>();
+
         public List<ProductoEtapaDefinicion> Etapas { get; set; } =
             new List<ProductoEtapaDefinicion>();
 

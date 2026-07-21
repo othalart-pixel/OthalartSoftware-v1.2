@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Linq;
-using System.Text.Json;
 using System.Windows.Forms;
 using Cotizador_animacion_Othalart.Data;
 using Cotizador_animacion_Othalart.Models;
@@ -41,12 +40,12 @@ namespace Cotizador_animacion_Othalart
             descripcion.AutoSize = true;
             descripcion.Padding = new Padding(0, 10, 0, 15);
 
-            btnGuardarExcelInterno.Text = "Guardar Excel interno";
+            btnGuardarExcelInterno.Text = "Exportar Excel";
             btnGuardarExcelInterno.Width = 190;
             btnGuardarExcelInterno.Height = 36;
             btnGuardarExcelInterno.Click += BtnGuardarExcelInterno_Click;
 
-            btnGuardarInformeHtml.Text = "Guardar informe cliente";
+            btnGuardarInformeHtml.Text = "Exportar informe PDF";
             btnGuardarInformeHtml.Width = 190;
             btnGuardarInformeHtml.Height = 36;
             btnGuardarInformeHtml.Click += BtnGuardarInformeHtml_Click;
@@ -75,37 +74,44 @@ namespace Cotizador_animacion_Othalart
                 ServicioCotizacion.RecalcularCotizacion(cotizacion);
 
                 ProyectoOthalartGuardado proyecto = CrearSnapshotProyecto();
-
-                using (SaveFileDialog dialogo = new SaveFileDialog())
+                string rutaGuardado = ResolverRutaGuardadoProyectoActual();
+                if (string.IsNullOrWhiteSpace(rutaGuardado))
                 {
-                    dialogo.Title = "Guardar proyecto Othalart";
-                    dialogo.Filter = "Proyecto Othalart (*.othalart.json)|*.othalart.json|JSON (*.json)|*.json";
-                    dialogo.FileName = CrearNombreArchivoProyecto();
-                    dialogo.AddExtension = true;
-                    dialogo.DefaultExt = "othalart.json";
-
-                    if (dialogo.ShowDialog(this) != DialogResult.OK)
-                    {
-                        lblGuardarEstado.Text = "Guardado de proyecto cancelado.";
-                        lblGuardarEstado.ForeColor = Color.DimGray;
-                        return;
-                    }
-
-                    string json = JsonSerializer.Serialize(proyecto, CrearOpcionesJsonProyecto());
-                    File.WriteAllText(dialogo.FileName, json);
-
-                    cotizacion.NombreArchivo = dialogo.FileName;
-                    int piezasGuardadas = proyecto.Piezas2DDatosGuardadas == null
-                        ? 0
-                        : proyecto.Piezas2DDatosGuardadas.Count;
-                    int piezasSeleccionadas = proyecto.Piezas2DDatosGuardadas == null
-                        ? 0
-                        : proyecto.Piezas2DDatosGuardadas.Count(p => p != null && p.Usar);
-
-                    lblGuardarEstado.Text =
-                        $"Proyecto editable guardado correctamente. Piezas: {piezasSeleccionadas}/{piezasGuardadas}.";
-                    lblGuardarEstado.ForeColor = Color.DarkGreen;
+                    lblGuardarEstado.Text = "Guardado de proyecto cancelado.";
+                    lblGuardarEstado.ForeColor = Color.DimGray;
+                    return;
                 }
+
+                ProyectoOthalartArchivoService.Guardar(rutaGuardado, proyecto);
+
+                cotizacion.NombreArchivo = rutaGuardado;
+                if (cotizacion.ProyectoProductivo != null)
+                {
+                    cotizacion.ProyectoProductivo.FechaModificacion = DateTime.Now;
+                }
+
+                ProyectosRecientesService.Registrar(
+                    rutaGuardado,
+                    cotizacion.NombreProyecto,
+                    cotizacion.NombreCliente
+                );
+                RefrescarTabInicio();
+
+                int piezasGuardadas = proyecto.Piezas2DDatosGuardadas == null
+                    ? 0
+                    : proyecto.Piezas2DDatosGuardadas.Count;
+                int piezasSeleccionadas = proyecto.Piezas2DDatosGuardadas == null
+                    ? 0
+                    : proyecto.Piezas2DDatosGuardadas.Count(p => p != null && p.Usar);
+
+                lblGuardarEstado.Text =
+                    "Proyecto guardado con sus bibliotecas en:\n" +
+                    Path.GetDirectoryName(rutaGuardado) +
+                    "\nPiezas: " +
+                    piezasSeleccionadas.ToString("0") + "/" +
+                    piezasGuardadas.ToString("0") + ".";
+                lblGuardarEstado.ForeColor = Color.DarkGreen;
+                MarcarProyectoGuardado();
             }
             catch (Exception ex)
             {
@@ -121,6 +127,25 @@ namespace Cotizador_animacion_Othalart
             }
         }
 
+        private string ResolverRutaGuardadoProyectoActual()
+        {
+            string rutaActual = cotizacion == null ? "" : cotizacion.NombreArchivo ?? "";
+            if (!string.IsNullOrWhiteSpace(rutaActual))
+            {
+                return rutaActual;
+            }
+
+            return CrearRutaAutomaticaProyectoNuevo();
+        }
+
+        private string CrearRutaAutomaticaProyectoNuevo()
+        {
+            string nombre = cotizacion == null
+                ? "Proyecto Othalart"
+                : cotizacion.NombreProyecto;
+            return ProyectoOthalartArchivoService.CrearRutaProyectoNuevo(nombre);
+        }
+
         private void BtnCargarProyecto_Click(object sender, EventArgs e)
         {
             try
@@ -129,6 +154,8 @@ namespace Cotizador_animacion_Othalart
                 {
                     dialogo.Title = "Cargar proyecto Othalart";
                     dialogo.Filter = "Proyecto Othalart (*.othalart.json;*.json)|*.othalart.json;*.json";
+                    dialogo.InitialDirectory =
+                        ProyectoOthalartArchivoService.ObtenerCarpetaProyectosPrograma();
 
                     if (dialogo.ShowDialog(this) != DialogResult.OK)
                     {
@@ -137,12 +164,8 @@ namespace Cotizador_animacion_Othalart
                         return;
                     }
 
-                    string json = File.ReadAllText(dialogo.FileName);
                     ProyectoOthalartGuardado proyecto =
-                        JsonSerializer.Deserialize<ProyectoOthalartGuardado>(
-                            json,
-                            CrearOpcionesJsonProyecto()
-                        );
+                        ProyectoOthalartArchivoService.Cargar(dialogo.FileName);
 
                     if (proyecto == null || proyecto.Cotizacion == null)
                     {
@@ -160,6 +183,13 @@ namespace Cotizador_animacion_Othalart
                         cargandoProyectoDesdeArchivo = false;
                     }
 
+                    ProyectosRecientesService.Registrar(
+                        dialogo.FileName,
+                        proyecto.Cotizacion.NombreProyecto,
+                        proyecto.Cotizacion.NombreCliente
+                    );
+                    RefrescarTabInicio();
+
                     int piezasCargadas = proyecto.Piezas2DDatosGuardadas == null
                         ? 0
                         : proyecto.Piezas2DDatosGuardadas.Count;
@@ -170,6 +200,9 @@ namespace Cotizador_animacion_Othalart
                     lblGuardarEstado.Text =
                         $"Proyecto editable cargado correctamente. Piezas: {piezasSeleccionadas}/{piezasCargadas}.";
                     lblGuardarEstado.ForeColor = Color.DarkGreen;
+                    MarcarProyectoGuardado();
+                    AplicarModoAplicacion(ModoAplicacion.Proyecto);
+                    RefrescarDatosDesdeProyectoProductivo();
                 }
             }
             catch (Exception ex)
@@ -188,16 +221,33 @@ namespace Cotizador_animacion_Othalart
 
         private ProyectoOthalartGuardado CrearSnapshotProyecto()
         {
+            CapturarItemProyectoActivoAntesDeGuardar();
+
+            if (cotizacion != null)
+            {
+                AplicarConsolidadoProyectoAlSnapshot();
+                cotizacion.ProyectoProductivo = proyectoCotizacionActual;
+            }
+
+            List<CategoriaTrabajador> cargosSnapshot =
+                ObtenerBibliotecaCargosCompletaParaProyecto();
+            List<PersonaEquipo> personalSnapshot =
+                BibliotecaPersonalEmpresaJsonService.CargarPersonal();
+            bibliotecaCargosProyectoInforme = cargosSnapshot;
+            bibliotecaPersonalProyectoInforme = personalSnapshot;
+
             return new ProyectoOthalartGuardado
             {
                 FechaGuardado = DateTime.Now,
                 Cotizacion = cotizacion ?? new Cotizacion(),
+                ProyectoProductivo = proyectoCotizacionActual,
                 TipoSolicitudDatosGuardado = ObtenerTipoSolicitudDatosGuardado(),
                 ProductoServicioDatosGuardado = ObtenerProductoServicioDatosGuardado(),
                 Piezas2DDatosGuardadas = ObtenerPiezas2DDatosGuardadas(),
                 BibliotecaEtapas = bibliotecaEtapas ?? BibliotecaEtapasJsonService.CargarEtapas(),
                 BibliotecaSubEtapas = bibliotecaSubEtapas ?? BibliotecaSubEtapasJsonService.CargarSubEtapas(),
-                BibliotecaCargos = ObtenerBibliotecaCargosCompletaParaProyecto(),
+                BibliotecaCargos = cargosSnapshot,
+                BibliotecaPersonal = personalSnapshot,
                 BibliotecaProductos2D = BibliotecaProductos2D.CrearBase(),
                 BibliotecaRendimientosProductivos =
                     BibliotecaRendimientosProductivosJsonService.CargarRendimientos(),
@@ -212,6 +262,58 @@ namespace Cotizador_animacion_Othalart
             };
         }
 
+        private void CapturarItemProyectoActivoAntesDeGuardar()
+        {
+            if (itemProyectoEnEdicionActual == null || cotizacion == null)
+            {
+                return;
+            }
+
+            try
+            {
+                AplicarDatosDesdePantalla();
+                GuardarDesgloseProductivoDesdePantalla();
+                GuardarAsignacionesManoObraDesdeTabla(false);
+                ServicioCotizacion.RecalcularCotizacion(cotizacion);
+                SincronizarItemProyectoDesdeCotizacion(itemProyectoEnEdicionActual, cotizacion);
+                CotizacionItemProyectoAdapterService.CapturarCotizacionEnItem(itemProyectoEnEdicionActual, cotizacion);
+                ProyectoCotizacionJsonService.Normalizar(proyectoCotizacionActual);
+
+                if (cotizacionRaizAntesEdicionItem != null)
+                {
+                    cotizacion = cotizacionRaizAntesEdicionItem;
+                    cotizacion.ProyectoProductivo = proyectoCotizacionActual;
+                }
+            }
+            catch
+            {
+                // Si algo falla, el guardado principal mostrará el error en su flujo normal.
+                throw;
+            }
+        }
+
+        private void AplicarConsolidadoProyectoAlSnapshot()
+        {
+            if (cotizacion == null || proyectoCotizacionActual == null)
+            {
+                return;
+            }
+
+            ProyectoProductivoExpandido expandido = ProyectoProductivoExpansionService.Expandir(proyectoCotizacionActual);
+            ProyectoConsolidado consolidado = ProyectoConsolidacionService.Consolidar(proyectoCotizacionActual, expandido);
+
+            cotizacion.HorasProyectoProductivo = Convert.ToDouble(
+                consolidado.HorasProductivas +
+                consolidado.HorasRevision +
+                consolidado.HorasCorreccion +
+                consolidado.HorasSupervision +
+                consolidado.HorasDireccion +
+                consolidado.HorasGestion
+            );
+            cotizacion.CostoProyectoProductivoCLP = Convert.ToDouble(consolidado.CostoTotal);
+            ServicioCotizacion.RecalcularCotizacion(cotizacion);
+        }
+
         private void AplicarSnapshotProyecto(
             ProyectoOthalartGuardado proyecto,
             string rutaArchivo
@@ -219,12 +321,23 @@ namespace Cotizador_animacion_Othalart
         {
             cotizacion = proyecto.Cotizacion ?? new Cotizacion();
             cotizacion.NombreArchivo = rutaArchivo;
+            proyectoCotizacionActual =
+                proyecto.ProyectoProductivo ??
+                cotizacion.ProyectoProductivo ??
+                ProyectoCotizacionPruebaService.CrearPilotoAnimado();
+            cotizacion.ProyectoProductivo = proyectoCotizacionActual;
+            ProyectoCotizacionJsonService.Normalizar(proyectoCotizacionActual);
 
             bibliotecaEtapas = proyecto.BibliotecaEtapas ?? BibliotecaEtapasJsonService.CargarEtapas();
             bibliotecaSubEtapas = proyecto.BibliotecaSubEtapas ?? BibliotecaSubEtapasJsonService.CargarSubEtapas();
             List<CategoriaTrabajador> cargosProyecto = ObtenerBibliotecaCargosValidaParaCargar(
                 proyecto.BibliotecaCargos
             );
+            bibliotecaCargosProyectoInforme = cargosProyecto;
+            bibliotecaPersonalProyectoInforme =
+                proyecto.BibliotecaPersonal != null && proyecto.BibliotecaPersonal.Count > 0
+                    ? proyecto.BibliotecaPersonal
+                    : BibliotecaPersonalEmpresaJsonService.CargarPersonal();
 
             bibliotecaCargosGenerales = cargosProyecto
                 .Where(c => c != null && NormalizarNombreEtapa(c.Bloque).Contains("general"))
@@ -234,39 +347,8 @@ namespace Cotizador_animacion_Othalart
                 proyecto.ResolucionesDependenciasSubEtapas ??
                 new List<ResolucionDependenciaSubEtapa>();
 
-            BibliotecaEtapasJsonService.GuardarEtapas(bibliotecaEtapas);
-            BibliotecaSubEtapasJsonService.GuardarSubEtapas(bibliotecaSubEtapas);
-            Cargos.GuardarBibliotecaCompleta(cargosProyecto);
-
-            if (proyecto.BibliotecaProductos2D != null &&
-                proyecto.BibliotecaProductos2D.Count > 0)
-            {
-                BibliotecaProductos2DJsonService.GuardarProductos(proyecto.BibliotecaProductos2D);
-            }
-
-            if (proyecto.BibliotecaRendimientosProductivos != null &&
-                proyecto.BibliotecaRendimientosProductivos.Count > 0)
-            {
-                BibliotecaRendimientosProductivosJsonService.GuardarRendimientos(
-                    proyecto.BibliotecaRendimientosProductivos
-                );
-            }
-
-            if (proyecto.BibliotecaEcuacionesProductivas != null &&
-                proyecto.BibliotecaEcuacionesProductivas.Count > 0)
-            {
-                BibliotecaEcuacionesProductivasJsonService.GuardarEcuaciones(
-                    proyecto.BibliotecaEcuacionesProductivas
-                );
-            }
-
-            if (proyecto.BibliotecaGestionesProductivas != null &&
-                proyecto.BibliotecaGestionesProductivas.Count > 0)
-            {
-                BibliotecaGestionesProductivasJsonService.GuardarGestiones(
-                    proyecto.BibliotecaGestionesProductivas
-                );
-            }
+            // Las bibliotecas incluidas en el archivo se usan como contexto del proyecto.
+            // No se escriben automáticamente sobre los JSON maestros al cargar.
 
             modoOscuroActivo = proyecto.ModoOscuroActivo;
 
@@ -274,10 +356,54 @@ namespace Cotizador_animacion_Othalart
 
             ServicioCotizacion.RecalcularCotizacion(cotizacion);
             RefrescarTodo();
+            RefrescarProyectoUI();
             RestaurarRespaldoDatosProyectoEnBrief(proyecto);
             RestaurarPiezas2DGuardadasEnPantalla(proyecto);
             TemaVisualService.AplicarTema(this, modoOscuroActivo);
             RefrescarBotonModoOscuro();
+        }
+
+        private void CargarProyectoRecienteDesdeInicio(string rutaArchivo)
+        {
+            try
+            {
+                ProyectoOthalartGuardado proyecto =
+                    ProyectoOthalartArchivoService.Cargar(rutaArchivo);
+
+                if (proyecto == null || proyecto.Cotizacion == null)
+                {
+                    throw new InvalidOperationException("El archivo no contiene un proyecto válido.");
+                }
+
+                cargandoProyectoDesdeArchivo = true;
+                try
+                {
+                    AplicarSnapshotProyecto(proyecto, rutaArchivo);
+                }
+                finally
+                {
+                    cargandoProyectoDesdeArchivo = false;
+                }
+
+                ProyectosRecientesService.Registrar(
+                    rutaArchivo,
+                    proyecto.Cotizacion.NombreProyecto,
+                    proyecto.Cotizacion.NombreCliente
+                );
+                RefrescarTabInicio();
+                MarcarProyectoGuardado();
+                AplicarModoAplicacion(ModoAplicacion.Proyecto);
+                RefrescarDatosDesdeProyectoProductivo();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    "No se pudo cargar el proyecto reciente.\n\n" + ex.Message,
+                    "Proyecto reciente",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error
+                );
+            }
         }
 
         private string ObtenerTipoSolicitudDatosGuardado()
@@ -319,9 +445,14 @@ namespace Cotizador_animacion_Othalart
                     SubEtapaSugerida = p.SubEtapaSugerida,
                     DependeDe = p.DependeDe,
                     CargosSugeridos = p.CargosSugeridos,
+                    EquationKey = p.EquationKey,
                     EcuacionProductiva = p.EcuacionProductiva,
                     VariablesEcuacion = p.VariablesEcuacion,
                     ImpactoEcuacion = p.ImpactoEcuacion,
+                    ModoCalculoProductivo = p.ModoCalculoProductivo,
+                    HorasAsignadasMin = p.HorasAsignadasMin,
+                    HorasAsignadasStd = p.HorasAsignadasStd,
+                    HorasAsignadasHolgura = p.HorasAsignadasHolgura,
                     Nota = p.Nota
                 })
                 .ToList();
@@ -466,43 +597,42 @@ namespace Cotizador_animacion_Othalart
             return nombre.Trim() + ".othalart.json";
         }
 
-        private JsonSerializerOptions CrearOpcionesJsonProyecto()
-        {
-            return new JsonSerializerOptions
-            {
-                WriteIndented = true,
-                PropertyNameCaseInsensitive = true
-            };
-        }
-
         private void BtnGuardarInformeHtml_Click(object sender, EventArgs e)
         {
             try
             {
                 AplicarDatosDesdePantalla();
+                GuardarDesgloseProductivoDesdePantalla();
+                GuardarAsignacionesManoObraDesdeTabla(false);
+                AplicarConsolidadoProyectoAlSnapshot();
                 ServicioCotizacion.RecalcularCotizacion(cotizacion);
 
-                bool guardado = InformeClienteExporter.GuardarHtmlCliente(cotizacion);
+                bool guardado = InformeClienteExporter.GuardarPdfProyecto(
+                    proyectoCotizacionActual,
+                    bibliotecaPersonalProyectoInforme ??
+                        BibliotecaPersonalEmpresaJsonService.CargarPersonal(),
+                    bibliotecaCargosProyectoInforme ??
+                        BibliotecaCargosJsonService.CargarCargos());
 
                 if (guardado)
                 {
-                    lblGuardarEstado.Text = "Informe cliente guardado correctamente.";
+                    lblGuardarEstado.Text = "Informe PDF guardado correctamente.";
                     lblGuardarEstado.ForeColor = Color.DarkGreen;
                 }
                 else
                 {
-                    lblGuardarEstado.Text = "Guardado de informe cancelado.";
+                    lblGuardarEstado.Text = "Exportación de PDF cancelada.";
                     lblGuardarEstado.ForeColor = Color.DimGray;
                 }
             }
             catch (Exception ex)
             {
-                lblGuardarEstado.Text = "No se pudo guardar el informe cliente.";
+                lblGuardarEstado.Text = "No se pudo exportar el informe PDF.";
                 lblGuardarEstado.ForeColor = Color.DarkRed;
 
                 MessageBox.Show(
-                    "No se pudo guardar el informe cliente.\n\n" + ex.Message,
-                    "Error al guardar informe",
+                    "No se pudo exportar el informe PDF.\n\n" + ex.Message,
+                    "Error al exportar PDF",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error
                 );
@@ -514,9 +644,18 @@ namespace Cotizador_animacion_Othalart
             try
             {
                 AplicarDatosDesdePantalla();
+                GuardarDesgloseProductivoDesdePantalla();
+                GuardarAsignacionesManoObraDesdeTabla(false);
+                AplicarConsolidadoProyectoAlSnapshot();
                 ServicioCotizacion.RecalcularCotizacion(cotizacion);
 
-                bool guardado = ExcelInternoExporter.GuardarExcelInterno(cotizacion);
+                bool guardado = ExcelInternoExporter.GuardarExcelInterno(
+                    cotizacion,
+                    proyectoCotizacionActual,
+                    bibliotecaPersonalProyectoInforme ??
+                        BibliotecaPersonalEmpresaJsonService.CargarPersonal(),
+                    bibliotecaCargosProyectoInforme ??
+                        BibliotecaCargosJsonService.CargarCargos());
 
                 if (guardado)
                 {

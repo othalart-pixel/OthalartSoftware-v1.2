@@ -41,12 +41,16 @@ namespace Cotizador_animacion_Othalart
 
             Program.RegistrarTrazaInicio("Form1_Shown: AjustarAnchoPanelDerecho inicio");
             AjustarAnchoPanelDerecho();
+            BeginInvoke(new Action(AjustarAnchoPanelDerecho));
+            ProgramarAjusteInicialPanelDerecho();
             Program.RegistrarTrazaInicio("Form1_Shown: ActualizarTiposCambioAlIniciar inicio");
 
             await ActualizarTiposCambioAlIniciar();
             Program.RegistrarTrazaInicio("Form1_Shown: ActualizarTiposCambioAlIniciar OK");
 
             AjustarAnchoPanelDerecho();
+            BeginInvoke(new Action(AjustarAnchoPanelDerecho));
+            ProgramarAjusteInicialPanelDerecho();
 
             if (modoOscuroActivo)
             {
@@ -55,6 +59,19 @@ namespace Cotizador_animacion_Othalart
 
             MostrarVentanaPrincipalAlFrente();
             Program.RegistrarTrazaInicio("Form1_Shown: fin");
+        }
+
+        private void ProgramarAjusteInicialPanelDerecho()
+        {
+            System.Windows.Forms.Timer timer = new System.Windows.Forms.Timer();
+            timer.Interval = 150;
+            timer.Tick += (s, e) =>
+            {
+                timer.Stop();
+                timer.Dispose();
+                AjustarAnchoPanelDerecho();
+            };
+            timer.Start();
         }
 
         private void MostrarVentanaPrincipalAlFrente()

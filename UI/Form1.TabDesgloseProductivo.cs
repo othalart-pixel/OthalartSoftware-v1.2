@@ -2,6 +2,7 @@
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
 using System.Windows.Forms;
 using Cotizador_animacion_Othalart.Data;
 using Cotizador_animacion_Othalart.Models;
@@ -42,6 +43,20 @@ namespace Cotizador_animacion_Othalart
         private bool cargandoDesgloseProductivo = false;
         private bool aplicandoCambiosDesgloseProductivo = false;
 
+        private enum AlcanceCambioDetalleCalculo
+        {
+            Cancelado,
+            SoloFila,
+            Proceso
+        }
+
+        private enum AccionCambiosPendientesDetalleCalculo
+        {
+            Cancelado,
+            Guardar,
+            Descartar
+        }
+
         private System.Windows.Forms.Timer temporizadorRecalculoDesgloseProductivo =
     new System.Windows.Forms.Timer();
 
@@ -75,7 +90,7 @@ namespace Cotizador_animacion_Othalart
 
             Label subtitulo = new Label();
             subtitulo.Text =
-                "Traducción interna de los entregables del cliente a requerimientos productivos. Puedes editar cantidad, calidad y días-persona; el cálculo se actualiza automáticamente.";
+                "Desglose global de todos los productos del proyecto. Puedes editar cantidad, calidad, cargos, rendimiento y horas; cada cambio vuelve al producto y proceso correspondiente.";
             subtitulo.Font = new Font("Segoe UI", 9.5f, FontStyle.Regular);
             subtitulo.ForeColor = Color.FromArgb(90, 90, 90);
             subtitulo.AutoSize = true;
@@ -101,6 +116,14 @@ namespace Cotizador_animacion_Othalart
             if (cotizacion == null)
             {
                 return;
+            }
+
+            if (EsContextoDesgloseProyectoGlobal())
+            {
+                cotizacion.DesgloseProductivo =
+                    ProyectoDesgloseGlobalService.Construir(
+                        proyectoCotizacionActual,
+                        cotizacion);
             }
 
             if (cotizacion.DesgloseProductivo == null ||
@@ -147,8 +170,10 @@ namespace Cotizador_animacion_Othalart
 
             dgvDesgloseProductivo.Columns.Clear();
 
-            dgvDesgloseProductivo.Columns.Add("EntregableCliente", "Entregable");
+            dgvDesgloseProductivo.Columns.Add("ProductoProyecto", "Producto");
+            dgvDesgloseProductivo.Columns.Add("EntregableCliente", "Entregable / subproducto");
             dgvDesgloseProductivo.Columns.Add("EcuacionUsada", "Ecuación");
+            dgvDesgloseProductivo.Columns.Add("TipoProceso", "Tipo proceso");
             dgvDesgloseProductivo.Columns.Add("TipoInterno", "Tipo interno");
             dgvDesgloseProductivo.Columns.Add("NombreRequerimiento", "Requerimiento");
             dgvDesgloseProductivo.Columns.Add("Cantidad", "Cantidad");
@@ -199,6 +224,19 @@ namespace Cotizador_animacion_Othalart
             dgvDesgloseProductivo.Columns.Add(colRendimientoPeriodo);
 
             dgvDesgloseProductivo.Columns.Add("RendimientoOrigen", "Origen rendimiento");
+
+            DataGridViewComboBoxColumn colModoCalculo = new DataGridViewComboBoxColumn();
+            colModoCalculo.Name = "ModoCalculoProductivo";
+            colModoCalculo.HeaderText = "Cálculo";
+            colModoCalculo.Items.Add(ModosCalculoProductivo.Rendimiento);
+            colModoCalculo.Items.Add(ModosCalculoProductivo.TiempoAsignado);
+            colModoCalculo.FlatStyle = FlatStyle.Flat;
+            dgvDesgloseProductivo.Columns.Add(colModoCalculo);
+
+            dgvDesgloseProductivo.Columns.Add("HorasMinimas", "Horas mín.");
+            dgvDesgloseProductivo.Columns.Add("HorasEstandar", "Horas std.");
+            dgvDesgloseProductivo.Columns.Add("HorasHolgura", "Horas holg.");
+            dgvDesgloseProductivo.Columns.Add("OrigenHoras", "Origen horas");
 
             dgvDesgloseProductivo.Columns.Add("DiasPersonaMin", "Días min.");
             dgvDesgloseProductivo.Columns.Add("DiasPersonaStd", "Días std.");
@@ -327,22 +365,29 @@ namespace Cotizador_animacion_Othalart
         private void OrdenarColumnasClaveDesglose()
         {
             SetDisplayIndexDesglose("EntregableCliente", 0);
-            SetDisplayIndexDesglose("TipoInterno", 1);
-            SetDisplayIndexDesglose("NombreRequerimiento", 2);
-            SetDisplayIndexDesglose("Cantidad", 3);
-            SetDisplayIndexDesglose("Unidad", 4);
-            SetDisplayIndexDesglose("RendimientoCantidad", 5);
-            SetDisplayIndexDesglose("RendimientoPeriodo", 6);
-            SetDisplayIndexDesglose("EtapaSugerida", 7);
-            SetDisplayIndexDesglose("BloqueProductivo", 8);
-            SetDisplayIndexDesglose("RendimientoOrigen", 9);
-            SetDisplayIndexDesglose("TarifaDiaCargoCLP", 10);
-            SetDisplayIndexDesglose("DiasPersonaMin", 11);
-            SetDisplayIndexDesglose("DiasPersonaStd", 12);
-            SetDisplayIndexDesglose("DiasPersonaHolgura", 13);
-            SetDisplayIndexDesglose("CostoMinimoCLP", 14);
-            SetDisplayIndexDesglose("CostoEstandarCLP", 15);
-            SetDisplayIndexDesglose("CostoHolguraCLP", 16);
+            SetDisplayIndexDesglose("TipoProceso", 1);
+            SetDisplayIndexDesglose("TipoInterno", 2);
+            SetDisplayIndexDesglose("NombreRequerimiento", 3);
+            SetDisplayIndexDesglose("Cantidad", 4);
+            SetDisplayIndexDesglose("Unidad", 5);
+            SetDisplayIndexDesglose("RendimientoCantidad", 6);
+            SetDisplayIndexDesglose("RendimientoPeriodo", 7);
+            SetDisplayIndexDesglose("EtapaSugerida", 8);
+            SetDisplayIndexDesglose("BloqueProductivo", 9);
+            SetDisplayIndexDesglose("RendimientoOrigen", 10);
+            SetDisplayIndexDesglose("ModoCalculoProductivo", 11);
+            SetDisplayIndexDesglose("HorasMinimas", 12);
+            SetDisplayIndexDesglose("HorasEstandar", 13);
+            SetDisplayIndexDesglose("HorasHolgura", 14);
+            SetDisplayIndexDesglose("OrigenHoras", 15);
+            SetDisplayIndexDesglose("TarifaDiaCargoCLP", 16);
+            SetDisplayIndexDesglose("DiasPersonaMin", 17);
+            SetDisplayIndexDesglose("DiasPersonaStd", 18);
+            SetDisplayIndexDesglose("DiasPersonaHolgura", 19);
+            SetDisplayIndexDesglose("CostoMinimoCLP", 20);
+            SetDisplayIndexDesglose("CostoEstandarCLP", 21);
+            SetDisplayIndexDesglose("CostoHolguraCLP", 22);
+            SetDisplayIndexDesglose("ProductoProyecto", 0);
         }
 
         private void SetDisplayIndexDesglose(string nombreColumna, int indice)
@@ -365,8 +410,10 @@ namespace Cotizador_animacion_Othalart
         {
             string[] readOnly =
             {
+        "ProductoProyecto",
         "EntregableCliente",
         "EcuacionUsada",
+        "TipoProceso",
         "TipoInterno",
         "NombreRequerimiento",
         "Unidad",
@@ -375,6 +422,7 @@ namespace Cotizador_animacion_Othalart
         "SueldoMensualCargoCLP",
         "TarifaDiaCargoCLP",
         "RendimientoOrigen",
+        "OrigenHoras",
         "CostoMinimoCLP",
         "CostoEstandarCLP",
         "CostoHolguraCLP",
@@ -399,6 +447,10 @@ namespace Cotizador_animacion_Othalart
         "CargoSugerido",
         "RendimientoCantidad",
         "RendimientoPeriodo",
+        "ModoCalculoProductivo",
+        "HorasMinimas",
+        "HorasEstandar",
+        "HorasHolgura",
         "DiasPersonaMin",
         "DiasPersonaStd",
         "DiasPersonaHolgura"
@@ -418,6 +470,8 @@ namespace Cotizador_animacion_Othalart
         private void AjustarAnchosColumnasDesglose()
         {
             SetColumnWidthDesglose("EntregableCliente", 190);
+            SetColumnWidthDesglose("ProductoProyecto", 210);
+            SetColumnWidthDesglose("TipoProceso", 145);
             SetColumnWidthDesglose("TipoInterno", 155);
             SetColumnWidthDesglose("NombreRequerimiento", 300);
             SetColumnWidthDesglose("Cantidad", 85);
@@ -431,6 +485,11 @@ namespace Cotizador_animacion_Othalart
             SetColumnWidthDesglose("RendimientoCantidad", 95);
             SetColumnWidthDesglose("RendimientoPeriodo", 95);
             SetColumnWidthDesglose("RendimientoOrigen", 190);
+            SetColumnWidthDesglose("ModoCalculoProductivo", 135);
+            SetColumnWidthDesglose("HorasMinimas", 95);
+            SetColumnWidthDesglose("HorasEstandar", 95);
+            SetColumnWidthDesglose("HorasHolgura", 95);
+            SetColumnWidthDesglose("OrigenHoras", 150);
             SetColumnWidthDesglose("TarifaDiaCargoCLP", 130);
 
             SetColumnWidthDesglose("DiasPersonaMin", 95);
@@ -614,6 +673,7 @@ namespace Cotizador_animacion_Othalart
             if (cargo != null)
             {
                 req.CargoSugerido = cargo.Nombre;
+                req.CargoId = cargo.Nombre;
                 req.NivelCargoSugerido = cargo.Nivel;
                 return;
             }
@@ -630,6 +690,7 @@ namespace Cotizador_animacion_Othalart
             }
 
             req.CargoSugerido = nombre;
+            req.CargoId = nombre;
             req.NivelCargoSugerido = nivel;
         }
 
@@ -2400,6 +2461,10 @@ namespace Cotizador_animacion_Othalart
                    nombreColumna == "CargoSugerido" ||
                    nombreColumna == "RendimientoCantidad" ||
                    nombreColumna == "RendimientoPeriodo" ||
+                   nombreColumna == "ModoCalculoProductivo" ||
+                   nombreColumna == "HorasMinimas" ||
+                   nombreColumna == "HorasEstandar" ||
+                   nombreColumna == "HorasHolgura" ||
                    nombreColumna == "DiasPersonaMin" ||
                    nombreColumna == "DiasPersonaStd" ||
                    nombreColumna == "DiasPersonaHolgura";
@@ -2501,7 +2566,7 @@ namespace Cotizador_animacion_Othalart
                 tabsDetalle.TabPages.Add(CrearTabResumenCalculoDesglose(req, detalle));
                 tabsDetalle.TabPages.Add(CrearTabFormulaCalculoDesglose(req, detalle));
                 tabsDetalle.TabPages.Add(CrearTabVariablesCalculoDesglose(req, detalle));
-                tabsDetalle.TabPages.Add(CrearTabCargosCalculoDesglose(req, detalle));
+                tabsDetalle.TabPages.Add(CrearTabCargosCalculoDesglose(dialogo, req, detalle));
                 tabsDetalle.TabPages.Add(CrearTabEdicionCalculoDesglose(dialogo, req, detalle));
 
                 FlowLayoutPanel botones = new FlowLayoutPanel();
@@ -2636,7 +2701,9 @@ namespace Cotizador_animacion_Othalart
             resultado.CostoCLP = req.CostoEstandarCLP;
 
             List<EcuacionProductivaRuntimeService.CargoVector> vector =
-                EcuacionProductivaRuntimeService.ParsearVectorCargos(req.CargoSugerido);
+                req.TieneOverrideLocalCalculo && !string.IsNullOrWhiteSpace(req.CargosParticipantesOverrideJson)
+                    ? EcuacionProductivaRuntimeService.ParsearVectorCargosParticipantesJson(req.CargosParticipantesOverrideJson)
+                    : EcuacionProductivaRuntimeService.ParsearVectorCargos(req.CargoSugerido);
 
             if (vector.Count == 0 && ecuacion != null)
             {
@@ -2828,6 +2895,7 @@ namespace Cotizador_animacion_Othalart
         {
             TabPage tab = new TabPage("Resumen");
             EcuacionProductivaRuntimeService.ResultadoPrueba resultado = detalle == null ? null : detalle.Resultado;
+            EcuacionProductivaDefinicion ecuacion = detalle == null ? null : detalle.Ecuacion;
             tab.Controls.Add(CrearPanelDetalleCalculo(new[]
             {
                 new[] { "Entregable cliente", TextoSeguro(req.EntregableCliente) },
@@ -2835,6 +2903,10 @@ namespace Cotizador_animacion_Othalart
                 new[] { "Requerimiento", TextoSeguro(req.NombreRequerimiento) },
                 new[] { "Cantidad solicitada", FormatearNumeroDefinibleDesglose(req, req.Cantidad, true) + " " + TextoSeguro(req.Unidad) },
                 new[] { "Ecuación JSON", detalle == null || detalle.Ecuacion == null ? "No definida" : detalle.Ecuacion.Clave + " | " + detalle.Ecuacion.NombreVisible },
+                new[] { "Tipo proceso", ecuacion == null ? "No definido" : ecuacion.TipoProceso.ToString() },
+                new[] { "Método cálculo", ecuacion == null ? "No definido" : ecuacion.MetodoCalculo.ToString() },
+                new[] { "Alcance temporal", ecuacion == null ? "No definido" : ecuacion.AlcanceTemporal.ToString() },
+                new[] { "Proceso relacionado", ecuacion == null || string.IsNullOrWhiteSpace(ecuacion.IdProceso) ? "No definido" : ecuacion.IdProceso },
                 new[] { "Etapa / bloque", TextoSeguro(ObtenerNombreVisibleEtapa(req.EtapaSugerida)) + " / " + TextoSeguro(req.BloqueProductivo) },
                 new[] { "Flujo", TextoSeguro(req.ModoPlanificacion) },
                 new[] { "Depende de", string.IsNullOrWhiteSpace(req.DependeDe) ? "Inicio de etapa / paralelo" : req.DependeDe },
@@ -2858,15 +2930,34 @@ namespace Cotizador_animacion_Othalart
             EcuacionProductivaDefinicion ecuacion = detalle == null ? null : detalle.Ecuacion;
             string formula = ConstruirFormulaRenderizadaCalculoDesglose(ecuacion);
 
-            tab.Controls.Add(CrearPanelDetalleCalculo(new[]
+            TableLayoutPanel layout = new TableLayoutPanel();
+            layout.Dock = DockStyle.Fill;
+            layout.ColumnCount = 1;
+            layout.RowCount = 2;
+            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            layout.BackColor = Color.White;
+
+            layout.Controls.Add(CrearPanelDetalleCalculo(new[]
             {
                 new[] { "Ecuación asignada", string.IsNullOrWhiteSpace(req.EcuacionUsada) ? "No definida" : req.EcuacionUsada },
                 new[] { "Clave JSON", detalle == null || string.IsNullOrWhiteSpace(detalle.ClaveEcuacion) ? "No definida" : detalle.ClaveEcuacion },
+                new[] { "Id proceso", ecuacion == null || string.IsNullOrWhiteSpace(ecuacion.IdProceso) ? "No definido" : ecuacion.IdProceso },
+                new[] { "Tipo", ecuacion == null ? "No definido" : ecuacion.TipoProceso.ToString() },
+                new[] { "Proceso origen", ecuacion == null || string.IsNullOrWhiteSpace(ecuacion.DependenciasJson) ? "No definido" : ecuacion.DependenciasJson },
                 new[] { "Formula madre", ecuacion == null || string.IsNullOrWhiteSpace(ecuacion.EcuacionBase) ? "Sin formula madre" : ecuacion.EcuacionBase },
                 new[] { "Formula usada", formula },
                 new[] { "Lectura humana", ConstruirLecturaEcuacionCalculo(req) },
                 new[] { "Impacto", ecuacion == null || string.IsNullOrWhiteSpace(ecuacion.Impacto) ? "No definido" : ecuacion.Impacto }
-            }));
+            }), 0, 0);
+
+            Button verProceso = CrearBotonAccionDetalleCalculo("Ver proceso relacionado", 190);
+            verProceso.Anchor = AnchorStyles.Left;
+            verProceso.Margin = new Padding(14, 0, 0, 14);
+            verProceso.Click += (s, e) => AbrirTabPrincipal(tabEcuacionesPrincipal, true);
+            layout.Controls.Add(verProceso, 0, 1);
+
+            tab.Controls.Add(layout);
             return tab;
         }
 
@@ -2894,12 +2985,13 @@ namespace Cotizador_animacion_Othalart
         }
 
         private TabPage CrearTabCargosCalculoDesglose(
+            Form dialogo,
             RequerimientoProduccionInterna req,
             DetalleCalculoProductivoContexto detalle
         )
         {
             TabPage tab = new TabPage("Cargos y cálculo");
-            tab.Controls.Add(CrearGrillaCargosDetalleCalculo(req, detalle));
+            tab.Controls.Add(CrearGrillaCargosDetalleCalculo(dialogo, req, detalle));
             return tab;
         }
 
@@ -3015,28 +3107,43 @@ namespace Cotizador_animacion_Othalart
         }
 
         private Control CrearGrillaCargosDetalleCalculo(
+            Form dialogo,
             RequerimientoProduccionInterna req,
             DetalleCalculoProductivoContexto detalle
         )
         {
-            Panel contenedor = new Panel();
-            contenedor.Dock = DockStyle.Fill;
-            contenedor.Padding = new Padding(14);
-            contenedor.BackColor = Color.White;
-
             TableLayoutPanel layout = new TableLayoutPanel();
             layout.Dock = DockStyle.Fill;
             layout.ColumnCount = 1;
-            layout.RowCount = 2;
+            layout.RowCount = 4;
             layout.BackColor = Color.White;
+            layout.Padding = new Padding(14);
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+            Label estado = new Label();
+            estado.AutoSize = true;
+            estado.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
+            estado.ForeColor = req != null && req.TieneOverrideLocalCalculo
+                ? Color.FromArgb(160, 105, 0)
+                : Color.FromArgb(75, 75, 75);
+            estado.Margin = new Padding(0, 0, 0, 8);
+            estado.Text = req != null && req.TieneOverrideLocalCalculo
+                ? "Esta fila tiene una sobreescritura local guardada."
+                : "Sin cambios locales guardados.";
+
+            bool[] actualizando = new[] { false };
+            bool[] cambiosPendientes = new[] { false };
+            bool[] detalleTecnicoVisible = new[] { false };
+            string[] resultadoCierre = new[] { "sin cambios" };
 
             DataGridView grid = new DataGridView();
             grid.Dock = DockStyle.Fill;
             grid.AllowUserToAddRows = false;
             grid.AllowUserToDeleteRows = false;
-            grid.ReadOnly = true;
+            grid.ReadOnly = false;
             grid.RowHeadersVisible = false;
             grid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
             grid.MultiSelect = false;
@@ -3045,97 +3152,407 @@ namespace Cotizador_animacion_Othalart
             grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
             grid.RowTemplate.Height = 28;
 
-            grid.Columns.Add("Cargo", "Cargo");
-            grid.Columns.Add("Existe", "Estado");
+            DataGridViewComboBoxColumn colCargo = new DataGridViewComboBoxColumn();
+            colCargo.Name = "Cargo";
+            colCargo.HeaderText = "Cargo";
+            colCargo.FlatStyle = FlatStyle.Flat;
+            foreach (string cargo in Cargos.CrearBibliotecaCompleta()
+                .Where(c => c != null && !string.IsNullOrWhiteSpace(c.NombreCompleto))
+                .Select(c => c.NombreCompleto)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(c => c))
+            {
+                colCargo.Items.Add(cargo);
+            }
+            grid.Columns.Add(colCargo);
+            grid.Columns.Add(new DataGridViewCheckBoxColumn
+            {
+                Name = "Activo",
+                HeaderText = "Estado",
+                Width = 70
+            });
+            grid.Columns.Add("DedicacionPct", "Dedicación");
+            grid.Columns.Add("Capacidad", "Capacidad");
+            DataGridViewComboBoxColumn colPeriodo = new DataGridViewComboBoxColumn();
+            colPeriodo.Name = "Periodo";
+            colPeriodo.HeaderText = "Período";
+            colPeriodo.FlatStyle = FlatStyle.Flat;
+            foreach (string periodo in new[] { "día", "semana", "mes", "dia" })
+            {
+                colPeriodo.Items.Add(periodo);
+            }
+            grid.Columns.Add(colPeriodo);
+            grid.Columns.Add("HorasCargo", "Horas");
+            grid.Columns.Add("Costo", "Costo");
+            grid.Columns.Add("Diagnostico", "Diagnóstico");
+            grid.Columns.Add(new DataGridViewButtonColumn
+            {
+                Name = "EditarMaestro",
+                HeaderText = "Acción",
+                Text = "Editar cargo maestro",
+                UseColumnTextForButtonValue = true,
+                Width = 145
+            });
             grid.Columns.Add("TarifaDia", "Tarifa diaria");
             grid.Columns.Add("HorasDia", "Horas/día");
             grid.Columns.Add("TarifaHora", "Tarifa base/h");
-            grid.Columns.Add("DedicacionPct", "Dedicación %");
             grid.Columns.Add("Factor", "Factor");
-            grid.Columns.Add("Capacidad", "Capacidad");
-            grid.Columns.Add("Periodo", "Periodo");
             grid.Columns.Add("HorasBase", "Horas base");
-            grid.Columns.Add("HorasCargo", "Horas cargo");
             grid.Columns.Add("CostoHora", "Costo/h efectivo");
-            grid.Columns.Add("Costo", "Costo derivado");
-            grid.Columns.Add("Diagnostico", "Diagnóstico");
 
-            grid.Columns["Cargo"].Width = 230;
-            grid.Columns["Existe"].Width = 95;
+            grid.Columns["Cargo"].Width = 250;
+            grid.Columns["DedicacionPct"].Width = 95;
+            grid.Columns["Capacidad"].Width = 95;
+            grid.Columns["Periodo"].Width = 95;
+            grid.Columns["HorasCargo"].Width = 95;
+            grid.Columns["Costo"].Width = 115;
+            grid.Columns["Diagnostico"].Width = 320;
             grid.Columns["TarifaDia"].Width = 115;
             grid.Columns["HorasDia"].Width = 80;
             grid.Columns["TarifaHora"].Width = 115;
-            grid.Columns["DedicacionPct"].Width = 105;
             grid.Columns["Factor"].Width = 75;
-            grid.Columns["Capacidad"].Width = 105;
-            grid.Columns["Periodo"].Width = 95;
             grid.Columns["HorasBase"].Width = 95;
-            grid.Columns["HorasCargo"].Width = 95;
             grid.Columns["CostoHora"].Width = 125;
-            grid.Columns["Costo"].Width = 125;
-            grid.Columns["Diagnostico"].Width = 360;
 
-            List<EcuacionProductivaRuntimeService.ResultadoCargo> cargos =
-                detalle == null || detalle.Resultado == null
-                    ? new List<EcuacionProductivaRuntimeService.ResultadoCargo>()
-                    : detalle.Resultado.Cargos;
-
-            layout.Controls.Add(CrearResumenTotalesCargosDetalleCalculo(cargos), 0, 0);
-
-            foreach (EcuacionProductivaRuntimeService.ResultadoCargo cargo in cargos)
+            foreach (string columna in new[] { "HorasCargo", "Costo", "Diagnostico", "TarifaDia", "HorasDia", "TarifaHora", "Factor", "HorasBase", "CostoHora" })
             {
-                double horasBase = cargo.Dedicacion > 0.0
-                    ? cargo.HorasTecnicas / cargo.Dedicacion
-                    : cargo.HorasTecnicas;
+                grid.Columns[columna].ReadOnly = true;
+            }
 
-                int rowIndex = grid.Rows.Add(
-                    LimpiarNombreCargoDetalle(cargo.CargoResuelto, cargo.CargoSolicitado),
-                    cargo.CargoExiste
-                        ? (cargo.RendimientoExiste ? "OK" : "Sin rendimiento")
-                        : "No encontrado",
-                    cargo.TarifaDiaCLP > 0.0 ? FormatearValorVisual(cargo.TarifaDiaCLP) : "No definido",
-                    cargo.HorasPorDia > 0.0 ? cargo.HorasPorDia.ToString("0.##") : "No definido",
-                    cargo.TarifaHoraCLP > 0.0 ? FormatearValorVisual(cargo.TarifaHoraCLP) + "/h" : "No definido",
-                    (cargo.Dedicacion * 100.0).ToString("0.##") + "%",
-                    cargo.Dedicacion.ToString("0.####"),
-                    cargo.CapacidadPorPeriodo > 0.0 ? cargo.CapacidadPorPeriodo.ToString("0.##") + " " + TextoSeguro(cargo.UnidadPrueba) : "No definido",
-                    string.IsNullOrWhiteSpace(cargo.Periodo) ? "No definido" : cargo.Periodo,
-                    horasBase > 0.0 ? horasBase.ToString("0.##") + " h" : "No definido",
-                    cargo.HorasTecnicas > 0.0 ? cargo.HorasTecnicas.ToString("0.##") + " h" : "No definido",
-                    cargo.TarifaHoraPonderadaCLP > 0.0 ? FormatearValorVisual(cargo.TarifaHoraPonderadaCLP) + "/h" : "No definido",
-                    cargo.CostoCLP > 0.0 ? FormatearValorVisual(cargo.CostoCLP) : "No definido",
-                    string.IsNullOrWhiteSpace(cargo.Diagnostico) ? "Sin diagnóstico" : cargo.Diagnostico
-                );
-
-                if (!cargo.CargoExiste || (!cargo.RendimientoExiste && cargo.RequiereRendimientoProductivo))
+            Action aplicarVisibilidad = () =>
+            {
+                foreach (string columna in new[] { "TarifaDia", "HorasDia", "TarifaHora", "Factor", "HorasBase", "CostoHora" })
                 {
-                    grid.Rows[rowIndex].DefaultCellStyle.BackColor = Color.FromArgb(255, 243, 205);
+                    grid.Columns[columna].Visible = detalleTecnicoVisible[0];
                 }
-            }
+            };
 
-            if (grid.Rows.Count == 0)
+            FlowLayoutPanel resumenHost = new FlowLayoutPanel();
+            resumenHost.Dock = DockStyle.Top;
+            resumenHost.AutoSize = true;
+            resumenHost.WrapContents = true;
+            resumenHost.Margin = new Padding(0, 0, 0, 8);
+
+            Action<string> marcarPendiente = mensaje =>
             {
-                grid.Rows.Add(
-                    "No definido",
-                    "Sin cargos",
-                    "No definido",
-                    "No definido",
-                    "No definido",
-                    "No definido",
-                    "No definido",
-                    "No definido",
-                    "No definido",
-                    "No definido",
-                    "No definido",
-                    "No definido",
-                    "No definido",
-                    "La ecuación o la fila no tiene cargos participantes."
-                );
+                if (actualizando[0])
+                {
+                    return;
+                }
+                cambiosPendientes[0] = true;
+                estado.ForeColor = Color.FromArgb(170, 80, 0);
+                estado.Text = "Cambios sin guardar. " + mensaje;
+            };
+
+            Func<List<CargoParticipanteFormula>> leerParticipantes = () =>
+                grid.Rows.Cast<DataGridViewRow>()
+                    .Where(r => r != null && !r.IsNewRow)
+                    .Select(r => new CargoParticipanteFormula
+                    {
+                        Cargo = Convert.ToString(r.Cells["Cargo"].Value) ?? "",
+                        Activo = Convert.ToBoolean(r.Cells["Activo"].Value ?? true),
+                        DedicacionPorcentaje = Math.Max(0.0, Math.Min(100.0, ParsearDoubleDesglose(r.Cells["DedicacionPct"].Value, 100.0))),
+                        HorasPorDia = 8.0
+                    })
+                    .Where(p => !string.IsNullOrWhiteSpace(p.Cargo))
+                    .ToList();
+
+            Action refrescar = () =>
+            {
+                if (actualizando[0])
+                {
+                    return;
+                }
+
+                actualizando[0] = true;
+                try
+                {
+                    double capacidad = grid.Rows.Cast<DataGridViewRow>()
+                        .Where(r => r != null && !r.IsNewRow)
+                        .Select(r => ParsearDoubleDesglose(r.Cells["Capacidad"].Value, req.RendimientoCantidad))
+                        .FirstOrDefault(v => v > 0.0);
+                    string periodo = grid.Rows.Cast<DataGridViewRow>()
+                        .Where(r => r != null && !r.IsNewRow)
+                        .Select(r => Convert.ToString(r.Cells["Periodo"].Value) ?? req.RendimientoPeriodo)
+                        .FirstOrDefault(p => !string.IsNullOrWhiteSpace(p)) ?? req.RendimientoPeriodo;
+
+                    RequerimientoProduccionInterna temporal = ClonarRequerimientoDetalleCalculo(req);
+                    temporal.RendimientoCantidad = capacidad > 0.0 ? capacidad : req.RendimientoCantidad;
+                    temporal.RendimientoPeriodo = string.IsNullOrWhiteSpace(periodo) ? req.RendimientoPeriodo : periodo;
+                    temporal.CargoSugerido = EcuacionProductivaRuntimeService.SerializarVectorCargos(
+                        leerParticipantes()
+                            .Where(p => p.Activo)
+                            .Select(p => new EcuacionProductivaRuntimeService.CargoVector
+                            {
+                                Cargo = p.Cargo,
+                                Dedicacion = p.DedicacionPorcentaje / 100.0
+                            })
+                    );
+
+                    EcuacionProductivaRuntimeService.ResultadoPrueba resultado = CrearResultadoDetalleDesdeFilaFinal(
+                        temporal,
+                        detalle == null ? null : detalle.Ecuacion,
+                        detalle == null ? new List<EcuacionProductivaDefinicion>() : detalle.Biblioteca,
+                        cotizacion != null && cotizacion.DiasHabilesEstudioPorSemana > 0.0 ? cotizacion.DiasHabilesEstudioPorSemana : 5.0
+                    );
+
+                    foreach (DataGridViewRow row in grid.Rows)
+                    {
+                        if (row == null || row.IsNewRow)
+                        {
+                            continue;
+                        }
+
+                        string cargoFila = Convert.ToString(row.Cells["Cargo"].Value) ?? "";
+                        EcuacionProductivaRuntimeService.ResultadoCargo cargo = resultado.Cargos.FirstOrDefault(c =>
+                            NormalizarTextoDetalleCalculo(c.CargoSolicitado) == NormalizarTextoDetalleCalculo(cargoFila) ||
+                            NormalizarTextoDetalleCalculo(c.CargoResuelto) == NormalizarTextoDetalleCalculo(cargoFila));
+
+                        if (cargo == null)
+                        {
+                            row.Cells["HorasCargo"].Value = "No definido";
+                            row.Cells["Costo"].Value = "No definido";
+                            row.Cells["Diagnostico"].Value = "Cargo inactivo o sin resultado.";
+                            continue;
+                        }
+
+                        double horasBase = cargo.Dedicacion > 0.0 ? cargo.HorasTecnicas / cargo.Dedicacion : cargo.HorasTecnicas;
+                        row.Cells["TarifaDia"].Value = cargo.TarifaDiaCLP > 0.0 ? FormatearValorVisual(cargo.TarifaDiaCLP) : "No definido";
+                        row.Cells["HorasDia"].Value = cargo.HorasPorDia > 0.0 ? cargo.HorasPorDia.ToString("0.##") : "No definido";
+                        row.Cells["TarifaHora"].Value = cargo.TarifaHoraCLP > 0.0 ? FormatearValorVisual(cargo.TarifaHoraCLP) + "/h" : "No definido";
+                        row.Cells["Factor"].Value = cargo.Dedicacion.ToString("0.####");
+                        row.Cells["HorasBase"].Value = horasBase > 0.0 ? horasBase.ToString("0.##") + " h" : "No definido";
+                        row.Cells["HorasCargo"].Value = cargo.HorasTecnicas > 0.0 ? cargo.HorasTecnicas.ToString("0.##") + " h" : "No definido";
+                        row.Cells["CostoHora"].Value = cargo.TarifaHoraPonderadaCLP > 0.0 ? FormatearValorVisual(cargo.TarifaHoraPonderadaCLP) + "/h" : "No definido";
+                        row.Cells["Costo"].Value = cargo.CostoCLP > 0.0 ? FormatearValorVisual(cargo.CostoCLP) : "No definido";
+                        row.Cells["Diagnostico"].Value = string.IsNullOrWhiteSpace(cargo.Diagnostico) ? "Sin diagnóstico" : cargo.Diagnostico;
+                        row.DefaultCellStyle.BackColor = !cargo.CargoExiste || (!cargo.RendimientoExiste && cargo.RequiereRendimientoProductivo)
+                            ? Color.FromArgb(255, 243, 205)
+                            : Color.White;
+                    }
+
+                    resumenHost.Controls.Clear();
+                    resumenHost.Controls.Add(CrearResumenTotalesCargosDetalleCalculo(resultado.Cargos));
+                }
+                finally
+                {
+                    actualizando[0] = false;
+                }
+            };
+
+            Action<List<CargoParticipanteFormula>, double, string> cargar = (participantes, capacidad, periodo) =>
+            {
+                actualizando[0] = true;
+                try
+                {
+                    grid.Rows.Clear();
+                    foreach (CargoParticipanteFormula participante in participantes)
+                    {
+                        AsegurarValorComboDetalle(grid.Columns["Cargo"] as DataGridViewComboBoxColumn, participante.Cargo);
+                        AsegurarValorComboDetalle(grid.Columns["Periodo"] as DataGridViewComboBoxColumn, periodo);
+                        int rowIndex = grid.Rows.Add();
+                        DataGridViewRow row = grid.Rows[rowIndex];
+                        row.Cells["Cargo"].Value = participante.Cargo;
+                        row.Cells["Activo"].Value = participante.Activo;
+                        row.Cells["DedicacionPct"].Value = Math.Max(0.0, Math.Min(100.0, participante.DedicacionPorcentaje)).ToString("0.##");
+                        row.Cells["Capacidad"].Value = capacidad > 0.0 ? capacidad.ToString("0.##") : "";
+                        row.Cells["Periodo"].Value = string.IsNullOrWhiteSpace(periodo) ? "día" : periodo;
+                    }
+                }
+                finally
+                {
+                    actualizando[0] = false;
+                }
+                refrescar();
+            };
+
+            List<CargoParticipanteFormula> iniciales = ObtenerParticipantesDetalleCalculo(req, detalle);
+            cargar(iniciales, req.RendimientoCantidadOverride > 0.0 ? req.RendimientoCantidadOverride : req.RendimientoCantidad,
+                string.IsNullOrWhiteSpace(req.RendimientoPeriodoOverride) ? req.RendimientoPeriodo : req.RendimientoPeriodoOverride);
+
+            FlowLayoutPanel acciones = new FlowLayoutPanel();
+            acciones.Dock = DockStyle.Top;
+            acciones.AutoSize = true;
+            acciones.WrapContents = true;
+            acciones.Margin = new Padding(0, 0, 0, 8);
+
+            ComboBox cmbAgregar = new ComboBox();
+            cmbAgregar.DropDownStyle = ComboBoxStyle.DropDown;
+            cmbAgregar.Width = 280;
+            foreach (object item in (grid.Columns["Cargo"] as DataGridViewComboBoxColumn).Items)
+            {
+                cmbAgregar.Items.Add(item);
             }
 
-            layout.Controls.Add(grid, 0, 1);
-            contenedor.Controls.Add(layout);
-            return contenedor;
+            Button btnAgregar = CrearBotonAccionDetalleCalculo("Agregar cargo", 120);
+            btnAgregar.Click += (s, e) =>
+            {
+                string cargo = (cmbAgregar.Text ?? "").Trim();
+                if (string.IsNullOrWhiteSpace(cargo))
+                {
+                    return;
+                }
+                if (grid.Rows.Cast<DataGridViewRow>().Any(r => r != null && !r.IsNewRow &&
+                    NormalizarTextoDetalleCalculo(Convert.ToString(r.Cells["Cargo"].Value)) == NormalizarTextoDetalleCalculo(cargo)))
+                {
+                    MessageBox.Show("Ese cargo ya está asignado.", "Detalle de cálculo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+                cargar(leerParticipantes().Concat(new[] { new CargoParticipanteFormula { Cargo = cargo, Activo = true, DedicacionPorcentaje = 100.0 } }).ToList(),
+                    ParsearDoubleDesglose(grid.Rows.Count > 0 ? grid.Rows[0].Cells["Capacidad"].Value : req.RendimientoCantidad, req.RendimientoCantidad),
+                    grid.Rows.Count > 0 ? Convert.ToString(grid.Rows[0].Cells["Periodo"].Value) : req.RendimientoPeriodo);
+                cmbAgregar.Text = "";
+                marcarPendiente("Cargo agregado.");
+            };
+
+            Button btnQuitar = CrearBotonAccionDetalleCalculo("Quitar cargo", 110);
+            btnQuitar.Click += (s, e) =>
+            {
+                if (grid.CurrentRow == null || grid.CurrentRow.IsNewRow)
+                {
+                    return;
+                }
+                if (leerParticipantes().Count(p => p.Activo) <= 1)
+                {
+                    MessageBox.Show("Vas a eliminar o dejar sin cargos productivos este cálculo.", "Advertencia", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+                grid.Rows.Remove(grid.CurrentRow);
+                refrescar();
+                marcarPendiente("Cargo quitado.");
+            };
+
+            Button btnRecalcular = CrearBotonAccionDetalleCalculo("Recalcular", 100);
+            btnRecalcular.Click += (s, e) => refrescar();
+
+            Button btnGuardar = CrearBotonAccionDetalleCalculo("Guardar cambios", 140);
+            btnGuardar.Click += (s, e) =>
+            {
+                AlcanceCambioDetalleCalculo alcance = PreguntarAlcanceDetalleCalculo(dialogo);
+                if (alcance == AlcanceCambioDetalleCalculo.Cancelado)
+                {
+                    return;
+                }
+
+                if (alcance == AlcanceCambioDetalleCalculo.SoloFila)
+                {
+                    GuardarOverrideLocalDetalleCalculo(req, detalle, leerParticipantes(), grid);
+                    resultadoCierre[0] = "cambios locales";
+                    dialogo.Tag = resultadoCierre[0];
+                    cambiosPendientes[0] = false;
+                    estado.ForeColor = Color.FromArgb(0, 105, 92);
+                    estado.Text = "Cambios locales guardados en esta fila del proyecto.";
+                    RefrescarFilasDesgloseProductivoSinReconstruir();
+                    RefrescarResumenDesgloseProductivo();
+                    RefrescarDespuesDeEditarDesgloseProductivo();
+                    return;
+                }
+
+                if (alcance == AlcanceCambioDetalleCalculo.Proceso)
+                {
+                    GuardarCambiosFormulaDetalleCalculo(detalle, leerParticipantes());
+                    resultadoCierre[0] = "cambios de fórmula";
+                    dialogo.Tag = resultadoCierre[0];
+                    cambiosPendientes[0] = false;
+                    estado.ForeColor = Color.FromArgb(0, 105, 92);
+                    estado.Text = "Cambios guardados en la fórmula/proceso.";
+                    GenerarDesgloseProductivoDesdeEcuaciones();
+                    CargarDesgloseProductivoEnPantalla();
+                    RefrescarResumenDesgloseProductivo();
+                    RefrescarDespuesDeEditarDesgloseProductivo();
+                }
+            };
+
+            Button btnDescartar = CrearBotonAccionDetalleCalculo("Descartar cambios", 145);
+            btnDescartar.Click += (s, e) =>
+            {
+                cargar(iniciales, req.RendimientoCantidadOverride > 0.0 ? req.RendimientoCantidadOverride : req.RendimientoCantidad,
+                    string.IsNullOrWhiteSpace(req.RendimientoPeriodoOverride) ? req.RendimientoPeriodo : req.RendimientoPeriodoOverride);
+                cambiosPendientes[0] = false;
+                resultadoCierre[0] = "sin cambios";
+                estado.ForeColor = Color.FromArgb(75, 75, 75);
+                estado.Text = "Cambios descartados.";
+            };
+
+            Button btnDetalle = CrearBotonAccionDetalleCalculo("Detalle técnico", 120);
+            btnDetalle.Click += (s, e) =>
+            {
+                detalleTecnicoVisible[0] = !detalleTecnicoVisible[0];
+                btnDetalle.Text = detalleTecnicoVisible[0] ? "Ocultar detalle" : "Detalle técnico";
+                aplicarVisibilidad();
+            };
+
+            acciones.Controls.Add(cmbAgregar);
+            acciones.Controls.Add(btnAgregar);
+            acciones.Controls.Add(btnQuitar);
+            acciones.Controls.Add(btnRecalcular);
+            acciones.Controls.Add(btnGuardar);
+            acciones.Controls.Add(btnDescartar);
+            acciones.Controls.Add(btnDetalle);
+
+            grid.CellEndEdit += (s, e) =>
+            {
+                if (actualizando[0] || e.RowIndex < 0)
+                {
+                    return;
+                }
+                if (grid.Columns[e.ColumnIndex].Name == "DedicacionPct")
+                {
+                    double v = Math.Max(0.0, Math.Min(100.0, ParsearDoubleDesglose(grid.Rows[e.RowIndex].Cells[e.ColumnIndex].Value, 100.0)));
+                    grid.Rows[e.RowIndex].Cells[e.ColumnIndex].Value = v.ToString("0.##");
+                }
+                if (grid.Columns[e.ColumnIndex].Name == "Capacidad" &&
+                    ParsearDoubleDesglose(grid.Rows[e.RowIndex].Cells[e.ColumnIndex].Value, 0.0) <= 0.0)
+                {
+                    MessageBox.Show("La capacidad debe ser mayor que cero.", "Validación", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    grid.Rows[e.RowIndex].Cells[e.ColumnIndex].Value = req.RendimientoCantidad.ToString("0.##");
+                }
+                refrescar();
+                marcarPendiente("Asignación editada.");
+            };
+            grid.CurrentCellDirtyStateChanged += (s, e) =>
+            {
+                if (grid.IsCurrentCellDirty)
+                {
+                    grid.CommitEdit(DataGridViewDataErrorContexts.Commit);
+                    refrescar();
+                    marcarPendiente("Estado editado.");
+                }
+            };
+            grid.CellContentClick += (s, e) =>
+            {
+                if (e.RowIndex >= 0 && grid.Columns[e.ColumnIndex].Name == "EditarMaestro")
+                {
+                    dialogo.Tag = "cambios maestros";
+                    AbrirTabPrincipal(tabCargosPrincipal, true);
+                }
+            };
+            grid.DataError += (s, e) => { e.ThrowException = false; };
+            dialogo.FormClosing += (s, e) =>
+            {
+                if (!cambiosPendientes[0])
+                {
+                    return;
+                }
+                AccionCambiosPendientesDetalleCalculo respuesta =
+                    PreguntarCambiosPendientesDetalleCalculo(dialogo);
+                if (respuesta == AccionCambiosPendientesDetalleCalculo.Cancelado)
+                {
+                    e.Cancel = true;
+                    return;
+                }
+                if (respuesta == AccionCambiosPendientesDetalleCalculo.Guardar)
+                {
+                    GuardarOverrideLocalDetalleCalculo(req, detalle, leerParticipantes(), grid);
+                    dialogo.Tag = "cambios locales";
+                }
+            };
+
+            aplicarVisibilidad();
+            layout.Controls.Add(estado, 0, 0);
+            layout.Controls.Add(acciones, 0, 1);
+            layout.Controls.Add(grid, 0, 2);
+            layout.Controls.Add(resumenHost, 0, 3);
+            return layout;
         }
 
         private Control CrearResumenTotalesCargosDetalleCalculo(
@@ -3215,6 +3632,473 @@ namespace Cotizador_animacion_Othalart
             chip.Controls.Add(lblTitulo, 0, 0);
             chip.Controls.Add(lblValor, 0, 1);
             return chip;
+        }
+
+        private Button CrearBotonAccionDetalleCalculo(string texto, int ancho)
+        {
+            Button boton = new Button();
+            boton.Text = texto;
+            boton.Width = ancho;
+            boton.Height = 30;
+            boton.Margin = new Padding(0, 0, 8, 6);
+            boton.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
+            boton.FlatStyle = FlatStyle.Flat;
+            boton.BackColor = Color.FromArgb(245, 245, 245);
+            boton.ForeColor = Color.FromArgb(25, 25, 25);
+            return boton;
+        }
+
+        private void AsegurarValorComboDetalle(DataGridViewComboBoxColumn columna, string valor)
+        {
+            valor = (valor ?? "").Trim();
+            if (columna != null && !string.IsNullOrWhiteSpace(valor) && !columna.Items.Contains(valor))
+            {
+                columna.Items.Add(valor);
+            }
+        }
+
+        private RequerimientoProduccionInterna ClonarRequerimientoDetalleCalculo(RequerimientoProduccionInterna req)
+        {
+            if (req == null)
+            {
+                return new RequerimientoProduccionInterna();
+            }
+
+            return new RequerimientoProduccionInterna
+            {
+                EntregableCliente = req.EntregableCliente,
+                CategoriaEntregable = req.CategoriaEntregable,
+                EcuacionUsada = req.EcuacionUsada,
+                ProyectoId = req.ProyectoId,
+                GrupoId = req.GrupoId,
+                ItemId = req.ItemId,
+                InstanciaId = req.InstanciaId,
+                ProcesoId = req.ProcesoId,
+                TipoProceso = req.TipoProceso,
+                MetodoCalculo = req.MetodoCalculo,
+                AlcanceTemporal = req.AlcanceTemporal,
+                CargoId = req.CargoId,
+                PersonaId = req.PersonaId,
+                DependenciasProcesoJson = req.DependenciasProcesoJson,
+                PuedeEjecutarseEnParalelo = req.PuedeEjecutarseEnParalelo,
+                TipoInterno = req.TipoInterno,
+                NombreRequerimiento = req.NombreRequerimiento,
+                Cantidad = req.Cantidad,
+                Unidad = req.Unidad,
+                EtapaSugerida = req.EtapaSugerida,
+                Calidad = req.Calidad,
+                BloqueProductivo = req.BloqueProductivo,
+                ModoPlanificacion = req.ModoPlanificacion,
+                DependeDe = req.DependeDe,
+                CargoSugerido = req.CargoSugerido,
+                NivelCargoSugerido = req.NivelCargoSugerido,
+                AreaCargoSugerida = req.AreaCargoSugerida,
+                SueldoMensualCargoCLP = req.SueldoMensualCargoCLP,
+                TarifaDiaCargoCLP = req.TarifaDiaCargoCLP,
+                RendimientoCantidad = req.RendimientoCantidad,
+                RendimientoPeriodo = req.RendimientoPeriodo,
+                RendimientoOrigen = req.RendimientoOrigen,
+                ModoCalculoProductivo = req.ModoCalculoProductivo,
+                HorasMinimas = req.HorasMinimas,
+                HorasEstandar = req.HorasEstandar,
+                HorasHolgura = req.HorasHolgura,
+                OrigenHoras = req.OrigenHoras,
+                DiasPersonaMin = req.DiasPersonaMin,
+                DiasPersonaStd = req.DiasPersonaStd,
+                DiasPersonaHolgura = req.DiasPersonaHolgura,
+                CostoMinimoCLP = req.CostoMinimoCLP,
+                CostoEstandarCLP = req.CostoEstandarCLP,
+                CostoHolguraCLP = req.CostoHolguraCLP,
+                ParametrosCompletos = req.ParametrosCompletos,
+                DiagnosticoParametros = req.DiagnosticoParametros,
+                EditadoManualmente = req.EditadoManualmente,
+                TieneOverrideLocalCalculo = req.TieneOverrideLocalCalculo,
+                CargosParticipantesOverrideJson = req.CargosParticipantesOverrideJson,
+                RendimientoCantidadOverride = req.RendimientoCantidadOverride,
+                RendimientoPeriodoOverride = req.RendimientoPeriodoOverride,
+                Nota = req.Nota
+            };
+        }
+
+        private List<CargoParticipanteFormula> ObtenerParticipantesDetalleCalculo(
+            RequerimientoProduccionInterna req,
+            DetalleCalculoProductivoContexto detalle
+        )
+        {
+            if (req != null && req.TieneOverrideLocalCalculo &&
+                !string.IsNullOrWhiteSpace(req.CargosParticipantesOverrideJson))
+            {
+                List<CargoParticipanteFormula> locales =
+                    ParsearParticipantesDetalleCalculo(req.CargosParticipantesOverrideJson);
+                if (locales.Count > 0)
+                {
+                    return locales;
+                }
+            }
+
+            if (detalle != null && detalle.Ecuacion != null &&
+                !string.IsNullOrWhiteSpace(detalle.Ecuacion.CargosParticipantesJson))
+            {
+                List<CargoParticipanteFormula> participantes =
+                    ParsearParticipantesDetalleCalculo(detalle.Ecuacion.CargosParticipantesJson);
+                if (participantes.Count > 0)
+                {
+                    return participantes;
+                }
+            }
+
+            string cargos = req == null ? "" : req.CargoSugerido;
+            if (string.IsNullOrWhiteSpace(cargos) && detalle != null && detalle.Ecuacion != null)
+            {
+                cargos = detalle.Ecuacion.CargosPermitidos;
+            }
+
+            return EcuacionProductivaRuntimeService.ParsearVectorCargos(cargos)
+                .Select(c => new CargoParticipanteFormula
+                {
+                    Cargo = c.Cargo,
+                    Activo = true,
+                    DedicacionPorcentaje = Math.Max(0.0, Math.Min(100.0, c.Dedicacion * 100.0)),
+                    HorasPorDia = 8.0
+                })
+                .ToList();
+        }
+
+        private List<CargoParticipanteFormula> ParsearParticipantesDetalleCalculo(string json)
+        {
+            try
+            {
+                return JsonSerializer.Deserialize<List<CargoParticipanteFormula>>(json) ??
+                    new List<CargoParticipanteFormula>();
+            }
+            catch
+            {
+                return new List<CargoParticipanteFormula>();
+            }
+        }
+
+        private string SerializarParticipantesDetalleCalculo(IEnumerable<CargoParticipanteFormula> participantes)
+        {
+            return JsonSerializer.Serialize((participantes ?? new List<CargoParticipanteFormula>())
+                .Where(p => p != null && !string.IsNullOrWhiteSpace(p.Cargo))
+                .ToList());
+        }
+
+        private AlcanceCambioDetalleCalculo PreguntarAlcanceDetalleCalculo(IWin32Window owner)
+        {
+            AlcanceCambioDetalleCalculo alcance = AlcanceCambioDetalleCalculo.Cancelado;
+
+            using (Form dialogo = new Form())
+            {
+                dialogo.Text = "Alcance del cambio";
+                dialogo.StartPosition = FormStartPosition.CenterParent;
+                dialogo.FormBorderStyle = FormBorderStyle.FixedDialog;
+                dialogo.MaximizeBox = false;
+                dialogo.MinimizeBox = false;
+                dialogo.ShowInTaskbar = false;
+                dialogo.AutoSize = true;
+                dialogo.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+                dialogo.BackColor = Color.White;
+                dialogo.Padding = new Padding(18);
+                dialogo.KeyPreview = true;
+
+                TableLayoutPanel layout = new TableLayoutPanel();
+                layout.AutoSize = true;
+                layout.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+                layout.ColumnCount = 1;
+                layout.RowCount = 5;
+                layout.BackColor = Color.White;
+                layout.MaximumSize = new Size(520, 0);
+
+                Label pregunta = new Label();
+                pregunta.Text = "¿Dónde quieres guardar estos cambios?";
+                pregunta.AutoSize = true;
+                pregunta.Font = new Font("Segoe UI", 11.5f, FontStyle.Bold);
+                pregunta.ForeColor = Color.FromArgb(25, 25, 25);
+                pregunta.Margin = new Padding(0, 0, 0, 12);
+
+                Button btnSoloFila = CrearBotonOpcionAlcanceDetalleCalculo(
+                    "Solo esta fila del proyecto",
+                    "Crea una sobreescritura local y no modifica la biblioteca.",
+                    true
+                );
+                Button btnProceso = CrearBotonOpcionAlcanceDetalleCalculo(
+                    "Este proceso para futuros cálculos",
+                    "Actualiza la fórmula o proceso y afectará nuevos cálculos.",
+                    false
+                );
+                Button btnCancelar = CrearBotonOpcionAlcanceDetalleCalculo(
+                    "Cancelar",
+                    "Volver al editor sin guardar.",
+                    false
+                );
+
+                btnSoloFila.Click += (s, e) =>
+                {
+                    alcance = AlcanceCambioDetalleCalculo.SoloFila;
+                    dialogo.DialogResult = DialogResult.OK;
+                    dialogo.Close();
+                };
+                btnProceso.Click += (s, e) =>
+                {
+                    alcance = AlcanceCambioDetalleCalculo.Proceso;
+                    dialogo.DialogResult = DialogResult.OK;
+                    dialogo.Close();
+                };
+                btnCancelar.Click += (s, e) =>
+                {
+                    alcance = AlcanceCambioDetalleCalculo.Cancelado;
+                    dialogo.DialogResult = DialogResult.Cancel;
+                    dialogo.Close();
+                };
+
+                dialogo.CancelButton = btnCancelar;
+                dialogo.KeyDown += (s, e) =>
+                {
+                    if (e.KeyCode == Keys.Escape)
+                    {
+                        alcance = AlcanceCambioDetalleCalculo.Cancelado;
+                        dialogo.DialogResult = DialogResult.Cancel;
+                        dialogo.Close();
+                    }
+                };
+                dialogo.FormClosing += (s, e) =>
+                {
+                    if (dialogo.DialogResult != DialogResult.OK)
+                    {
+                        alcance = AlcanceCambioDetalleCalculo.Cancelado;
+                    }
+                };
+
+                layout.Controls.Add(pregunta, 0, 0);
+                layout.Controls.Add(btnSoloFila, 0, 1);
+                layout.Controls.Add(btnProceso, 0, 2);
+                layout.Controls.Add(btnCancelar, 0, 3);
+                dialogo.Controls.Add(layout);
+                dialogo.ShowDialog(owner);
+            }
+
+            return alcance;
+        }
+
+        private AccionCambiosPendientesDetalleCalculo PreguntarCambiosPendientesDetalleCalculo(IWin32Window owner)
+        {
+            AccionCambiosPendientesDetalleCalculo accion =
+                AccionCambiosPendientesDetalleCalculo.Cancelado;
+
+            using (Form dialogo = new Form())
+            {
+                dialogo.Text = "Cambios sin guardar";
+                dialogo.StartPosition = FormStartPosition.CenterParent;
+                dialogo.FormBorderStyle = FormBorderStyle.FixedDialog;
+                dialogo.MaximizeBox = false;
+                dialogo.MinimizeBox = false;
+                dialogo.ShowInTaskbar = false;
+                dialogo.AutoSize = true;
+                dialogo.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+                dialogo.BackColor = Color.White;
+                dialogo.Padding = new Padding(18);
+                dialogo.KeyPreview = true;
+
+                TableLayoutPanel layout = new TableLayoutPanel();
+                layout.AutoSize = true;
+                layout.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+                layout.ColumnCount = 1;
+                layout.RowCount = 5;
+                layout.BackColor = Color.White;
+                layout.MaximumSize = new Size(520, 0);
+
+                Label pregunta = new Label();
+                pregunta.Text = "Hay cambios sin guardar en la radiografía.";
+                pregunta.AutoSize = true;
+                pregunta.Font = new Font("Segoe UI", 11.5f, FontStyle.Bold);
+                pregunta.ForeColor = Color.FromArgb(25, 25, 25);
+                pregunta.Margin = new Padding(0, 0, 0, 12);
+
+                Button btnGuardar = CrearBotonOpcionAlcanceDetalleCalculo(
+                    "Guardar como sobreescritura local",
+                    "Conserva los cambios solo en esta fila del proyecto.",
+                    true
+                );
+                Button btnDescartar = CrearBotonOpcionAlcanceDetalleCalculo(
+                    "Descartar cambios",
+                    "Cierra la ventana sin guardar esta edición.",
+                    false
+                );
+                Button btnCancelar = CrearBotonOpcionAlcanceDetalleCalculo(
+                    "Cancelar",
+                    "Volver al editor.",
+                    false
+                );
+
+                btnGuardar.Click += (s, e) =>
+                {
+                    accion = AccionCambiosPendientesDetalleCalculo.Guardar;
+                    dialogo.DialogResult = DialogResult.OK;
+                    dialogo.Close();
+                };
+                btnDescartar.Click += (s, e) =>
+                {
+                    accion = AccionCambiosPendientesDetalleCalculo.Descartar;
+                    dialogo.DialogResult = DialogResult.OK;
+                    dialogo.Close();
+                };
+                btnCancelar.Click += (s, e) =>
+                {
+                    accion = AccionCambiosPendientesDetalleCalculo.Cancelado;
+                    dialogo.DialogResult = DialogResult.Cancel;
+                    dialogo.Close();
+                };
+
+                dialogo.CancelButton = btnCancelar;
+                dialogo.KeyDown += (s, e) =>
+                {
+                    if (e.KeyCode == Keys.Escape)
+                    {
+                        accion = AccionCambiosPendientesDetalleCalculo.Cancelado;
+                        dialogo.DialogResult = DialogResult.Cancel;
+                        dialogo.Close();
+                    }
+                };
+                dialogo.FormClosing += (s, e) =>
+                {
+                    if (dialogo.DialogResult != DialogResult.OK)
+                    {
+                        accion = AccionCambiosPendientesDetalleCalculo.Cancelado;
+                    }
+                };
+
+                layout.Controls.Add(pregunta, 0, 0);
+                layout.Controls.Add(btnGuardar, 0, 1);
+                layout.Controls.Add(btnDescartar, 0, 2);
+                layout.Controls.Add(btnCancelar, 0, 3);
+                dialogo.Controls.Add(layout);
+                dialogo.ShowDialog(owner);
+            }
+
+            return accion;
+        }
+
+        private Button CrearBotonOpcionAlcanceDetalleCalculo(
+            string textoPrincipal,
+            string textoSecundario,
+            bool principal
+        )
+        {
+            Button boton = new Button();
+            boton.AutoSize = true;
+            boton.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            boton.MinimumSize = new Size(460, 54);
+            boton.MaximumSize = new Size(500, 0);
+            boton.Margin = new Padding(0, 0, 0, 8);
+            boton.Padding = new Padding(12, 8, 12, 8);
+            boton.TextAlign = ContentAlignment.MiddleLeft;
+            boton.FlatStyle = FlatStyle.Flat;
+            boton.Font = new Font("Segoe UI", 9.5f, FontStyle.Regular);
+            boton.UseVisualStyleBackColor = false;
+            boton.BackColor = principal ? Color.FromArgb(0, 150, 120) : Color.FromArgb(247, 248, 250);
+            boton.ForeColor = principal ? Color.White : Color.FromArgb(25, 25, 25);
+            boton.FlatAppearance.BorderColor = principal
+                ? Color.FromArgb(0, 120, 96)
+                : Color.FromArgb(210, 215, 222);
+            boton.Text = textoPrincipal + Environment.NewLine + textoSecundario;
+            return boton;
+        }
+
+        private void GuardarOverrideLocalDetalleCalculo(
+            RequerimientoProduccionInterna req,
+            DetalleCalculoProductivoContexto detalle,
+            List<CargoParticipanteFormula> participantes,
+            DataGridView grid
+        )
+        {
+            if (req == null)
+            {
+                return;
+            }
+
+            double capacidad = grid.Rows.Cast<DataGridViewRow>()
+                .Where(r => r != null && !r.IsNewRow)
+                .Select(r => ParsearDoubleDesglose(r.Cells["Capacidad"].Value, req.RendimientoCantidad))
+                .FirstOrDefault(v => v > 0.0);
+            string periodo = grid.Rows.Cast<DataGridViewRow>()
+                .Where(r => r != null && !r.IsNewRow)
+                .Select(r => Convert.ToString(r.Cells["Periodo"].Value) ?? req.RendimientoPeriodo)
+                .FirstOrDefault(p => !string.IsNullOrWhiteSpace(p)) ?? req.RendimientoPeriodo;
+
+            req.TieneOverrideLocalCalculo = true;
+            req.CargosParticipantesOverrideJson = SerializarParticipantesDetalleCalculo(participantes);
+            req.CargoSugerido = EcuacionProductivaRuntimeService.SerializarVectorCargos(
+                participantes
+                    .Where(p => p.Activo)
+                    .Select(p => new EcuacionProductivaRuntimeService.CargoVector
+                    {
+                        Cargo = p.Cargo,
+                        Dedicacion = p.DedicacionPorcentaje / 100.0
+                    })
+            );
+            req.RendimientoCantidad = capacidad > 0.0 ? capacidad : req.RendimientoCantidad;
+            req.RendimientoPeriodo = string.IsNullOrWhiteSpace(periodo) ? req.RendimientoPeriodo : periodo;
+            req.RendimientoCantidadOverride = req.RendimientoCantidad;
+            req.RendimientoPeriodoOverride = req.RendimientoPeriodo;
+            req.EditadoManualmente = true;
+            req.Nota = (req.Nota + " Override local de radiografía.").Trim();
+
+            EcuacionProductivaRuntimeService.ResultadoPrueba resultado =
+                CrearResultadoDetalleDesdeFilaFinal(
+                    req,
+                    detalle == null ? null : detalle.Ecuacion,
+                    detalle == null ? new List<EcuacionProductivaDefinicion>() : detalle.Biblioteca,
+                    cotizacion != null && cotizacion.DiasHabilesEstudioPorSemana > 0.0
+                        ? cotizacion.DiasHabilesEstudioPorSemana
+                        : 5.0
+                );
+
+            if (resultado != null && resultado.Cargos.Count > 0)
+            {
+                req.DiasPersonaStd = Math.Max(0.0, resultado.DiasTecnicos);
+                req.DiasPersonaMin = req.DiasPersonaStd;
+                req.DiasPersonaHolgura = req.DiasPersonaStd;
+                req.CostoEstandarCLP = Math.Max(0.0, resultado.CostoCLP);
+                req.CostoMinimoCLP = req.CostoEstandarCLP;
+                req.CostoHolguraCLP = req.CostoEstandarCLP;
+                CalculoProductivoResolverService.SincronizarHorasDesdeDias(req);
+            }
+
+            RecalcularTotalesDesgloseProductivoDesdeFilas();
+        }
+
+        private void GuardarCambiosFormulaDetalleCalculo(
+            DetalleCalculoProductivoContexto detalle,
+            List<CargoParticipanteFormula> participantes
+        )
+        {
+            if (detalle == null || detalle.Ecuacion == null)
+            {
+                return;
+            }
+
+            EcuacionProductivaDefinicion ecuacion = detalle.Biblioteca.FirstOrDefault(e =>
+                e != null &&
+                string.Equals(e.Clave, detalle.Ecuacion.Clave, StringComparison.OrdinalIgnoreCase));
+
+            if (ecuacion == null)
+            {
+                return;
+            }
+
+            ecuacion.CargosParticipantesJson = SerializarParticipantesDetalleCalculo(participantes);
+            ecuacion.CargosPermitidos = EcuacionProductivaRuntimeService.SerializarVectorCargos(
+                participantes
+                    .Where(p => p.Activo)
+                    .Select(p => new EcuacionProductivaRuntimeService.CargoVector
+                    {
+                        Cargo = p.Cargo,
+                        Dedicacion = p.DedicacionPorcentaje / 100.0
+                    })
+            );
+
+            BibliotecaEcuacionesProductivasJsonService.GuardarEcuaciones(detalle.Biblioteca);
         }
 
         private string ConstruirFormulaRenderizadaCalculoDesglose(EcuacionProductivaDefinicion ecuacion)
@@ -3608,6 +4492,15 @@ namespace Cotizador_animacion_Othalart
                         ? (req.ParametrosCompletos ? "" : "No definido")
                         : req.RendimientoOrigen;
 
+                    row.Cells["ModoCalculoProductivo"].Value =
+                        ModosCalculoProductivo.Normalizar(req.ModoCalculoProductivo);
+                    row.Cells["HorasMinimas"].Value = FormatearHorasDefiniblesDesglose(req.HorasMinimas);
+                    row.Cells["HorasEstandar"].Value = FormatearHorasDefiniblesDesglose(req.HorasEstandar);
+                    row.Cells["HorasHolgura"].Value = FormatearHorasDefiniblesDesglose(req.HorasHolgura);
+                    row.Cells["OrigenHoras"].Value = string.IsNullOrWhiteSpace(req.OrigenHoras)
+                        ? ""
+                        : req.OrigenHoras;
+
                     row.Cells["DiasPersonaMin"].Value = FormatearNumeroDefinibleDesglose(req, req.DiasPersonaMin, true);
                     row.Cells["DiasPersonaStd"].Value = FormatearNumeroDefinibleDesglose(req, req.DiasPersonaStd, true);
                     row.Cells["DiasPersonaHolgura"].Value = FormatearNumeroDefinibleDesglose(req, req.DiasPersonaHolgura, true);
@@ -3665,8 +4558,11 @@ namespace Cotizador_animacion_Othalart
                 return;
             }
 
-            cotizacion.DesgloseProductivo =
-                DesgloseProductivoService.Generar(cotizacion);
+            cotizacion.DesgloseProductivo = EsContextoDesgloseProyectoGlobal()
+                ? ProyectoDesgloseGlobalService.Construir(
+                    proyectoCotizacionActual,
+                    cotizacion)
+                : DesgloseProductivoService.Generar(cotizacion);
 
             BibliotecaSubEtapasService.SincronizarDesdeDesgloseProductivo(
                 cotizacion,
@@ -3707,8 +4603,11 @@ namespace Cotizador_animacion_Othalart
                     cotizacion.DesgloseProductivo.Requerimientos == null ||
                     cotizacion.DesgloseProductivo.Requerimientos.Count == 0)
                 {
-                    cotizacion.DesgloseProductivo =
-                        DesgloseProductivoService.Generar(cotizacion);
+                    cotizacion.DesgloseProductivo = EsContextoDesgloseProyectoGlobal()
+                        ? ProyectoDesgloseGlobalService.Construir(
+                            proyectoCotizacionActual,
+                            cotizacion)
+                        : DesgloseProductivoService.Generar(cotizacion);
 
                     BibliotecaSubEtapasService.SincronizarDesdeDesgloseProductivo(
                         cotizacion,
@@ -3745,8 +4644,11 @@ namespace Cotizador_animacion_Othalart
 
                     row.Tag = req;
 
+                    row.Cells["ProductoProyecto"].Value =
+                        ObtenerNombreProductoDesgloseGlobal(req.ItemId);
                     row.Cells["EntregableCliente"].Value = req.EntregableCliente;
                     row.Cells["EcuacionUsada"].Value = req.EcuacionUsada;
+                    row.Cells["TipoProceso"].Value = ObtenerNombreTipoProcesoDesglose(req.TipoProceso);
                     row.Cells["TipoInterno"].Value = req.TipoInterno;
                     row.Cells["NombreRequerimiento"].Value = req.NombreRequerimiento;
                     row.Cells["Cantidad"].Value = req.Cantidad.ToString("0.##");
@@ -3781,6 +4683,15 @@ namespace Cotizador_animacion_Othalart
                     row.Cells["RendimientoOrigen"].Value = string.IsNullOrWhiteSpace(req.RendimientoOrigen)
                         ? (req.ParametrosCompletos ? "" : "No definido")
                         : req.RendimientoOrigen;
+
+                    row.Cells["ModoCalculoProductivo"].Value =
+                        ModosCalculoProductivo.Normalizar(req.ModoCalculoProductivo);
+                    row.Cells["HorasMinimas"].Value = FormatearHorasDefiniblesDesglose(req.HorasMinimas);
+                    row.Cells["HorasEstandar"].Value = FormatearHorasDefiniblesDesglose(req.HorasEstandar);
+                    row.Cells["HorasHolgura"].Value = FormatearHorasDefiniblesDesglose(req.HorasHolgura);
+                    row.Cells["OrigenHoras"].Value = string.IsNullOrWhiteSpace(req.OrigenHoras)
+                        ? ""
+                        : req.OrigenHoras;
 
                     row.Cells["DiasPersonaMin"].Value = FormatearNumeroDefinibleDesglose(req, req.DiasPersonaMin, true);
                     row.Cells["DiasPersonaStd"].Value = FormatearNumeroDefinibleDesglose(req, req.DiasPersonaStd, true);
@@ -3919,6 +4830,39 @@ namespace Cotizador_animacion_Othalart
             }
 
             return valor.ToString("0.##");
+        }
+
+        private string FormatearHorasDefiniblesDesglose(double valor)
+        {
+            if (valor <= 0.0)
+            {
+                return "";
+            }
+
+            return valor.ToString("0.##");
+        }
+
+        private string ObtenerNombreTipoProcesoDesglose(TipoProcesoProductivo tipo)
+        {
+            switch (tipo)
+            {
+                case TipoProcesoProductivo.RevisionControl:
+                    return "Revisión";
+                case TipoProcesoProductivo.CorreccionRetrabajo:
+                    return "Corrección";
+                case TipoProcesoProductivo.Supervision:
+                    return "Supervisión";
+                case TipoProcesoProductivo.Direccion:
+                    return "Dirección";
+                case TipoProcesoProductivo.GestionCoordinacion:
+                    return "Gestión";
+                case TipoProcesoProductivo.EntregaSoporte:
+                    return "Entrega";
+                case TipoProcesoProductivo.ProduccionDirecta:
+                    return "Producción";
+                default:
+                    return "No clasificado";
+            }
         }
 
         private string FormatearMontoDefinibleDesglose(
@@ -4307,11 +5251,24 @@ namespace Cotizador_animacion_Othalart
                 double diasHolguraPantalla =
                     ParsearDoubleDesglose(row.Cells["DiasPersonaHolgura"].Value, req.DiasPersonaHolgura);
 
+                double horasMinPantalla =
+                    ParsearDoubleDesglose(row.Cells["HorasMinimas"].Value, req.HorasMinimas);
+
+                double horasStdPantalla =
+                    ParsearDoubleDesglose(row.Cells["HorasEstandar"].Value, req.HorasEstandar);
+
+                double horasHolguraPantalla =
+                    ParsearDoubleDesglose(row.Cells["HorasHolgura"].Value, req.HorasHolgura);
+
                 double rendimientoPantalla =
                     ParsearDoubleDesglose(row.Cells["RendimientoCantidad"].Value, req.RendimientoCantidad);
 
                 string rendimientoPeriodoPantalla =
                     Convert.ToString(row.Cells["RendimientoPeriodo"].Value) ?? req.RendimientoPeriodo;
+
+                req.ModoCalculoProductivo = ModosCalculoProductivo.Normalizar(
+                    Convert.ToString(row.Cells["ModoCalculoProductivo"].Value)
+                );
 
                 bool cambioCantidad =
                     Math.Abs(cantidadNueva - cantidadAnterior) > 0.0001;
@@ -4377,8 +5334,26 @@ namespace Cotizador_animacion_Othalart
                 }
 
                 NormalizarDiasRequerimiento(req);
-                RecalcularCostoRequerimientoDesdeCargo(req);
-                RecalcularRequerimientoDesdeRendimientoSiCorresponde(req);
+
+                if (ModosCalculoProductivo.EsTiempoAsignado(req.ModoCalculoProductivo))
+                {
+                    req.HorasMinimas = horasMinPantalla;
+                    req.HorasEstandar = horasStdPantalla;
+                    req.HorasHolgura = horasHolguraPantalla;
+
+                    if (req.HorasEstandar <= 0.0)
+                    {
+                        CalculoProductivoResolverService.SincronizarHorasDesdeDias(req);
+                    }
+
+                    CalculoProductivoResolverService.AplicarTiempoAsignado(req);
+                    RecalcularCostoRequerimientoDesdeCargo(req);
+                }
+                else
+                {
+                    RecalcularCostoRequerimientoDesdeCargo(req);
+                    RecalcularRequerimientoDesdeRendimientoSiCorresponde(req);
+                }
 
                 req.EditadoManualmente = true;
             }
@@ -4388,6 +5363,42 @@ namespace Cotizador_animacion_Othalart
                 bibliotecaSubEtapas,
                 false
             );
+
+            if (EsContextoDesgloseProyectoGlobal())
+            {
+                ProyectoDesgloseGlobalService.Aplicar(
+                    proyectoCotizacionActual,
+                    cotizacion.DesgloseProductivo,
+                    cotizacion);
+                cotizacion.ProyectoProductivo = proyectoCotizacionActual;
+                MarcarProyectoConCambiosPendientes();
+            }
+        }
+
+        private bool EsContextoDesgloseProyectoGlobal()
+        {
+            return modoAplicacionActual == ModoAplicacion.Proyecto &&
+                proyectoCotizacionActual != null &&
+                itemProyectoEnEdicionActual == null;
+        }
+
+        private string ObtenerNombreProductoDesgloseGlobal(string itemId)
+        {
+            if (proyectoCotizacionActual == null ||
+                string.IsNullOrWhiteSpace(itemId))
+            {
+                return itemProyectoEnEdicionActual?.Nombre ?? "";
+            }
+
+            return proyectoCotizacionActual.Grupos
+                .Where(g => g != null)
+                .SelectMany(g => g.Items ?? new List<ItemProyecto>())
+                .FirstOrDefault(i => i != null &&
+                    string.Equals(
+                        i.Id,
+                        itemId,
+                        StringComparison.OrdinalIgnoreCase))
+                ?.Nombre ?? "";
         }
 
 
@@ -4417,13 +5428,14 @@ namespace Cotizador_animacion_Othalart
             req.CostoMinimoCLP = req.DiasPersonaMin * req.TarifaDiaCargoCLP;
             req.CostoEstandarCLP = req.DiasPersonaStd * req.TarifaDiaCargoCLP;
             req.CostoHolguraCLP = req.DiasPersonaHolgura * req.TarifaDiaCargoCLP;
+            CalculoProductivoResolverService.SincronizarHorasDesdeDias(req);
         }
 
         private void RecalcularRequerimientoDesdeRendimientoSiCorresponde(
             RequerimientoProduccionInterna req
         )
         {
-            if (req == null || req.RendimientoCantidad <= 0.0)
+            if (req == null)
             {
                 return;
             }
@@ -4433,7 +5445,13 @@ namespace Cotizador_animacion_Othalart
                     ? cotizacion.DiasHabilesEstudioPorSemana
                     : 5.0;
 
-            BibliotecaRendimientosProductivosJsonService.AplicarRendimiento(
+            if (!ModosCalculoProductivo.EsTiempoAsignado(req.ModoCalculoProductivo) &&
+                req.RendimientoCantidad <= 0.0)
+            {
+                return;
+            }
+
+            CalculoProductivoResolverService.Aplicar(
                 req,
                 diasHabilesSemana
             );
@@ -4772,6 +5790,7 @@ namespace Cotizador_animacion_Othalart
 
             panelResumenVisualDesglose.Visible = true;
             panelResumenVisualDesglose.BringToFront();
+            panelResumenVisualDesglose.AutoScrollPosition = Point.Empty;
             panelResumenVisualDesglose.Controls.Clear();
 
             if (cotizacion == null)
@@ -4844,6 +5863,7 @@ namespace Cotizador_animacion_Othalart
             titulo.ForeColor = Color.FromArgb(30, 30, 30);
             titulo.Margin = new Padding(0, 0, 0, 10);
             root.Controls.Add(titulo);
+            root.Controls.Add(CrearPanelCapasProductivas(d));
 
             TableLayoutPanel cards = new TableLayoutPanel();
             cards.Dock = DockStyle.Top;
@@ -5029,6 +6049,7 @@ namespace Cotizador_animacion_Othalart
             root.Controls.Add(panelLinealidad);
 
             panelResumenVisualDesglose.Controls.Add(root);
+            panelResumenVisualDesglose.AutoScrollPosition = Point.Empty;
         }
 
         private Panel CrearPanelLinealidadDesglose(DesgloseProductivoProyecto desglose)
@@ -5525,6 +6546,41 @@ namespace Cotizador_animacion_Othalart
             }
 
             return panel;
+        }
+
+        private Control CrearPanelCapasProductivas(DesgloseProductivoProyecto d)
+        {
+            FlowLayoutPanel panel = new FlowLayoutPanel();
+            panel.Dock = DockStyle.Top;
+            panel.AutoSize = false;
+            panel.Height = 104;
+            panel.WrapContents = false;
+            panel.AutoScroll = true;
+            panel.Margin = new Padding(0, 0, 0, 12);
+            panel.BackColor = Color.FromArgb(248, 249, 251);
+
+            panel.Controls.Add(CrearChipCapaProductiva("Producción", d.HorasProduccionDirecta, d.CostoProduccionDirectaCLP));
+            panel.Controls.Add(CrearChipCapaProductiva("Revisión", d.HorasRevisionControl, d.CostoRevisionControlCLP));
+            panel.Controls.Add(CrearChipCapaProductiva("Corrección", d.HorasCorreccionRetrabajo, d.CostoCorreccionRetrabajoCLP));
+            panel.Controls.Add(CrearChipCapaProductiva("Dirección", d.HorasDireccion, d.CostoDireccionCLP));
+            panel.Controls.Add(CrearChipCapaProductiva("Gestión", d.HorasGestionCoordinacion, d.CostoGestionCoordinacionCLP));
+
+            return panel;
+        }
+
+        private Control CrearChipCapaProductiva(string titulo, double horas, double costo)
+        {
+            Panel chip = CrearPanelCard(Color.White);
+            chip.Dock = DockStyle.None;
+            chip.AutoSize = false;
+            chip.Width = 190;
+            chip.Height = 92;
+            chip.MinimumSize = new Size(190, 92);
+            chip.Margin = new Padding(0, 0, 8, 8);
+            chip.Controls.Add(CrearTituloCard(titulo, Color.FromArgb(60, 90, 115)));
+            chip.Controls.Add(CrearLineaDato("Horas", horas.ToString("0.##") + " h"));
+            chip.Controls.Add(CrearLineaDato("Costo", FormatearValorVisual(costo)));
+            return chip;
         }
 
         private void AppendTituloResumen(string texto)

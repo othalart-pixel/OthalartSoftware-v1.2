@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Windows.Forms;
+using Cotizador_animacion_Othalart.Data;
 using Cotizador_animacion_Othalart.Reports;
 using Cotizador_animacion_Othalart.Services;
 
@@ -23,7 +24,7 @@ namespace Cotizador_animacion_Othalart
             barra.FlowDirection = FlowDirection.LeftToRight;
 
             Label titulo = new Label();
-            titulo.Text = "Vista previa informe cliente";
+            titulo.Text = "Informe global del proyecto";
             titulo.Font = new System.Drawing.Font("Segoe UI", 14, System.Drawing.FontStyle.Bold);
             titulo.AutoSize = true;
             titulo.Margin = new Padding(0, 10, 25, 0);
@@ -37,11 +38,13 @@ namespace Cotizador_animacion_Othalart
             barra.Controls.Add(btnActualizarInforme);
 
             webInformeCliente.Dock = DockStyle.Fill;
+            webInformeCliente.ScriptErrorsSuppressed = true;
 
             layout.Controls.Add(barra, 0, 0);
             layout.Controls.Add(webInformeCliente, 0, 1);
 
             tab.Controls.Add(layout);
+            tab.Enter += (s, e) => ActualizarInformeCliente();
         }
 
         private void BtnActualizarInforme_Click(object sender, EventArgs e)
@@ -53,7 +56,10 @@ namespace Cotizador_animacion_Othalart
         {
             AplicarDatosDesdePantalla();
             RecalcularCostosExtra();
-            ServicioCotizacion.RecalcularCotizacion(cotizacion);
+            if (cotizacion != null)
+            {
+                ServicioCotizacion.RecalcularCotizacion(cotizacion);
+            }
 
             string html = GenerarHtmlInformeCliente();
             webInformeCliente.DocumentText = html;
@@ -61,6 +67,22 @@ namespace Cotizador_animacion_Othalart
 
         private string GenerarHtmlInformeCliente()
         {
+            if (proyectoCotizacionActual != null)
+            {
+                if (cotizacion != null)
+                {
+                    cotizacion.ProyectoProductivo = proyectoCotizacionActual;
+                }
+
+                return InformeProyectoBuilder.GenerarHtml(
+                    proyectoCotizacionActual,
+                    bibliotecaPersonalProyectoInforme ??
+                        BibliotecaPersonalEmpresaJsonService.CargarPersonal(),
+                    bibliotecaCargosProyectoInforme ??
+                        BibliotecaCargosJsonService.CargarCargos()
+                );
+            }
+
             return InformeClienteBuilder.GenerarHtml(cotizacion);
         }
     }

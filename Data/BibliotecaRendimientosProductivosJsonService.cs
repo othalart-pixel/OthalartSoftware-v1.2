@@ -315,8 +315,17 @@ namespace Cotizador_animacion_Othalart.Data
             RequerimientoProduccionInterna req
         )
         {
-            string origen = Normalizar(req == null ? "" : req.RendimientoOrigen);
-            return origen.Contains("editadoendesglose");
+            if (req == null)
+            {
+                return false;
+            }
+
+            string origen = Normalizar(req.RendimientoOrigen);
+            return req.TieneOverrideLocalCalculo ||
+                req.RendimientoCantidadOverride > 0.0 ||
+                origen.Contains("editadoendesglose") ||
+                origen.Contains("editadoenproyecto") ||
+                origen.Contains("override");
         }
 
         private static bool Coincide(string patron, string textoNormalizado)

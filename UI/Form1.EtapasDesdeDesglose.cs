@@ -15,6 +15,7 @@ namespace Cotizador_animacion_Othalart
 
         private readonly string[] ordenEtapasProductivasInternas =
         {
+            "Direccion, supervision y gestion",
             "Desarrollo",
             "Preproduccion",
             "Produccion",
@@ -219,12 +220,17 @@ namespace Cotizador_animacion_Othalart
                 }
 
                 etapa.Seleccionada = true;
-                etapa.InicioMes = inicioActualMes;
+                bool esGestionTransversal =
+                    NormalizarEtapaProductivaInterna(etapaNombre) == "Direccion, supervision y gestion";
+                etapa.InicioMes = esGestionTransversal ? 0.0 : inicioActualMes;
                 etapa.DuracionMeses = duracionMeses;
                 etapa.FinMes = etapa.InicioMes + etapa.DuracionMeses;
                 etapa.CostoTotal = resumen.CostoStd;
 
-                inicioActualMes = etapa.FinMes;
+                if (!esGestionTransversal)
+                {
+                    inicioActualMes = etapa.FinMes;
+                }
             }
 
             ValidarOrdenInicioEtapas();
@@ -382,6 +388,11 @@ namespace Cotizador_animacion_Othalart
             if (n.Contains("desarrollo"))
             {
                 return "Desarrollo";
+            }
+
+            if (n.Contains("direccion") || n.Contains("supervision") || n.Contains("gestion"))
+            {
+                return "Direccion, supervision y gestion";
             }
 
             if (n.Contains("preproduccion") || n.Contains("preproduccion"))

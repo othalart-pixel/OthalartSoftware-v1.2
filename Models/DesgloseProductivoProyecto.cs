@@ -22,8 +22,29 @@ namespace Cotizador_animacion_Othalart.Models
         public double HorasGestionEstandar { get; set; } = 0.0;
         public double CostoGestionEstandarCLP { get; set; } = 0.0;
 
+        public double HorasProduccionDirecta { get; set; } = 0.0;
+        public double HorasRevisionControl { get; set; } = 0.0;
+        public double HorasCorreccionRetrabajo { get; set; } = 0.0;
+        public double HorasSupervision { get; set; } = 0.0;
+        public double HorasDireccion { get; set; } = 0.0;
+        public double HorasGestionCoordinacion { get; set; } = 0.0;
+        public double HorasEntregaSoporte { get; set; } = 0.0;
+
+        public double CostoProduccionDirectaCLP { get; set; } = 0.0;
+        public double CostoRevisionControlCLP { get; set; } = 0.0;
+        public double CostoCorreccionRetrabajoCLP { get; set; } = 0.0;
+        public double CostoSupervisionCLP { get; set; } = 0.0;
+        public double CostoDireccionCLP { get; set; } = 0.0;
+        public double CostoGestionCoordinacionCLP { get; set; } = 0.0;
+        public double CostoEntregaSoporteCLP { get; set; } = 0.0;
+        public double CostoDirectoCLP { get; set; } = 0.0;
+        public double CostoIndirectoTransversalCLP { get; set; } = 0.0;
+
         public List<GestionProductivaCalculada> GestionesCalculadas { get; set; }
             = new List<GestionProductivaCalculada>();
+
+        public List<ProcesoTransversalProyecto> ProcesosTransversales { get; set; }
+            = new List<ProcesoTransversalProyecto>();
 
         public string Diagnostico { get; set; } = "";
     }

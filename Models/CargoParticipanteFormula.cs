@@ -5,6 +5,7 @@ namespace Cotizador_animacion_Othalart.Models
     public class CargoParticipanteFormula
     {
         public string Cargo { get; set; } = "";
+        public bool Activo { get; set; } = true;
         public double TarifaDiariaCLP { get; set; } = 0.0;
         public double HorasPorDia { get; set; } = 8.0;
         public double DedicacionPorcentaje { get; set; } = 100.0;

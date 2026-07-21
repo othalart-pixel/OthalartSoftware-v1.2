@@ -10,7 +10,7 @@
 		<LangVersion>latest</LangVersion>
 		<StartupObject>Cotizador_animacion_Othalart.Program</StartupObject>
 		<AssemblyName>OthalartCotizadorDev</AssemblyName>
-		<UseAppHost>false</UseAppHost>
+		<UseAppHost>true</UseAppHost>
 		<GenerateAssemblyInfo>false</GenerateAssemblyInfo>
 		<RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
 		<NoWarn>$(NoWarn);CS8632;CA1416</NoWarn>
@@ -26,10 +26,15 @@
 		<Compile Remove="UI\Form1.InitCompat.cs" />
 		<Compile Remove="UI\Form1.MonedaCompat.cs" />
 		<Compile Remove="UI\AnimatedBackgroundPanel.cs" />
+		<Compile Remove="OthalartSoftware.Tests\**\*.cs" />
 	</ItemGroup>
 
 	<ItemGroup>
 		<RuntimeHostConfigurationOption Include="System.Reflection.Metadata.MetadataUpdater.IsSupported" Value="false" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="ClosedXML" Version="0.105.0" />
 	</ItemGroup>
 
 </Project>

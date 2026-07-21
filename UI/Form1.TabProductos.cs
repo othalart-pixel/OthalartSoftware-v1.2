@@ -1050,6 +1050,10 @@ namespace Cotizador_animacion_Othalart
                         EcuacionProductiva = s.EcuacionProductiva,
                         VariablesEcuacion = s.VariablesEcuacion,
                         ImpactoEcuacion = s.ImpactoEcuacion,
+                        ModoCalculoProductivo = s.ModoCalculoProductivo,
+                        HorasAsignadasMin = s.HorasAsignadasMin,
+                        HorasAsignadasStd = s.HorasAsignadasStd,
+                        HorasAsignadasHolgura = s.HorasAsignadasHolgura,
                         Resolucion = s.Resolucion,
                         Nota = s.Nota
                     })

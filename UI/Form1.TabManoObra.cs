@@ -2349,9 +2349,7 @@ namespace Cotizador_animacion_Othalart
                 }
 
                 bool tieneDedicacionExplicita = (req.CargoSugerido ?? "").Contains("|");
-                double factorSinDedicacion = cargos.Count > 1 && !tieneDedicacionExplicita
-                    ? 1.0 / cargos.Count
-                    : 1.0;
+                double factorSinDedicacion = 1.0;
 
                 foreach (CargoPonderadoEcuacion cargo in cargos)
                 {

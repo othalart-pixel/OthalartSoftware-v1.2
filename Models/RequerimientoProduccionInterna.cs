@@ -6,6 +6,19 @@
         public string CategoriaEntregable { get; set; } = "";
 
         public string EcuacionUsada { get; set; } = "";
+        public string ProyectoId { get; set; } = "";
+        public string GrupoId { get; set; } = "";
+        public string ItemId { get; set; } = "";
+        public string SubproductoProyectoId { get; set; } = "";
+        public string InstanciaId { get; set; } = "";
+        public string ProcesoId { get; set; } = "";
+        public TipoProcesoProductivo TipoProceso { get; set; } = TipoProcesoProductivo.NoClasificado;
+        public MetodoCalculoProceso MetodoCalculo { get; set; } = MetodoCalculoProceso.NoDefinido;
+        public AlcanceTemporalProceso AlcanceTemporal { get; set; } = AlcanceTemporalProceso.NoDefinido;
+        public string CargoId { get; set; } = "";
+        public string PersonaId { get; set; } = "";
+        public string DependenciasProcesoJson { get; set; } = "";
+        public bool PuedeEjecutarseEnParalelo { get; set; } = false;
 
         public string TipoInterno { get; set; } = "";
         public string NombreRequerimiento { get; set; } = "";
@@ -42,6 +55,11 @@
         public double RendimientoCantidad { get; set; } = 0.0;
         public string RendimientoPeriodo { get; set; } = "";
         public string RendimientoOrigen { get; set; } = "";
+        public string ModoCalculoProductivo { get; set; } = "Rendimiento";
+        public double HorasMinimas { get; set; } = 0.0;
+        public double HorasEstandar { get; set; } = 0.0;
+        public double HorasHolgura { get; set; } = 0.0;
+        public string OrigenHoras { get; set; } = "";
 
         public double DiasPersonaMin { get; set; } = 0.0;
         public double DiasPersonaStd { get; set; } = 0.0;
@@ -60,6 +78,11 @@
         public string DiagnosticoParametros { get; set; } = "";
 
         public bool EditadoManualmente { get; set; } = false;
+
+        public bool TieneOverrideLocalCalculo { get; set; } = false;
+        public string CargosParticipantesOverrideJson { get; set; } = "";
+        public double RendimientoCantidadOverride { get; set; } = 0.0;
+        public string RendimientoPeriodoOverride { get; set; } = "";
 
         public string Nota { get; set; } = "";
     }

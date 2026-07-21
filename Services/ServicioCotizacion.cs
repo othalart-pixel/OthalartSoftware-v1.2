@@ -86,6 +86,7 @@ namespace Cotizador_animacion_Othalart.Services
                 cotizacion.CostoManoObraEtapas
                 + cotizacion.CostoProduccionInterna
                 + cotizacion.CostoAdministrativo
+                + cotizacion.CostoProyectoProductivoCLP
                 + totalCostosExtra;
 
             cotizacion.Imprevistos =

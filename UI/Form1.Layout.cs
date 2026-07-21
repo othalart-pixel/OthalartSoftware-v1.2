@@ -42,6 +42,10 @@ namespace Cotizador_animacion_Othalart
 
             splitPrincipal.Resize -= SplitPrincipal_Resize;
             splitPrincipal.Resize += SplitPrincipal_Resize;
+            splitPrincipal.SplitterMoved -= SplitPrincipal_SplitterMoved;
+            splitPrincipal.SplitterMoved += SplitPrincipal_SplitterMoved;
+            splitPrincipal.SplitterMoving -= SplitPrincipal_SplitterMoving;
+            splitPrincipal.SplitterMoving += SplitPrincipal_SplitterMoving;
 
             Controls.Add(splitPrincipal);
             Controls.Add(panelBarraSuperiorTema);
@@ -66,6 +70,23 @@ namespace Cotizador_animacion_Othalart
             accionesProyecto.WrapContents = false;
             accionesProyecto.Margin = new Padding(0);
             accionesProyecto.Padding = new Padding(0);
+
+            btnVolverNavegacion.Dock = DockStyle.None;
+            btnVolverNavegacion.Width = 104;
+            btnVolverNavegacion.Height = 30;
+            btnVolverNavegacion.Text = "← Volver";
+            btnVolverNavegacion.Font = new Font("Segoe UI", 9.2f, FontStyle.Bold);
+            btnVolverNavegacion.FlatStyle = FlatStyle.Flat;
+            btnVolverNavegacion.FlatAppearance.BorderSize = 1;
+            btnVolverNavegacion.FlatAppearance.BorderColor = Color.FromArgb(185, 190, 198);
+            btnVolverNavegacion.BackColor = Color.White;
+            btnVolverNavegacion.ForeColor = Color.FromArgb(25, 25, 25);
+            btnVolverNavegacion.Cursor = Cursors.Hand;
+            btnVolverNavegacion.UseVisualStyleBackColor = false;
+            btnVolverNavegacion.Margin = new Padding(0, 0, 8, 0);
+            btnVolverNavegacion.Enabled = false;
+            btnVolverNavegacion.Click -= BtnVolverNavegacion_Click;
+            btnVolverNavegacion.Click += BtnVolverNavegacion_Click;
 
             btnGuardarProyectoRapido.Dock = DockStyle.None;
             btnGuardarProyectoRapido.Width = 126;
@@ -112,11 +133,36 @@ namespace Cotizador_animacion_Othalart
             btnAlternarModoOscuro.Click -= BtnAlternarModoOscuro_Click;
             btnAlternarModoOscuro.Click += BtnAlternarModoOscuro_Click;
 
+            btnAlternarPanelLateral.Dock = DockStyle.Right;
+            btnAlternarPanelLateral.Width = 156;
+            btnAlternarPanelLateral.Height = 26;
+            btnAlternarPanelLateral.Font = new Font("Segoe UI", 8.4f, FontStyle.Bold);
+            btnAlternarPanelLateral.FlatStyle = FlatStyle.Flat;
+            btnAlternarPanelLateral.FlatAppearance.BorderSize = 1;
+            btnAlternarPanelLateral.Cursor = Cursors.Hand;
+            btnAlternarPanelLateral.UseVisualStyleBackColor = false;
+            btnAlternarPanelLateral.Margin = new Padding(0, 0, 8, 0);
+            btnAlternarPanelLateral.Click -= BtnAlternarPanelLateral_Click;
+            btnAlternarPanelLateral.Click += BtnAlternarPanelLateral_Click;
+
+            lblModoAplicacion.AutoSize = true;
+            lblModoAplicacion.Font = new Font("Segoe UI", 10.2f, FontStyle.Bold);
+            lblModoAplicacion.ForeColor = Color.FromArgb(35, 35, 35);
+            lblModoAplicacion.Margin = new Padding(18, 5, 18, 0);
+
+            lblEstadoGuardadoGlobal.AutoSize = true;
+            lblEstadoGuardadoGlobal.Font = new Font("Segoe UI", 9f, FontStyle.Regular);
+            lblEstadoGuardadoGlobal.ForeColor = Color.FromArgb(85, 85, 85);
+            lblEstadoGuardadoGlobal.Margin = new Padding(0, 7, 0, 0);
+
             panelBarraSuperiorTema.Controls.Clear();
             panelBarraSuperiorTema.Controls.Add(btnAlternarModoOscuro);
+            accionesProyecto.Controls.Add(btnVolverNavegacion);
             accionesProyecto.Controls.Add(btnGuardarProyectoRapido);
             accionesProyecto.Controls.Add(btnCargarProyectoRapido);
             panelBarraSuperiorTema.Controls.Add(accionesProyecto);
+            panelBarraSuperiorTema.Controls.Add(lblEstadoGuardadoGlobal);
+            panelBarraSuperiorTema.Controls.Add(lblModoAplicacion);
 
             RefrescarBotonModoOscuro();
         }
@@ -126,9 +172,131 @@ namespace Cotizador_animacion_Othalart
             AlternarModoOscuro();
         }
 
+        private void BtnAlternarPanelLateral_Click(object sender, EventArgs e)
+        {
+            if (tabs != null && tabs.SelectedTab == tabProyectoPrincipal)
+            {
+                if (estadoPanelDerechoProyecto != EstadoPanelDerechoProyecto.Oculto)
+                {
+                    GuardarAnchoPanelDerechoAbierto(false);
+                }
+                estadoPanelDerechoProyecto = estadoPanelDerechoProyecto == EstadoPanelDerechoProyecto.Oculto
+                    ? EstadoPanelDerechoProyecto.Normal
+                    : EstadoPanelDerechoProyecto.Oculto;
+            }
+            else
+            {
+                if (panelLateralCatalogoVisible)
+                {
+                    GuardarAnchoPanelDerechoAbierto(false);
+                }
+                panelLateralCatalogoVisible = !panelLateralCatalogoVisible;
+            }
+            ActualizarVisibilidadPanelDerecho();
+        }
+
+        private void BtnPestanaPanelDerecho_Click(object? sender, EventArgs e)
+        {
+            bool esProyecto = tabs != null && tabs.SelectedTab == tabProyectoPrincipal;
+            if (esProyecto)
+            {
+                if (estadoPanelDerechoProyecto != EstadoPanelDerechoProyecto.Oculto)
+                {
+                    GuardarAnchoPanelDerechoAbierto(false);
+                }
+                estadoPanelDerechoProyecto = estadoPanelDerechoProyecto == EstadoPanelDerechoProyecto.Oculto
+                    ? EstadoPanelDerechoProyecto.Normal
+                    : EstadoPanelDerechoProyecto.Oculto;
+            }
+            else
+            {
+                if (panelLateralCatalogoVisible)
+                {
+                    GuardarAnchoPanelDerechoAbierto(false);
+                }
+                panelLateralCatalogoVisible = !panelLateralCatalogoVisible;
+            }
+
+            ActualizarVisibilidadPanelDerecho();
+        }
+
+        private void GuardarAnchoPanelDerechoAbierto(bool definidoPorUsuario)
+        {
+            if (splitPrincipal == null || splitPrincipal.Panel2Collapsed)
+            {
+                return;
+            }
+
+            if (!definidoPorUsuario && !anchoPanelDerechoDefinidoPorUsuario)
+            {
+                return;
+            }
+
+            int anchoActual = splitPrincipal.Panel2.Width;
+            if (anchoActual <= AnchoPestanaPanelDerecho + splitPrincipal.SplitterWidth)
+            {
+                return;
+            }
+
+            ultimoAnchoPanelDerechoAbierto = Math.Max(
+                AnchoMinimoPanelDerechoAbierto,
+                anchoActual
+            );
+            if (definidoPorUsuario)
+            {
+                anchoPanelDerechoDefinidoPorUsuario = true;
+            }
+        }
+
+        private void BtnPestanaPanelDerecho_MouseEnter(object? sender, EventArgs e)
+        {
+            if (btnPestanaPanelDerecho == null)
+            {
+                return;
+            }
+
+            btnPestanaPanelDerecho.BackColor = modoOscuroActivo
+                ? Color.FromArgb(62, 62, 66)
+                : Color.FromArgb(226, 232, 240);
+        }
+
+        private void BtnPestanaPanelDerecho_MouseLeave(object? sender, EventArgs e)
+        {
+            ActualizarBotonPanelLateralCatalogo(
+                tabs != null && tabs.SelectedTab != null && !EsTabBibliotecaOEditor(tabs.SelectedTab),
+                panelContenidoLateralDerecho != null && panelContenidoLateralDerecho.Visible
+            );
+        }
+
         private void SplitPrincipal_Resize(object? sender, EventArgs e)
         {
+            if (moviendoSplitterPanelDerecho)
+            {
+                return;
+            }
+
             AjustarAnchoPanelDerecho();
+        }
+
+        private void SplitPrincipal_SplitterMoving(object? sender, SplitterCancelEventArgs e)
+        {
+            moviendoSplitterPanelDerecho = true;
+        }
+
+        private void SplitPrincipal_SplitterMoved(object? sender, SplitterEventArgs e)
+        {
+            bool fueMovimientoUsuario = moviendoSplitterPanelDerecho && !ajustandoSplitterPanelDerechoProgramaticamente;
+            moviendoSplitterPanelDerecho = false;
+            if (splitPrincipal == null || splitPrincipal.Panel2Collapsed)
+            {
+                return;
+            }
+
+            bool panelAbierto = panelContenidoLateralDerecho != null && panelContenidoLateralDerecho.Visible;
+            if (panelAbierto && fueMovimientoUsuario)
+            {
+                GuardarAnchoPanelDerechoAbierto(true);
+            }
         }
 
         private void AjustarAnchoPanelDerecho()
@@ -150,34 +318,31 @@ namespace Cotizador_animacion_Othalart
                 return;
             }
 
-            // El panel derecho gana protagonismo.
-            // 0.37 = 37% del ancho total.
-            int anchoDerechoDeseado = (int)(anchoTotal * 0.37);
+            bool catalogoActivo = tabs != null && tabs.SelectedTab == tabCatalogoProductosServiciosPrincipal;
+            bool panelAbierto = panelContenidoLateralDerecho != null && panelContenidoLateralDerecho.Visible;
 
-            if (anchoDerechoDeseado < 540)
-            {
-                anchoDerechoDeseado = 540;
-            }
-
-            if (anchoDerechoDeseado > 820)
-            {
-                anchoDerechoDeseado = 820;
-            }
-
-            int splitterDistance = anchoTotal - anchoDerechoDeseado;
-
-            int minimoIzquierdo = 650;
-            int minimoDerecho = 420;
+            int minimoIzquierdo = catalogoActivo ? 860 : 650;
+            int minimoDerecho = panelAbierto ? AnchoMinimoPanelDerechoAbierto : AnchoPestanaPanelDerecho;
 
             if (anchoTotal < minimoIzquierdo + minimoDerecho + splitPrincipal.SplitterWidth)
             {
                 minimoIzquierdo = 400;
-                minimoDerecho = 300;
+                minimoDerecho = panelAbierto ? 300 : AnchoPestanaPanelDerecho;
             }
 
             splitPrincipal.Panel1MinSize = minimoIzquierdo;
             splitPrincipal.Panel2MinSize = minimoDerecho;
 
+            int anchoDerechoDeseado = panelAbierto
+                ? ObtenerAnchoPanelDerechoAbiertoDeseado(anchoTotal, minimoDerecho)
+                : AnchoPestanaPanelDerecho;
+            int anchoDerechoMaximo = Math.Max(minimoDerecho, anchoTotal - minimoIzquierdo);
+            if (anchoDerechoDeseado > anchoDerechoMaximo)
+            {
+                anchoDerechoDeseado = anchoDerechoMaximo;
+            }
+
+            int splitterDistance = anchoTotal - anchoDerechoDeseado;
             int maxSplitterDistance = anchoTotal - minimoDerecho;
 
             if (splitterDistance < minimoIzquierdo)
@@ -202,8 +367,30 @@ namespace Cotizador_animacion_Othalart
 
             if (splitPrincipal.SplitterDistance != splitterDistance)
             {
-                splitPrincipal.SplitterDistance = splitterDistance;
+                ajustandoSplitterPanelDerechoProgramaticamente = true;
+                try
+                {
+                    splitPrincipal.SplitterDistance = splitterDistance;
+                }
+                finally
+                {
+                    ajustandoSplitterPanelDerechoProgramaticamente = false;
+                }
             }
+        }
+
+        private int ObtenerAnchoPanelDerechoAbiertoDeseado(int anchoTotal, int minimoDerecho)
+        {
+            int anchoDeseado = anchoPanelDerechoDefinidoPorUsuario
+                ? ultimoAnchoPanelDerechoAbierto
+                : AnchoInicialPanelDerechoAbierto;
+
+            if (anchoDeseado < minimoDerecho)
+            {
+                anchoDeseado = minimoDerecho;
+            }
+
+            return anchoDeseado;
         }
 
         private void ConstruirPanelIzquierdo()
@@ -218,6 +405,8 @@ namespace Cotizador_animacion_Othalart
             tabs.SelectedIndexChanged -= Tabs_SelectedIndexChanged;
 
             tabInicioPrincipal = new TabPage("Inicio");
+            tabCatalogoProductosServiciosPrincipal = new TabPage("Catalogo");
+            tabProyectoPrincipal = new TabPage("Productos y servicios");
             tabDatosPrincipal = new TabPage("Datos");
             tabProductosPrincipal = new TabPage("Productos");
             tabMonedaPrincipal = new TabPage("Moneda");
@@ -238,6 +427,7 @@ namespace Cotizador_animacion_Othalart
             tabGuardarPrincipal = new TabPage("Exportar");
 
             ConstruirTabInicio(tabInicioPrincipal);
+            ConstruirTabProyecto(tabProyectoPrincipal);
             ConstruirTabDatos(tabDatosPrincipal);
             ConstruirTabProductos2D(tabProductosPrincipal);
             ConstruirTabMoneda(tabMonedaPrincipal);
@@ -258,6 +448,7 @@ namespace Cotizador_animacion_Othalart
             ConstruirTabGuardar(tabGuardarPrincipal);
 
             tabs.TabPages.Add(tabInicioPrincipal);
+            tabs.TabPages.Add(tabProyectoPrincipal);
             tabs.TabPages.Add(tabDatosPrincipal);
             tabs.TabPages.Add(tabDesgloseProductivoPrincipal);
             tabs.TabPages.Add(tabValidacionJsonPrincipal);
@@ -275,13 +466,48 @@ namespace Cotizador_animacion_Othalart
             tabs.SelectedIndexChanged += Tabs_SelectedIndexChanged;
 
             splitPrincipal.Panel1.Controls.Add(tabs);
+            AplicarModoAplicacion(ModoAplicacion.Inicio);
         }
 
         private void ConstruirPanelDerecho()
         {
             splitPrincipal.Panel2.Controls.Clear();
 
-            TableLayoutPanel layout = new TableLayoutPanel();
+            TableLayoutPanel contenedorPanelDerecho = new TableLayoutPanel();
+            contenedorPanelDerecho.Dock = DockStyle.Fill;
+            contenedorPanelDerecho.RowCount = 1;
+            contenedorPanelDerecho.ColumnCount = 2;
+            contenedorPanelDerecho.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            contenedorPanelDerecho.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, AnchoPestanaPanelDerecho));
+            contenedorPanelDerecho.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            contenedorPanelDerecho.Margin = new Padding(0);
+            contenedorPanelDerecho.Padding = new Padding(0);
+
+            btnPestanaPanelDerecho.Dock = DockStyle.Fill;
+            btnPestanaPanelDerecho.Margin = new Padding(0);
+            btnPestanaPanelDerecho.Padding = new Padding(0);
+            btnPestanaPanelDerecho.FlatStyle = FlatStyle.Flat;
+            btnPestanaPanelDerecho.FlatAppearance.BorderSize = 0;
+            btnPestanaPanelDerecho.Font = new Font("Segoe UI", 12f, FontStyle.Bold);
+            btnPestanaPanelDerecho.Cursor = Cursors.Hand;
+            btnPestanaPanelDerecho.TabStop = false;
+            btnPestanaPanelDerecho.UseVisualStyleBackColor = false;
+            btnPestanaPanelDerecho.Click -= BtnPestanaPanelDerecho_Click;
+            btnPestanaPanelDerecho.Click += BtnPestanaPanelDerecho_Click;
+            btnPestanaPanelDerecho.MouseEnter -= BtnPestanaPanelDerecho_MouseEnter;
+            btnPestanaPanelDerecho.MouseEnter += BtnPestanaPanelDerecho_MouseEnter;
+            btnPestanaPanelDerecho.MouseLeave -= BtnPestanaPanelDerecho_MouseLeave;
+            btnPestanaPanelDerecho.MouseLeave += BtnPestanaPanelDerecho_MouseLeave;
+
+            panelContenidoLateralDerecho.Dock = DockStyle.Fill;
+            panelContenidoLateralDerecho.Margin = new Padding(0);
+            panelContenidoLateralDerecho.Padding = new Padding(0);
+            panelContenidoLateralDerecho.BackColor = Color.White;
+
+            TableLayoutPanel layout = layoutPanelDerecho;
+            layout.Controls.Clear();
+            layout.RowStyles.Clear();
+            layout.ColumnStyles.Clear();
             layout.Dock = DockStyle.Fill;
             layout.RowCount = 2;
             layout.ColumnCount = 1;
@@ -299,13 +525,38 @@ namespace Cotizador_animacion_Othalart
             tabGantt.Padding = new Padding(0);
             tabGantt.BackColor = Color.White;
 
+            TableLayoutPanel layoutGantt = new TableLayoutPanel();
+            layoutGantt.Dock = DockStyle.Fill;
+            layoutGantt.RowCount = 2;
+            layoutGantt.ColumnCount = 1;
+            layoutGantt.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
+            layoutGantt.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            layoutGantt.Margin = new Padding(0);
+            layoutGantt.Padding = new Padding(0);
+
+            Panel headerGantt = new Panel();
+            headerGantt.Dock = DockStyle.Fill;
+            headerGantt.BackColor = Color.FromArgb(248, 248, 248);
+            headerGantt.Padding = new Padding(10, 0, 10, 0);
+
+            Label tituloGantt = new Label();
+            tituloGantt.Text = "Gantt de etapas";
+            tituloGantt.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
+            tituloGantt.Dock = DockStyle.Fill;
+            tituloGantt.TextAlign = ContentAlignment.MiddleLeft;
+            tituloGantt.AutoEllipsis = true;
+
+            headerGantt.Controls.Add(tituloGantt);
+
             panelGantt.Dock = DockStyle.Fill;
             panelGantt.BackColor = Color.White;
             panelGantt.Margin = new Padding(0);
             panelGantt.Paint -= PanelGantt_Paint;
             panelGantt.Paint += PanelGantt_Paint;
 
-            tabGantt.Controls.Add(panelGantt);
+            layoutGantt.Controls.Add(headerGantt, 0, 0);
+            layoutGantt.Controls.Add(panelGantt, 0, 1);
+            tabGantt.Controls.Add(layoutGantt);
             tabsDerecha.TabPages.Add(tabGantt);
 
             Panel panelResumenMarco = new Panel();
@@ -314,7 +565,10 @@ namespace Cotizador_animacion_Othalart
             panelResumenMarco.Padding = new Padding(1);
             panelResumenMarco.Margin = new Padding(0);
 
-            TableLayoutPanel layoutResumen = new TableLayoutPanel();
+            TableLayoutPanel layoutResumen = layoutResumenDerecho;
+            layoutResumen.Controls.Clear();
+            layoutResumen.RowStyles.Clear();
+            layoutResumen.ColumnStyles.Clear();
             layoutResumen.Dock = DockStyle.Fill;
             layoutResumen.RowCount = 2;
             layoutResumen.ColumnCount = 1;
@@ -328,7 +582,7 @@ namespace Cotizador_animacion_Othalart
             Panel panelCabeceraResumen = new Panel();
             panelCabeceraResumen.Dock = DockStyle.Fill;
             panelCabeceraResumen.BackColor = Color.FromArgb(248, 248, 248);
-            panelCabeceraResumen.Padding = new Padding(0);
+            panelCabeceraResumen.Padding = new Padding(0, 0, 10, 0);
             panelCabeceraResumen.Margin = new Padding(0);
 
             Panel barraResumen = new Panel();
@@ -339,8 +593,10 @@ namespace Cotizador_animacion_Othalart
             Label lblTituloResumen = new Label();
             lblTituloResumen.Text = "RESUMEN ACTUAL";
             lblTituloResumen.Font = new Font("Segoe UI", 10, FontStyle.Bold);
-            lblTituloResumen.AutoSize = true;
-            lblTituloResumen.Location = new Point(14, 12);
+            lblTituloResumen.Dock = DockStyle.Fill;
+            lblTituloResumen.TextAlign = ContentAlignment.MiddleLeft;
+            lblTituloResumen.Padding = new Padding(14, 0, 0, 0);
+            lblTituloResumen.AutoEllipsis = true;
 
             panelCabeceraResumen.Controls.Add(lblTituloResumen);
             panelCabeceraResumen.Controls.Add(barraResumen);
@@ -377,7 +633,12 @@ namespace Cotizador_animacion_Othalart
             layout.Controls.Add(tabsDerecha, 0, 0);
             layout.Controls.Add(panelResumenMarco, 0, 1);
 
-            splitPrincipal.Panel2.Controls.Add(layout);
+            panelContenidoLateralDerecho.Controls.Clear();
+            panelContenidoLateralDerecho.Controls.Add(layout);
+            contenedorPanelDerecho.Controls.Add(btnPestanaPanelDerecho, 0, 0);
+            contenedorPanelDerecho.Controls.Add(panelContenidoLateralDerecho, 1, 0);
+
+            splitPrincipal.Panel2.Controls.Add(contenedorPanelDerecho);
 
             ConfigurarFeedbackResumen();
         }

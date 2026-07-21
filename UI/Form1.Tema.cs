@@ -146,17 +146,72 @@ namespace Cotizador_animacion_Othalart
             btnAlternarModoOscuro.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             btnAlternarModoOscuro.FlatAppearance.BorderSize = 1;
 
+            if (btnAlternarPanelLateral != null)
+            {
+                btnAlternarPanelLateral.UseVisualStyleBackColor = false;
+                btnAlternarPanelLateral.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+                btnAlternarPanelLateral.FlatAppearance.BorderSize = 1;
+            }
+
+            if (btnVolverNavegacion != null)
+            {
+                btnVolverNavegacion.UseVisualStyleBackColor = false;
+                btnVolverNavegacion.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+                btnVolverNavegacion.FlatAppearance.BorderSize = 1;
+            }
+
+            if (btnPestanaPanelDerecho != null)
+            {
+                btnPestanaPanelDerecho.UseVisualStyleBackColor = false;
+                btnPestanaPanelDerecho.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+                btnPestanaPanelDerecho.FlatAppearance.BorderSize = 0;
+            }
+
             if (modoOscuroActivo)
             {
                 btnAlternarModoOscuro.BackColor = Color.FromArgb(45, 45, 48);
                 btnAlternarModoOscuro.ForeColor = Color.FromArgb(220, 220, 220);
                 btnAlternarModoOscuro.FlatAppearance.BorderColor = Color.FromArgb(104, 66, 122);
+                if (btnAlternarPanelLateral != null)
+                {
+                    btnAlternarPanelLateral.BackColor = Color.FromArgb(45, 45, 48);
+                    btnAlternarPanelLateral.ForeColor = Color.FromArgb(220, 220, 220);
+                    btnAlternarPanelLateral.FlatAppearance.BorderColor = Color.FromArgb(104, 66, 122);
+                }
+                if (btnVolverNavegacion != null)
+                {
+                    btnVolverNavegacion.BackColor = Color.FromArgb(45, 45, 48);
+                    btnVolverNavegacion.ForeColor = Color.FromArgb(220, 220, 220);
+                    btnVolverNavegacion.FlatAppearance.BorderColor = Color.FromArgb(104, 66, 122);
+                }
+                if (btnPestanaPanelDerecho != null)
+                {
+                    btnPestanaPanelDerecho.BackColor = Color.FromArgb(45, 45, 48);
+                    btnPestanaPanelDerecho.ForeColor = Color.FromArgb(230, 230, 230);
+                }
             }
             else
             {
                 btnAlternarModoOscuro.BackColor = Color.FromArgb(30, 30, 30);
                 btnAlternarModoOscuro.ForeColor = Color.FromArgb(220, 220, 220);
                 btnAlternarModoOscuro.FlatAppearance.BorderColor = Color.FromArgb(63, 63, 70);
+                if (btnAlternarPanelLateral != null)
+                {
+                    btnAlternarPanelLateral.BackColor = Color.White;
+                    btnAlternarPanelLateral.ForeColor = Color.FromArgb(25, 25, 25);
+                    btnAlternarPanelLateral.FlatAppearance.BorderColor = Color.FromArgb(150, 150, 150);
+                }
+                if (btnVolverNavegacion != null)
+                {
+                    btnVolverNavegacion.BackColor = Color.White;
+                    btnVolverNavegacion.ForeColor = Color.FromArgb(25, 25, 25);
+                    btnVolverNavegacion.FlatAppearance.BorderColor = Color.FromArgb(185, 190, 198);
+                }
+                if (btnPestanaPanelDerecho != null)
+                {
+                    btnPestanaPanelDerecho.BackColor = Color.FromArgb(245, 247, 250);
+                    btnPestanaPanelDerecho.ForeColor = Color.FromArgb(55, 65, 81);
+                }
             }
         }
 

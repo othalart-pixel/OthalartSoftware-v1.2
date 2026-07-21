@@ -1,0 +1,5847 @@
+using System;
+using System.Collections.Generic;
+using System.Drawing;
+using System.Linq;
+using System.Text.Json;
+using System.Windows.Forms;
+using Cotizador_animacion_Othalart.Data;
+using Cotizador_animacion_Othalart.Models;
+using Cotizador_animacion_Othalart.Services;
+
+namespace Cotizador_animacion_Othalart
+{
+    public partial class Form1
+    {
+        private enum VistaProductosProyecto
+        {
+            Tarjetas,
+            Tabla,
+            Arbol
+        }
+
+        private ProyectoCotizacion proyectoCotizacionActual;
+        private VistaProductosProyecto vistaProductosProyectoActual = VistaProductosProyecto.Tarjetas;
+        private ItemProyecto itemProyectoSeleccionado = null;
+        private object nodoProyectoSeleccionado = null;
+        private ProcesoProyecto procesoProyectoSeleccionado = null;
+        private TreeView tvProyecto = new TreeView();
+        private Panel panelEditorProyecto = new Panel();
+        private Panel panelVistaProductosProyecto = new Panel();
+        private FlowLayoutPanel panelTarjetasProyecto = new FlowLayoutPanel();
+        private DataGridView dgvProductosProyecto = new DataGridView();
+        private RichTextBox rtbResumenProyecto = new RichTextBox();
+        private Label lblEstadoProyecto = new Label();
+        private Label lblMetricasProyecto = new Label();
+        private Button btnInspectorProyecto = new Button();
+        private Button btnEditarSeleccionProyecto = new Button();
+        private Button btnDuplicarSeleccionProyecto = new Button();
+        private Button btnQuitarSeleccionProyecto = new Button();
+        private Button btnExpandirEstructuraProyecto = new Button();
+        private SplitContainer splitProyectoEstructuraInspector = new SplitContainer();
+        private bool inspectorProyectoVisible = false;
+        private bool estructuraProyectoExpandida = false;
+        private const int AnchoInicialInspectorProyecto = 380;
+        private int anchoInspectorProyecto = AnchoInicialInspectorProyecto;
+        private bool moviendoSplitterInspectorProyecto = false;
+        private bool ajustandoSplitterInspectorProyecto = false;
+        private readonly HashSet<string> nodosProyectoExpandidos = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private List<ProjectStructureNode> nodosProyectoPresentacion = new List<ProjectStructureNode>();
+        private ProyectoProductivoExpandido expandidoProyectoPresentacion = null;
+        private ItemProyecto itemProyectoEnEdicionActual = null;
+        private Cotizacion cotizacionRaizAntesEdicionItem = null;
+        private bool refrescandoProyectoUI = false;
+        private bool aplicandoEdicionTablaProyecto = false;
+        private string columnaProyectoSeleccionada = "Elemento";
+
+        private sealed class ProjectStructureNode
+        {
+            public string Id { get; set; } = "";
+            public string ParentId { get; set; } = "";
+            public string NodeType { get; set; } = "";
+            public string Name { get; set; } = "";
+            public decimal Quantity { get; set; } = 0m;
+            public string Unit { get; set; } = "";
+            public decimal Capacity { get; set; } = 0m;
+            public string Period { get; set; } = "";
+            public decimal Time { get; set; } = 0m;
+            public decimal Cost { get; set; } = 0m;
+            public decimal Price { get; set; } = 0m;
+            public decimal Margin { get; set; } = 0m;
+            public string Status { get; set; } = "";
+            public int SortOrder { get; set; } = 0;
+            public bool IsModified { get; set; }
+            public bool IsActive { get; set; } = true;
+            public string CalculationSource { get; set; } = "";
+            public object DomainObject { get; set; }
+            public List<ProjectStructureNode> Children { get; set; } = new List<ProjectStructureNode>();
+        }
+
+        private void ConstruirTabProyecto(TabPage tab)
+        {
+            if (proyectoCotizacionActual == null)
+            {
+                proyectoCotizacionActual = ProyectoCotizacionJsonService.CrearProyectoVacio(
+                    cotizacion == null || string.IsNullOrWhiteSpace(cotizacion.NombreProyecto)
+                        ? "Proyecto sin nombre"
+                        : cotizacion.NombreProyecto,
+                    cotizacion == null ? "" : cotizacion.NombreCliente);
+            }
+
+            tab.Controls.Clear();
+            tab.BackColor = Color.FromArgb(246, 247, 249);
+            tab.Padding = new Padding(12);
+
+            TableLayoutPanel root = new TableLayoutPanel();
+            root.Dock = DockStyle.Fill;
+            root.ColumnCount = 1;
+            root.RowCount = 4;
+            root.BackColor = Color.FromArgb(246, 247, 249);
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+            root.Controls.Add(CrearHeaderProductosServicios(), 0, 0);
+            root.Controls.Add(CrearToolbarProductosServicios(), 0, 1);
+
+            SplitContainer split = splitProyectoEstructuraInspector;
+            split.Panel1.Controls.Clear();
+            split.Panel2.Controls.Clear();
+            split.Dock = DockStyle.Fill;
+            split.Orientation = Orientation.Vertical;
+            split.SplitterWidth = 6;
+            split.FixedPanel = FixedPanel.Panel2;
+            split.Panel1MinSize = 80;
+            split.Panel2MinSize = 80;
+            split.Panel2Collapsed = !inspectorProyectoVisible;
+            split.SizeChanged += (s, e) =>
+            {
+                if (split.Panel2Collapsed)
+                {
+                    return;
+                }
+
+                const int minPanel1Deseado = 820;
+                const int minPanel2Deseado = 320;
+                int anchoDisponible = split.Width - split.SplitterWidth;
+                if (anchoDisponible <= 160)
+                {
+                    return;
+                }
+
+                int minPanel2Real = Math.Min(minPanel2Deseado, Math.Max(80, anchoDisponible / 3));
+                int minPanel1Real = Math.Min(minPanel1Deseado, Math.Max(80, anchoDisponible - minPanel2Real));
+                split.Panel1MinSize = minPanel1Real;
+                split.Panel2MinSize = minPanel2Real;
+
+                int inspectorMaximo = Math.Max(minPanel2Real, anchoDisponible - minPanel1Real);
+                int inspector = Math.Min(Math.Max(minPanel2Real, anchoInspectorProyecto), inspectorMaximo);
+                int distancia = anchoDisponible - inspector;
+                distancia = Math.Max(split.Panel1MinSize, Math.Min(distancia, split.Width - split.SplitterWidth - split.Panel2MinSize));
+
+                if (distancia > 0 && distancia < split.Width && split.SplitterDistance != distancia)
+                {
+                    ajustandoSplitterInspectorProyecto = true;
+                    try
+                    {
+                        split.SplitterDistance = distancia;
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        // El control puede disparar SizeChanged antes de estabilizar sus medidas.
+                    }
+                    finally
+                    {
+                        ajustandoSplitterInspectorProyecto = false;
+                    }
+                }
+            };
+
+            split.SplitterMoving += (s, e) =>
+            {
+                moviendoSplitterInspectorProyecto = true;
+            };
+
+            split.SplitterMoved += (s, e) =>
+            {
+                bool movimientoManual =
+                    moviendoSplitterInspectorProyecto &&
+                    !ajustandoSplitterInspectorProyecto;
+                moviendoSplitterInspectorProyecto = false;
+
+                if (movimientoManual &&
+                    !split.Panel2Collapsed &&
+                    split.Width > split.SplitterWidth)
+                {
+                    anchoInspectorProyecto = Math.Max(split.Panel2MinSize, split.Width - split.SplitterDistance - split.SplitterWidth);
+                }
+            };
+
+            panelVistaProductosProyecto.Dock = DockStyle.Fill;
+            panelVistaProductosProyecto.BackColor = Color.FromArgb(250, 250, 250);
+            split.Panel1.Controls.Add(panelVistaProductosProyecto);
+
+            panelEditorProyecto.Dock = DockStyle.Fill;
+            panelEditorProyecto.BackColor = Color.White;
+            panelEditorProyecto.Padding = new Padding(14);
+            split.Panel2.Controls.Add(panelEditorProyecto);
+
+            root.Controls.Add(split, 0, 2);
+
+            lblEstadoProyecto.AutoSize = true;
+            lblEstadoProyecto.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
+            lblEstadoProyecto.ForeColor = Color.FromArgb(70, 70, 70);
+            lblEstadoProyecto.Margin = new Padding(2, 8, 0, 0);
+            root.Controls.Add(lblEstadoProyecto, 0, 3);
+
+            tab.Controls.Add(root);
+            RefrescarProyectoUI();
+        }
+
+        private Control CrearHeaderProductosServicios()
+        {
+            TableLayoutPanel header = new TableLayoutPanel();
+            header.Dock = DockStyle.Top;
+            header.AutoSize = true;
+            header.ColumnCount = 1;
+            header.RowCount = 3;
+            header.Margin = new Padding(0, 0, 0, 10);
+
+            Label titulo = new Label();
+            titulo.Text = "Productos y servicios del proyecto";
+            titulo.Font = new Font("Segoe UI", 18f, FontStyle.Bold);
+            titulo.AutoSize = true;
+            titulo.Margin = new Padding(0, 0, 0, 2);
+
+            Label ayuda = new Label();
+            ayuda.Text = "Construye el alcance real de la cotizacion. Cada producto o servicio es una instancia editable del proyecto, con snapshot, subproductos, parametros y overrides locales.";
+            ayuda.Font = new Font("Segoe UI", 9.5f);
+            ayuda.ForeColor = Color.FromArgb(80, 85, 92);
+            ayuda.AutoSize = true;
+            ayuda.MaximumSize = new Size(1100, 0);
+            ayuda.Margin = new Padding(0, 0, 0, 10);
+
+            lblMetricasProyecto.AutoSize = true;
+            lblMetricasProyecto.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
+            lblMetricasProyecto.ForeColor = Color.FromArgb(35, 35, 35);
+            lblMetricasProyecto.Margin = new Padding(0, 0, 0, 2);
+
+            header.Controls.Add(titulo, 0, 0);
+            header.Controls.Add(ayuda, 0, 1);
+            header.Controls.Add(lblMetricasProyecto, 0, 2);
+            return header;
+        }
+
+        private Control CrearToolbarProductosServicios()
+        {
+            TableLayoutPanel toolbar = new TableLayoutPanel();
+            toolbar.Dock = DockStyle.Top;
+            toolbar.AutoSize = true;
+            toolbar.ColumnCount = 1;
+            toolbar.RowCount = 2;
+            toolbar.Margin = new Padding(0, 0, 0, 10);
+
+            FlowLayoutPanel filaPrincipal = new FlowLayoutPanel();
+            filaPrincipal.AutoSize = true;
+            filaPrincipal.WrapContents = false;
+            filaPrincipal.Margin = new Padding(0, 0, 0, 4);
+
+            Button agregar = CrearBotonProyecto("+ Agregar producto o servicio", (s, e) => AgregarProductoServicioDesdeBiblioteca(), 245);
+            agregar.Height = 40;
+            agregar.BackColor = Color.FromArgb(24, 118, 210);
+            agregar.ForeColor = Color.White;
+            agregar.FlatAppearance.BorderColor = Color.FromArgb(18, 96, 170);
+            agregar.Margin = new Padding(0, 0, 12, 8);
+            filaPrincipal.Controls.Add(agregar);
+            filaPrincipal.Controls.Add(CrearBotonProyecto("Nuevo grupo", (s, e) => AgregarGrupoProyecto(), 118));
+            filaPrincipal.Controls.Add(CrearBotonProyecto("Recalcular", (s, e) => RecalcularProyectoProductivoActual(), 104));
+
+            FlowLayoutPanel filaContextual = new FlowLayoutPanel();
+            filaContextual.AutoSize = true;
+            filaContextual.WrapContents = true;
+            filaContextual.Margin = new Padding(0);
+
+            filaContextual.Controls.Add(CrearSeparadorToolbar("Producto seleccionado:"));
+            btnEditarSeleccionProyecto = CrearBotonProyecto("Editar", (s, e) => EditarSeleccionProyecto(), 82);
+            btnDuplicarSeleccionProyecto = CrearBotonProyecto("Duplicar", (s, e) => DuplicarSeleccionProyecto(), 90);
+            btnQuitarSeleccionProyecto = CrearBotonProyecto("Quitar", (s, e) => QuitarSeleccionProyecto(), 80);
+            filaContextual.Controls.Add(btnEditarSeleccionProyecto);
+            filaContextual.Controls.Add(btnDuplicarSeleccionProyecto);
+            filaContextual.Controls.Add(btnQuitarSeleccionProyecto);
+            filaContextual.Controls.Add(CrearSeparadorToolbar("Vista:"));
+            filaContextual.Controls.Add(CrearBotonVista("Tarjetas", VistaProductosProyecto.Tarjetas));
+            filaContextual.Controls.Add(CrearBotonVista("Tabla", VistaProductosProyecto.Tabla));
+            filaContextual.Controls.Add(CrearBotonVista("Arbol", VistaProductosProyecto.Arbol));
+            filaContextual.Controls.Add(CrearSeparadorToolbar("Paneles:"));
+            btnInspectorProyecto = CrearBotonProyecto(inspectorProyectoVisible ? "Ocultar inspector" : "Mostrar inspector", (s, e) => AlternarInspectorProyecto(), 140);
+            btnExpandirEstructuraProyecto = CrearBotonProyecto(estructuraProyectoExpandida ? "Restaurar paneles" : "Expandir estructura", (s, e) => AlternarEstructuraProyectoExpandida(), 150);
+            filaContextual.Controls.Add(btnInspectorProyecto);
+            filaContextual.Controls.Add(btnExpandirEstructuraProyecto);
+
+            toolbar.Controls.Add(filaPrincipal, 0, 0);
+            toolbar.Controls.Add(filaContextual, 0, 1);
+            return toolbar;
+        }
+
+        private Control CrearSeparadorToolbar()
+        {
+            return CrearSeparadorToolbar("Vista:");
+        }
+
+        private Control CrearSeparadorToolbar(string texto)
+        {
+            Label sep = new Label();
+            sep.Text = texto;
+            sep.AutoSize = true;
+            sep.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
+            sep.Margin = new Padding(16, 7, 6, 0);
+            return sep;
+        }
+
+        private Button CrearBotonVista(string texto, VistaProductosProyecto vista)
+        {
+            Button b = CrearBotonProyecto(texto, (s, e) =>
+            {
+                vistaProductosProyectoActual = vista;
+                RefrescarProyectoUI();
+            }, 82);
+            b.BackColor = vistaProductosProyectoActual == vista
+                ? Color.FromArgb(222, 239, 255)
+                : Color.White;
+            return b;
+        }
+
+        private Button CrearBotonProyecto(string texto, EventHandler click, int ancho = 120)
+        {
+            Button b = new Button();
+            b.Text = texto;
+            b.Width = ancho;
+            b.Height = 32;
+            b.Margin = new Padding(0, 0, 8, 6);
+            b.Font = new Font("Segoe UI", 8.9f, FontStyle.Bold);
+            b.FlatStyle = FlatStyle.Flat;
+            b.FlatAppearance.BorderColor = Color.FromArgb(175, 181, 190);
+            b.BackColor = Color.White;
+            b.Cursor = Cursors.Hand;
+            b.Click += click;
+            return b;
+        }
+
+        private void RefrescarProyectoUI()
+        {
+            if (refrescandoProyectoUI)
+            {
+                return;
+            }
+
+            refrescandoProyectoUI = true;
+            try
+            {
+                if (proyectoCotizacionActual == null)
+                {
+                    proyectoCotizacionActual = ProyectoCotizacionJsonService.CrearProyectoVacio(
+                        cotizacion == null || string.IsNullOrWhiteSpace(cotizacion.NombreProyecto)
+                            ? "Proyecto sin nombre"
+                            : cotizacion.NombreProyecto,
+                        cotizacion == null ? "" : cotizacion.NombreCliente);
+                }
+
+                if (!ProyectoTieneItems())
+                {
+                    itemProyectoSeleccionado = null;
+                    nodoProyectoSeleccionado = null;
+                    inspectorProyectoVisible = false;
+                }
+
+                SanearNombresJerarquiaProyecto();
+                expandidoProyectoPresentacion = ProyectoProductivoExpansionService.Expandir(proyectoCotizacionActual);
+                nodosProyectoPresentacion = ConstruirNodosProyectoPresentacion(expandidoProyectoPresentacion);
+                AsegurarExpansionInicialTablaProyecto();
+                RefrescarVistaProductosProyecto();
+                object nodoEditor = nodoProyectoSeleccionado;
+                if (nodoEditor == null)
+                {
+                    nodoEditor = itemProyectoSeleccionado;
+                }
+                splitProyectoEstructuraInspector.Panel2Collapsed = !inspectorProyectoVisible;
+                if (inspectorProyectoVisible)
+                {
+                    MostrarEditorNodoProyecto(nodoEditor);
+                }
+                else
+                {
+                    panelEditorProyecto.Controls.Clear();
+                }
+                ActualizarResumenProyecto();
+                ActualizarBotonesPanelesProyecto();
+            }
+            finally
+            {
+                refrescandoProyectoUI = false;
+            }
+        }
+
+        private void ActualizarBotonesPanelesProyecto()
+        {
+            bool hayItem = itemProyectoSeleccionado != null;
+            if (btnEditarSeleccionProyecto != null)
+            {
+                btnEditarSeleccionProyecto.Enabled = hayItem;
+            }
+            if (btnDuplicarSeleccionProyecto != null)
+            {
+                btnDuplicarSeleccionProyecto.Enabled = hayItem;
+            }
+            if (btnQuitarSeleccionProyecto != null)
+            {
+                btnQuitarSeleccionProyecto.Enabled = hayItem;
+            }
+            if (btnInspectorProyecto != null)
+            {
+                btnInspectorProyecto.Text = inspectorProyectoVisible ? "Ocultar inspector" : "Mostrar inspector";
+                btnInspectorProyecto.Enabled = ProyectoTieneItems();
+            }
+            if (btnExpandirEstructuraProyecto != null)
+            {
+                btnExpandirEstructuraProyecto.Text = estructuraProyectoExpandida ? "Restaurar paneles" : "Expandir estructura";
+            }
+        }
+
+        private void AlternarInspectorProyecto()
+        {
+            bool abriendo = !inspectorProyectoVisible;
+            inspectorProyectoVisible = !inspectorProyectoVisible;
+            if (abriendo)
+            {
+                anchoInspectorProyecto = AnchoInicialInspectorProyecto;
+            }
+
+            if (inspectorProyectoVisible && nodoProyectoSeleccionado == null)
+            {
+                nodoProyectoSeleccionado = itemProyectoSeleccionado;
+            }
+            RefrescarProyectoUI();
+        }
+
+        private void AbrirInspectorProyecto(object nodo)
+        {
+            bool estabaCerrado = !inspectorProyectoVisible;
+            if (nodo != null)
+            {
+                nodoProyectoSeleccionado = nodo;
+                itemProyectoSeleccionado = nodo as ItemProyecto ?? ObtenerItemContenedor(nodo);
+            }
+
+            if (estabaCerrado)
+            {
+                anchoInspectorProyecto = AnchoInicialInspectorProyecto;
+            }
+
+            inspectorProyectoVisible = true;
+            estructuraProyectoExpandida = false;
+            RefrescarProyectoUI();
+        }
+
+        private void CerrarInspectorProyecto()
+        {
+            inspectorProyectoVisible = false;
+            RefrescarProyectoUI();
+        }
+
+        private void AlternarEstructuraProyectoExpandida()
+        {
+            estructuraProyectoExpandida = !estructuraProyectoExpandida;
+            if (estructuraProyectoExpandida)
+            {
+                inspectorProyectoVisible = false;
+                estadoPanelDerechoProyecto = EstadoPanelDerechoProyecto.Oculto;
+            }
+            else if (tabs != null && tabs.SelectedTab == tabProyectoPrincipal)
+            {
+                estadoPanelDerechoProyecto = EstadoPanelDerechoProyecto.Normal;
+            }
+            ActualizarVisibilidadPanelDerecho();
+            RefrescarProyectoUI();
+        }
+
+        private bool ProyectoTieneItems()
+        {
+            return proyectoCotizacionActual != null &&
+                (proyectoCotizacionActual.Grupos ?? new List<GrupoProyecto>())
+                .Any(g => g != null && (g.Items ?? new List<ItemProyecto>()).Any(i => i != null && i.Activo));
+        }
+
+        private List<ProjectStructureNode> ConstruirNodosProyectoPresentacion(ProyectoProductivoExpandido expandido)
+        {
+            List<ProjectStructureNode> resultado = new List<ProjectStructureNode>();
+            List<FilaProductivaProyecto> filas = expandido?.Filas ?? new List<FilaProductivaProyecto>();
+
+            foreach (GrupoProyecto grupo in ObtenerGruposProyectoOrdenados())
+            {
+                ProjectStructureNode nodoGrupo = new ProjectStructureNode
+                {
+                    Id = grupo.Id,
+                    NodeType = "Grupo",
+                    Name = grupo.Nombre,
+                    Status = grupo.Activo ? "Configurado" : "Desactivado",
+                    SortOrder = grupo.Orden,
+                    IsActive = grupo.Activo,
+                    DomainObject = grupo
+                };
+
+                foreach (ItemProyecto item in (grupo.Items ?? new List<ItemProyecto>()).Where(i => i != null).OrderBy(i => i.Orden))
+                {
+                    List<FilaProductivaProyecto> filasItem = filas.Where(f => f.ItemId == item.Id).ToList();
+                    ProjectStructureNode nodoItem = new ProjectStructureNode
+                    {
+                        Id = item.Id,
+                        ParentId = grupo.Id,
+                        NodeType = item.Tipo.ToString(),
+                        Name = item.Nombre,
+                        Quantity = item.Cantidad,
+                        Unit = ObtenerUnidadVisibleItem(item),
+                        Capacity = PromediarCapacidadFilas(filasItem),
+                        Period = ObtenerPeriodoFilas(filasItem),
+                        CalculationSource = ObtenerOrigenCalculoFilas(filasItem),
+                        Time = SumarHorasFilas(filasItem),
+                        Cost = filasItem.Sum(f => f.Costo),
+                        Price = filasItem.Sum(f => f.Costo),
+                        Margin = 0m,
+                        Status = ObtenerEstadoConfiguracionItem(item),
+                        SortOrder = item.Orden,
+                        IsModified = ItemTienePersonalizacionesProyecto(item),
+                        IsActive = item.Activo,
+                        DomainObject = item
+                    };
+
+                    foreach (SubproductoProyecto sub in (item.Subproductos ?? new List<SubproductoProyecto>()).Where(s => s != null).OrderBy(s => s.Orden))
+                    {
+                        List<FilaProductivaProyecto> filasSub = filas.Where(f => f.SubproductoProyectoId == sub.Id).ToList();
+                        ProjectStructureNode nodoSub = new ProjectStructureNode
+                        {
+                            Id = sub.Id,
+                            ParentId = item.Id,
+                            NodeType = "Subproducto",
+                            Name = sub.Nombre,
+                            Quantity = sub.Cantidad,
+                            Unit = sub.Unidad,
+                            Capacity = PromediarCapacidadFilas(filasSub),
+                            Period = ObtenerPeriodoFilas(filasSub),
+                            CalculationSource = ObtenerOrigenCalculoFilas(filasSub),
+                            Time = SumarHorasFilas(filasSub),
+                            Cost = filasSub.Sum(f => f.Costo),
+                            Price = filasSub.Sum(f => f.Costo),
+                            Margin = 0m,
+                            Status = ObtenerEstadoSubproductoProyecto(sub, filasSub),
+                            SortOrder = sub.Orden,
+                            IsModified = ProyectoOverridesService.TieneOverrides(sub),
+                            IsActive = sub.Activo,
+                            DomainObject = sub
+                        };
+
+                        foreach (ProcesoProyecto proceso in (sub.Procesos ?? new List<ProcesoProyecto>()).Where(p => p != null).OrderBy(p => p.Id))
+                        {
+                            List<FilaProductivaProyecto> filasProceso = filasSub.Where(f => f.ProcesoProyectoId == proceso.Id).ToList();
+                            ProjectStructureNode nodoProceso = new ProjectStructureNode
+                            {
+                                Id = proceso.Id,
+                                ParentId = sub.Id,
+                                NodeType = "Proceso",
+                                Name = proceso.Nombre,
+                                    Quantity = filasProceso.Sum(f => f.Cantidad),
+                                    Unit = filasProceso.Select(f => f.Unidad).FirstOrDefault(u => !string.IsNullOrWhiteSpace(u)) ?? "",
+                                Capacity = PromediarCapacidadFilas(filasProceso),
+                                Period = ObtenerPeriodoFilas(filasProceso),
+                                CalculationSource = ObtenerOrigenCalculoFilas(filasProceso),
+                                IsModified = filasProceso.Any(f => f.TieneOverrideLocalCalculo),
+                                Time = SumarHorasFilas(filasProceso),
+                                Cost = filasProceso.Sum(f => f.Costo),
+                                Price = filasProceso.Sum(f => f.Costo),
+                                Margin = 0m,
+                                Status = proceso.Activo ? (string.IsNullOrWhiteSpace(proceso.Resultado?.Diagnostico) ? "Configurado" : "Con alertas") : "Desactivado",
+                                SortOrder = nodoSub.Children.Count,
+                                IsActive = proceso.Activo,
+                                DomainObject = proceso
+                            };
+                            nodoSub.Children.Add(nodoProceso);
+                        }
+
+                        if (nodoSub.Children.Count == 0)
+                        {
+                            foreach (IGrouping<string, FilaProductivaProyecto> grupoProceso in filasSub
+                                .Where(f => !string.IsNullOrWhiteSpace(f.ProcesoProyectoId))
+                                .GroupBy(f => f.ProcesoProyectoId))
+                            {
+                                List<FilaProductivaProyecto> filasProceso = grupoProceso.ToList();
+                                nodoSub.Children.Add(new ProjectStructureNode
+                                {
+                                    Id = grupoProceso.Key,
+                                    ParentId = sub.Id,
+                                    NodeType = "Proceso",
+                                    Name = ObtenerNombreProcesoProyecto(item, sub, grupoProceso.Key),
+                                    Quantity = filasProceso.Sum(f => f.Cantidad),
+                                    Unit = filasProceso.Select(f => f.Unidad).FirstOrDefault(u => !string.IsNullOrWhiteSpace(u)) ?? "",
+                                Capacity = PromediarCapacidadFilas(filasProceso),
+                                Period = ObtenerPeriodoFilas(filasProceso),
+                                CalculationSource = ObtenerOrigenCalculoFilas(filasProceso),
+                                IsModified = filasProceso.Any(f => f.TieneOverrideLocalCalculo),
+                                Time = SumarHorasFilas(filasProceso),
+                                    Cost = filasProceso.Sum(f => f.Costo),
+                                    Price = filasProceso.Sum(f => f.Costo),
+                                    Status = filasProceso.Any(f => !string.IsNullOrWhiteSpace(f.Diagnostico)) ? "Con alertas" : "Configurado",
+                                    SortOrder = nodoSub.Children.Count,
+                                    DomainObject = filasProceso.First()
+                                });
+                            }
+                        }
+
+                        nodoItem.Children.Add(nodoSub);
+                    }
+
+                    nodoGrupo.Children.Add(nodoItem);
+                }
+
+                resultado.Add(nodoGrupo);
+            }
+
+            return resultado;
+        }
+
+        private decimal SumarHorasFilas(IEnumerable<FilaProductivaProyecto> filas)
+        {
+            return (filas ?? Enumerable.Empty<FilaProductivaProyecto>())
+                .Sum(f => f.HorasAsignadas > 0m ? f.HorasAsignadas : f.HorasCalculadas);
+        }
+        private decimal PromediarCapacidadFilas(IEnumerable<FilaProductivaProyecto> filas)
+        {
+            List<decimal> capacidades = (filas ?? Enumerable.Empty<FilaProductivaProyecto>())
+                .Where(f => f != null && f.Capacidad > 0m)
+                .Select(f => f.Capacidad)
+                .ToList();
+            return capacidades.Count == 0 ? 0m : capacidades.Average();
+        }
+
+        private string ObtenerPeriodoFilas(IEnumerable<FilaProductivaProyecto> filas)
+        {
+            return (filas ?? Enumerable.Empty<FilaProductivaProyecto>())
+                .Where(f => f != null && !string.IsNullOrWhiteSpace(f.Periodo))
+                .GroupBy(f => f.Periodo.Trim(), StringComparer.OrdinalIgnoreCase)
+                .OrderByDescending(g => g.Count())
+                .Select(g => g.Key)
+                .FirstOrDefault() ?? "";
+        }
+
+        private string ObtenerOrigenCalculoFilas(IEnumerable<FilaProductivaProyecto> filas)
+        {
+            List<FilaProductivaProyecto> lista = (filas ?? Enumerable.Empty<FilaProductivaProyecto>())
+                .Where(f => f != null)
+                .ToList();
+            if (lista.Any(f => f.TieneOverrideLocalCalculo))
+            {
+                return "Override local";
+            }
+
+            return lista
+                .Where(f => !string.IsNullOrWhiteSpace(f.OrigenCalculo))
+                .GroupBy(f => f.OrigenCalculo.Trim(), StringComparer.OrdinalIgnoreCase)
+                .OrderByDescending(g => g.Count())
+                .Select(g => g.Key)
+                .FirstOrDefault() ?? "Plantilla";
+        }
+        private string ObtenerEstadoSubproductoProyecto(SubproductoProyecto sub, List<FilaProductivaProyecto> filasSub)
+        {
+            if (sub == null || !sub.Activo)
+            {
+                return "Desactivado";
+            }
+
+            if (sub.Procesos == null || sub.Procesos.Count == 0)
+            {
+                return "Incompleto";
+            }
+
+            if (filasSub == null || filasSub.Count == 0 || SumarHorasFilas(filasSub) <= 0m)
+            {
+                return "Sin calcular";
+            }
+
+            if (filasSub.Any(f => !string.IsNullOrWhiteSpace(f.Diagnostico) &&
+                !string.Equals(f.Diagnostico, "OK", StringComparison.OrdinalIgnoreCase)))
+            {
+                return "Con alertas";
+            }
+
+            return ProyectoOverridesService.TieneOverrides(sub) ? "Modificado" : "Configurado";
+        }
+
+        private string ObtenerNombreProcesoProyecto(ItemProyecto item, SubproductoProyecto sub, string procesoId)
+        {
+            ProcesoProyecto proceso = (sub?.Procesos ?? new List<ProcesoProyecto>())
+                .FirstOrDefault(p => string.Equals(p.Id, procesoId, StringComparison.OrdinalIgnoreCase));
+            if (proceso != null)
+            {
+                return proceso.Nombre;
+            }
+
+            proceso = (item?.Procesos ?? new List<ProcesoProyecto>())
+                .FirstOrDefault(p => string.Equals(p.Id, procesoId, StringComparison.OrdinalIgnoreCase));
+            return proceso == null ? procesoId : proceso.Nombre;
+        }
+
+        private void RefrescarVistaProductosProyecto()
+        {
+            panelVistaProductosProyecto.Controls.Clear();
+            panelVistaProductosProyecto.Padding = new Padding(12);
+            panelVistaProductosProyecto.BackColor = Color.White;
+            panelVistaProductosProyecto.TabStop = true;
+            panelVistaProductosProyecto.KeyDown -= PanelVistaProductosProyecto_KeyDown;
+            panelVistaProductosProyecto.KeyDown += PanelVistaProductosProyecto_KeyDown;
+
+            if (vistaProductosProyectoActual == VistaProductosProyecto.Tabla)
+            {
+                ConstruirTablaProductosProyecto();
+                panelVistaProductosProyecto.Controls.Add(dgvProductosProyecto);
+                return;
+            }
+
+            if (vistaProductosProyectoActual == VistaProductosProyecto.Arbol)
+            {
+                RefrescarArbolProyecto();
+                panelVistaProductosProyecto.Controls.Add(tvProyecto);
+                return;
+            }
+
+            ConstruirTarjetasProductosProyecto();
+            panelVistaProductosProyecto.Controls.Add(panelTarjetasProyecto);
+        }
+
+        private void PanelVistaProductosProyecto_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Enter)
+            {
+                AbrirInspectorProyecto(nodoProyectoSeleccionado ?? itemProyectoSeleccionado);
+                e.Handled = true;
+            }
+            else if (e.KeyCode == Keys.Escape && inspectorProyectoVisible)
+            {
+                CerrarInspectorProyecto();
+                e.Handled = true;
+            }
+            else if (e.KeyCode == Keys.Delete)
+            {
+                QuitarSeleccionProyecto();
+                e.Handled = true;
+            }
+            else if (e.Control && e.KeyCode == Keys.D)
+            {
+                DuplicarSeleccionProyecto();
+                e.Handled = true;
+            }
+            else if (e.KeyCode == Keys.Space && nodoProyectoSeleccionado != null)
+            {
+                string id = ObtenerIdNodoProyecto(nodoProyectoSeleccionado);
+                if (!string.IsNullOrWhiteSpace(id))
+                {
+                    AlternarExpansionNodoProyecto(id);
+                    e.Handled = true;
+                }
+            }
+        }
+
+        private string ObtenerIdNodoProyecto(object nodo)
+        {
+            if (nodo is GrupoProyecto grupo)
+            {
+                return grupo.Id;
+            }
+            if (nodo is ItemProyecto item)
+            {
+                return item.Id;
+            }
+            if (nodo is SubproductoProyecto sub)
+            {
+                return sub.Id;
+            }
+            if (nodo is ProcesoProyecto proceso)
+            {
+                return proceso.Id;
+            }
+            if (nodo is FilaProductivaProyecto fila)
+            {
+                return fila.ProcesoProyectoId;
+            }
+            return "";
+        }
+
+        private void ConstruirTarjetasProductosProyecto()
+        {
+            panelTarjetasProyecto = new FlowLayoutPanel();
+            panelTarjetasProyecto.Dock = DockStyle.Fill;
+            panelTarjetasProyecto.AutoScroll = true;
+            panelTarjetasProyecto.FlowDirection = FlowDirection.TopDown;
+            panelTarjetasProyecto.WrapContents = false;
+            panelTarjetasProyecto.BackColor = Color.White;
+            panelTarjetasProyecto.Padding = new Padding(8);
+
+            List<GrupoProyecto> grupos = ObtenerGruposProyectoOrdenados();
+            if (grupos.Count == 0 || grupos.All(g => g.Items == null || g.Items.Count == 0))
+            {
+                panelTarjetasProyecto.Controls.Add(CrearEstadoVacioProductos());
+                return;
+            }
+
+            foreach (ProjectStructureNode grupo in nodosProyectoPresentacion)
+            {
+                Panel grupoPanel = CrearPanelGrupoTarjetas(grupo);
+                panelTarjetasProyecto.Controls.Add(grupoPanel);
+            }
+        }
+
+        private Control CrearEstadoVacioProductos()
+        {
+            Panel panel = new Panel();
+            panel.Width = 270;
+            panel.Height = 210;
+            panel.BackColor = Color.White;
+            panel.BorderStyle = BorderStyle.FixedSingle;
+            panel.Padding = new Padding(18);
+
+            Label titulo = new Label();
+            titulo.Text = "Aun no hay productos en este proyecto";
+            titulo.Font = new Font("Segoe UI", 12f, FontStyle.Bold);
+            titulo.MaximumSize = new Size(230, 0);
+            titulo.AutoSize = true;
+            titulo.Location = new Point(18, 18);
+
+            Label texto = new Label();
+            texto.Text = "Agrega un producto desde la biblioteca global o crea uno personalizado.";
+            texto.Font = new Font("Segoe UI", 9.5f);
+            texto.ForeColor = Color.DimGray;
+            texto.MaximumSize = new Size(230, 0);
+            texto.AutoSize = true;
+            texto.Location = new Point(18, 68);
+
+            Button agregar = CrearBotonProyecto("Agregar desde catalogo", (s, e) => AgregarProductoServicioDesdeBiblioteca(), 220);
+            agregar.Location = new Point(18, 126);
+            Button nuevo = CrearBotonProyecto("Crear producto nuevo", (s, e) => AgregarProductoServicioDesdeBiblioteca(), 220);
+            nuevo.Location = new Point(18, 164);
+
+            panel.Controls.Add(titulo);
+            panel.Controls.Add(texto);
+            panel.Controls.Add(agregar);
+            panel.Controls.Add(nuevo);
+            return panel;
+        }
+
+        private Panel CrearPanelGrupoTarjetas(ProjectStructureNode grupo)
+        {
+            Panel panel = new Panel();
+            panel.AutoSize = true;
+            panel.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            panel.Width = Math.Max(760, panelVistaProductosProyecto.ClientSize.Width - 42);
+            panel.Margin = new Padding(0, 0, 0, 18);
+            panel.Padding = new Padding(0);
+
+            Label titulo = new Label();
+            titulo.Text = grupo.Name + "  (" + grupo.Children.Count + ")";
+            titulo.Font = new Font("Segoe UI", 12f, FontStyle.Bold);
+            titulo.AutoSize = true;
+            titulo.Location = new Point(0, 0);
+            panel.Controls.Add(titulo);
+
+            FlowLayoutPanel tarjetas = new FlowLayoutPanel();
+            tarjetas.FlowDirection = FlowDirection.LeftToRight;
+            tarjetas.WrapContents = true;
+            tarjetas.AutoSize = true;
+            tarjetas.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            tarjetas.Width = panel.Width;
+            tarjetas.Location = new Point(0, 32);
+            tarjetas.Padding = new Padding(0);
+
+            foreach (ProjectStructureNode item in grupo.Children.OrderBy(i => i.SortOrder))
+            {
+                tarjetas.Controls.Add(CrearTarjetaItemProyectoRestaurada(item));
+            }
+
+            panel.Controls.Add(tarjetas);
+            return panel;
+        }
+
+        private Control CrearTarjetaItemProyectoRestaurada(ProjectStructureNode nodoItem)
+        {
+            ItemProyecto item = nodoItem.DomainObject as ItemProyecto;
+            bool expandido = nodosProyectoExpandidos.Contains(nodoItem.Id);
+            int anchoDisponible = Math.Max(760, panelVistaProductosProyecto.ClientSize.Width - 80);
+            int columnas = anchoDisponible >= 1400 ? 3 : anchoDisponible >= 940 ? 2 : 1;
+            int anchoTarjeta = Math.Max(430, (anchoDisponible / columnas) - 18);
+            int altoBase = expandido
+                ? 220 + nodoItem.Children.Sum(s => (nodosProyectoExpandidos.Contains(s.Id) ? 62 + s.Children.Count * 24 : 50) + 6)
+                : 210;
+
+            Panel card = new Panel();
+            card.Width = anchoTarjeta;
+            card.Height = altoBase;
+            card.Margin = new Padding(0, 0, 14, 14);
+            card.Padding = new Padding(12);
+            card.BackColor = ReferenceEquals(itemProyectoSeleccionado, item)
+                ? Color.FromArgb(232, 244, 255)
+                : Color.FromArgb(250, 250, 250);
+            card.BorderStyle = BorderStyle.FixedSingle;
+            card.Cursor = Cursors.Hand;
+            card.AllowDrop = true;
+            card.Tag = item;
+            card.Click += (s, e) => SeleccionarNodoProyecto(item);
+            card.DoubleClick += (s, e) => AbrirInspectorProyecto(item);
+            card.MouseDown += (s, e) =>
+            {
+                if (e.Button == MouseButtons.Left)
+                {
+                    card.DoDragDrop(item, DragDropEffects.Move);
+                }
+            };
+            card.DragEnter += (s, e) =>
+            {
+                e.Effect = e.Data != null && e.Data.GetDataPresent(typeof(ItemProyecto))
+                    ? DragDropEffects.Move
+                    : DragDropEffects.None;
+            };
+            card.DragDrop += (s, e) =>
+            {
+                ItemProyecto origen = e.Data == null ? null : e.Data.GetData(typeof(ItemProyecto)) as ItemProyecto;
+                if (origen != null && !ReferenceEquals(origen, item))
+                {
+                    ReordenarItemProyecto(origen, item);
+                }
+            };
+            card.ContextMenuStrip = CrearMenuContextualItemProyecto(item);
+
+            Label nombre = new Label();
+            nombre.Text = (expandido ? "v " : "> ") + nodoItem.Name;
+            nombre.Font = new Font("Segoe UI", 12.2f, FontStyle.Bold);
+            nombre.Width = card.Width - 74;
+            nombre.Height = 46;
+            nombre.Location = new Point(12, 10);
+            nombre.MaximumSize = new Size(card.Width - 74, 46);
+            nombre.Cursor = Cursors.Hand;
+            nombre.Click += (s, e) => AlternarExpansionNodoProyecto(nodoItem.Id);
+            ToolTip tooltip = new ToolTip();
+            tooltip.SetToolTip(nombre, nodoItem.Name);
+
+            Label meta = new Label();
+            meta.Text = "Plantilla global: " + (string.IsNullOrWhiteSpace(item?.Snapshot?.NombreBiblioteca) ? item?.BibliotecaId : item.Snapshot.NombreBiblioteca);
+            meta.Font = new Font("Segoe UI", 9f);
+            meta.ForeColor = Color.FromArgb(85, 85, 85);
+            meta.Width = card.Width - 28;
+            meta.Height = 20;
+            meta.Location = new Point(12, 58);
+
+            Label alcance = new Label();
+            alcance.Text = nodoItem.Quantity.ToString("0.##") + " " + nodoItem.Unit +
+                " | " + nodoItem.Children.Count + " subproductos | " +
+                nodoItem.Children.Sum(s => s.Children.Count) + " procesos";
+            alcance.Font = new Font("Segoe UI", 9.4f, FontStyle.Bold);
+            alcance.Width = card.Width - 28;
+            alcance.Height = 22;
+            alcance.Location = new Point(12, 82);
+
+            Label numeros = new Label();
+            numeros.Text = "Tiempo: " + nodoItem.Time.ToString("0.##") + " h   Costo: " + nodoItem.Cost.ToString("N0") + " CLP   Precio: " + nodoItem.Price.ToString("N0") + " CLP";
+            numeros.Font = new Font("Segoe UI", 9.2f);
+            numeros.Width = card.Width - 28;
+            numeros.Height = 22;
+            numeros.Location = new Point(12, 110);
+
+            Label estado = new Label();
+            estado.Text = nodoItem.IsModified ? "[ MODIFICADO ]" : "[ " + nodoItem.Status.ToUpperInvariant() + " ]";
+            estado.Font = new Font("Segoe UI", 8.7f, FontStyle.Bold);
+            estado.ForeColor = nodoItem.IsModified
+                ? Color.FromArgb(160, 86, 0)
+                : Color.FromArgb(70, 110, 70);
+            estado.Width = card.Width - 150;
+            estado.Height = 20;
+            estado.Location = new Point(12, 140);
+
+            Button expandir = CrearBotonMini(expandido ? "Contraer" : "Subproductos", (s, e) => AlternarExpansionNodoProyecto(nodoItem.Id));
+            expandir.Width = 112;
+            expandir.Location = new Point(card.Width - 244, 170);
+
+            Button editar = CrearBotonMini("Editar", (s, e) =>
+            {
+                SeleccionarNodoProyecto(item, false);
+                EditarItemProyectoEnInterfazActual();
+            });
+            editar.Width = 82;
+            editar.Location = new Point(card.Width - 126, 170);
+
+            Button menu = CrearBotonMini("...", (s, e) =>
+            {
+                ContextMenuStrip cms = CrearMenuContextualItemProyecto(item);
+                cms.Show(card, new Point(card.Width - 54, 42));
+            });
+            menu.Width = 38;
+            menu.Location = new Point(card.Width - 50, 12);
+            tooltip.SetToolTip(menu, "Mas acciones");
+
+            card.Controls.Add(nombre);
+            card.Controls.Add(meta);
+            card.Controls.Add(alcance);
+            card.Controls.Add(numeros);
+            card.Controls.Add(estado);
+            card.Controls.Add(expandir);
+            card.Controls.Add(editar);
+            card.Controls.Add(menu);
+
+            if (expandido)
+            {
+                AgregarSubproductosATarjetaRestaurada(card, nodoItem, 206);
+            }
+
+            return card;
+        }
+
+        private void AgregarSubproductosATarjetaRestaurada(Panel card, ProjectStructureNode nodoItem, int yInicial)
+        {
+            int y = yInicial;
+            foreach (ProjectStructureNode sub in nodoItem.Children.OrderBy(s => s.SortOrder))
+            {
+                bool expandido = nodosProyectoExpandidos.Contains(sub.Id);
+                Panel fila = new Panel();
+                fila.Width = card.Width - 26;
+                fila.Height = expandido ? 62 + sub.Children.Count * 24 : 50;
+                fila.Location = new Point(12, y);
+                fila.BackColor = sub.IsActive ? Color.White : Color.FromArgb(242, 242, 242);
+                fila.BorderStyle = BorderStyle.FixedSingle;
+                fila.Tag = sub.DomainObject;
+                fila.DoubleClick += (s, e) => AbrirInspectorProyecto(sub.DomainObject);
+                fila.ContextMenuStrip = CrearMenuContextualNodoProyecto(sub);
+
+                CheckBox usar = new CheckBox();
+                usar.Checked = sub.IsActive;
+                usar.Location = new Point(8, 15);
+                usar.Width = 22;
+                usar.CheckedChanged += (s, e) =>
+                {
+                    if (sub.DomainObject is SubproductoProyecto sp)
+                    {
+                        AplicarEdicionSubproductoDesdeGrid(sp, "Activo", usar.Checked);
+                    }
+                };
+
+                Label nombre = new Label();
+                nombre.Text = (expandido ? "v " : "> ") + sub.Name;
+                nombre.Font = new Font("Segoe UI", 9.2f, FontStyle.Bold);
+                nombre.Location = new Point(34, 7);
+                nombre.Width = Math.Max(170, fila.Width - 330);
+                nombre.Height = 20;
+                nombre.Cursor = Cursors.Hand;
+                nombre.Click += (s, e) => AlternarExpansionNodoProyecto(sub.Id);
+
+                Label resumen = new Label();
+                resumen.Text = sub.Quantity.ToString("0.##") + " " + sub.Unit + " | " +
+                    sub.Time.ToString("0.##") + " h | " + sub.Cost.ToString("N0") + " CLP | " +
+                    sub.Children.Count + " procesos | " + sub.Status;
+                resumen.Location = new Point(34, 27);
+                resumen.Width = fila.Width - 150;
+                resumen.Height = 20;
+                resumen.Font = new Font("Segoe UI", 8.7f);
+                resumen.ForeColor = Color.FromArgb(75, 75, 75);
+
+                Button ver = CrearBotonMini(expandido ? "Ocultar" : "Procesos", (s, e) => AlternarExpansionNodoProyecto(sub.Id));
+                ver.Width = 82;
+                ver.Location = new Point(fila.Width - 92, 10);
+
+                fila.Controls.Add(usar);
+                fila.Controls.Add(nombre);
+                fila.Controls.Add(resumen);
+                fila.Controls.Add(ver);
+
+                if (expandido)
+                {
+                    int py = 56;
+                    foreach (ProjectStructureNode proceso in sub.Children.OrderBy(p => p.SortOrder))
+                    {
+                        Label pl = new Label();
+                        pl.Text = "- " + proceso.Name + " | " + proceso.Time.ToString("0.##") + " h | " +
+                            proceso.Cost.ToString("N0") + " CLP | " + proceso.Status;
+                        pl.Location = new Point(34, py);
+                        pl.Width = fila.Width - 48;
+                        pl.Height = 22;
+                        pl.Font = new Font("Segoe UI", 8.5f);
+                        pl.Tag = proceso.DomainObject;
+                        pl.DoubleClick += (s, e) => AbrirInspectorProyecto(proceso.DomainObject);
+                        pl.ContextMenuStrip = CrearMenuContextualNodoProyecto(proceso);
+                        fila.Controls.Add(pl);
+                        py += 24;
+                    }
+                }
+
+                card.Controls.Add(fila);
+                y += fila.Height + 6;
+            }
+        }
+
+        private int ObtenerAnchoContenidoTarjetasProyecto()
+        {
+            int ancho = panelTarjetasProyecto == null || panelTarjetasProyecto.ClientSize.Width <= 0
+                ? panelVistaProductosProyecto.ClientSize.Width
+                : panelTarjetasProyecto.ClientSize.Width;
+            ancho -= SystemInformation.VerticalScrollBarWidth + 42;
+            return Math.Max(320, ancho);
+        }
+
+        private void AjustarAnchosTarjetasProyecto()
+        {
+            if (panelTarjetasProyecto == null || panelTarjetasProyecto.Controls.Count == 0)
+            {
+                return;
+            }
+
+            int ancho = ObtenerAnchoContenidoTarjetasProyecto();
+            foreach (Control grupo in panelTarjetasProyecto.Controls)
+            {
+                grupo.Width = ancho;
+                foreach (FlowLayoutPanel tarjetas in grupo.Controls.OfType<FlowLayoutPanel>())
+                {
+                    tarjetas.Width = ancho;
+                    foreach (Control card in tarjetas.Controls)
+                    {
+                        card.Width = ancho;
+                    }
+                }
+            }
+        }
+
+        private Control CrearTarjetaItemProyecto(ProjectStructureNode nodoItem)
+        {
+            ItemProyecto item = nodoItem.DomainObject as ItemProyecto;
+            bool expandido = nodosProyectoExpandidos.Contains(nodoItem.Id);
+            int anchoDisponible = Math.Max(760, panelVistaProductosProyecto.ClientSize.Width - 80);
+            int columnas = anchoDisponible >= 1400 ? 3 : anchoDisponible >= 940 ? 2 : 1;
+            int anchoTarjeta = Math.Max(430, (anchoDisponible / columnas) - 18);
+            int altoBase = expandido
+                ? 220 + nodoItem.Children.Sum(s => (nodosProyectoExpandidos.Contains(s.Id) ? 62 + s.Children.Count * 24 : 50) + 6)
+                : 210;
+
+            Panel card = new Panel();
+            card.Width = anchoTarjeta;
+            card.Height = altoBase;
+            card.Margin = new Padding(0, 0, 14, 14);
+            card.Padding = new Padding(12);
+            card.BackColor = ReferenceEquals(itemProyectoSeleccionado, item)
+                ? Color.FromArgb(232, 244, 255)
+                : Color.FromArgb(250, 250, 250);
+            card.BorderStyle = BorderStyle.FixedSingle;
+            card.Cursor = Cursors.Hand;
+            card.AllowDrop = true;
+            card.Tag = item;
+            card.Click += (s, e) => SeleccionarNodoProyecto(item);
+            card.DoubleClick += (s, e) => AbrirInspectorProyecto(item);
+            card.MouseDown += (s, e) =>
+            {
+                if (e.Button == MouseButtons.Left)
+                {
+                    card.DoDragDrop(item, DragDropEffects.Move);
+                }
+            };
+            card.DragEnter += (s, e) =>
+            {
+                e.Effect = e.Data != null && e.Data.GetDataPresent(typeof(ItemProyecto))
+                    ? DragDropEffects.Move
+                    : DragDropEffects.None;
+            };
+            card.DragDrop += (s, e) =>
+            {
+                ItemProyecto origen = e.Data == null ? null : e.Data.GetData(typeof(ItemProyecto)) as ItemProyecto;
+                if (origen != null && !ReferenceEquals(origen, item))
+                {
+                    ReordenarItemProyecto(origen, item);
+                }
+            };
+            card.ContextMenuStrip = CrearMenuContextualItemProyecto(item);
+
+            Label nombre = new Label();
+            nombre.Text = (expandido ? "â–¼ " : "â–¶ ") + nodoItem.Name;
+            nombre.Font = new Font("Segoe UI", 12.2f, FontStyle.Bold);
+            nombre.Width = card.Width - 74;
+            nombre.Height = 46;
+            nombre.Location = new Point(12, 10);
+            nombre.MaximumSize = new Size(card.Width - 74, 46);
+            nombre.Cursor = Cursors.Hand;
+            nombre.Click += (s, e) => AlternarExpansionNodoProyecto(nodoItem.Id);
+            ToolTip tooltip = new ToolTip();
+            tooltip.SetToolTip(nombre, nodoItem.Name);
+
+            Label meta = new Label();
+            meta.Text = "Plantilla global: " + (string.IsNullOrWhiteSpace(item?.Snapshot?.NombreBiblioteca) ? item?.BibliotecaId : item.Snapshot.NombreBiblioteca);
+            meta.Font = new Font("Segoe UI", 9f);
+            meta.ForeColor = Color.FromArgb(85, 85, 85);
+            meta.Width = card.Width - 28;
+            meta.Height = 20;
+            meta.Location = new Point(12, 58);
+
+            Label alcance = new Label();
+            alcance.Text = nodoItem.Quantity.ToString("0.##") + " " + nodoItem.Unit +
+                " | " + nodoItem.Children.Count + " subproductos | " +
+                nodoItem.Children.Sum(s => s.Children.Count) + " procesos";
+            alcance.Font = new Font("Segoe UI", 9.4f, FontStyle.Bold);
+            alcance.Width = card.Width - 28;
+            alcance.Height = 22;
+            alcance.Location = new Point(12, 82);
+
+            Label numeros = new Label();
+            numeros.Text = "Tiempo: " + nodoItem.Time.ToString("0.##") + " h   Costo: " + nodoItem.Cost.ToString("N0") + " CLP   Precio: " + nodoItem.Price.ToString("N0") + " CLP";
+            numeros.Font = new Font("Segoe UI", 9.2f);
+            numeros.Width = card.Width - 28;
+            numeros.Height = 22;
+            numeros.Location = new Point(12, 110);
+
+            Label estado = new Label();
+            estado.Text = nodoItem.IsModified ? "[ MODIFICADO ]" : "[ " + nodoItem.Status.ToUpperInvariant() + " ]";
+            estado.Font = new Font("Segoe UI", 8.7f, FontStyle.Bold);
+            estado.ForeColor = nodoItem.IsModified
+                ? Color.FromArgb(160, 86, 0)
+                : Color.FromArgb(70, 110, 70);
+            estado.Width = card.Width - 150;
+            estado.Height = 20;
+            estado.Location = new Point(12, 140);
+
+            Button expandir = CrearBotonMini(expandido ? "â–¼ Contraer" : "â–¶ Expandir", (s, e) => AlternarExpansionNodoProyecto(nodoItem.Id));
+            expandir.Width = 112;
+            expandir.Location = new Point(card.Width - 244, 136);
+
+            Button editar = CrearBotonMini("Editar", (s, e) =>
+            {
+                SeleccionarNodoProyecto(item, false);
+                EditarItemProyectoEnInterfazActual();
+            });
+            editar.Width = 82;
+            editar.Location = new Point(card.Width - 126, 136);
+
+            Button menu = CrearBotonMini("...", (s, e) =>
+            {
+                ContextMenuStrip cms = CrearMenuContextualItemProyecto(item);
+                cms.Show(card, new Point(card.Width - 54, 42));
+            });
+            menu.Width = 38;
+            menu.Location = new Point(card.Width - 50, 12);
+            tooltip.SetToolTip(menu, "Mas acciones");
+
+            card.Controls.Add(nombre);
+            card.Controls.Add(meta);
+            card.Controls.Add(alcance);
+            card.Controls.Add(numeros);
+            card.Controls.Add(estado);
+            card.Controls.Add(expandir);
+            card.Controls.Add(editar);
+            card.Controls.Add(menu);
+
+            if (expandido)
+            {
+                AgregarSubproductosATarjeta(card, nodoItem, 172);
+            }
+
+            return card;
+        }
+
+        private void AgregarSubproductosATarjeta(Panel card, ProjectStructureNode nodoItem, int yInicial)
+        {
+            int y = yInicial;
+            foreach (ProjectStructureNode sub in nodoItem.Children.OrderBy(s => s.SortOrder))
+            {
+                bool expandido = nodosProyectoExpandidos.Contains(sub.Id);
+                Panel fila = new Panel();
+                fila.Width = card.Width - 26;
+                fila.Height = expandido ? 62 + sub.Children.Count * 24 : 50;
+                fila.Location = new Point(12, y);
+                fila.BackColor = sub.IsActive ? Color.White : Color.FromArgb(242, 242, 242);
+                fila.BorderStyle = BorderStyle.FixedSingle;
+                fila.Tag = sub.DomainObject;
+                fila.Cursor = Cursors.Hand;
+                fila.Click += (s, e) => SeleccionarNodoProyecto(sub.DomainObject);
+                fila.DoubleClick += (s, e) => AlternarExpansionNodoProyecto(sub.Id);
+                fila.ContextMenuStrip = CrearMenuContextualNodoProyecto(sub);
+
+                CheckBox usar = new CheckBox();
+                usar.Checked = sub.IsActive;
+                usar.Location = new Point(8, 15);
+                usar.Width = 22;
+                usar.CheckedChanged += (s, e) =>
+                {
+                    if (sub.DomainObject is SubproductoProyecto sp)
+                    {
+                        AplicarEdicionSubproductoDesdeGrid(sp, "Activo", usar.Checked);
+                    }
+                };
+
+                Label nombre = new Label();
+                nombre.Text = (expandido ? "â–¼ " : "â–¶ ") + sub.Name;
+                nombre.Font = new Font("Segoe UI", 9.2f, FontStyle.Bold);
+                nombre.Location = new Point(34, 7);
+                nombre.Width = Math.Max(170, fila.Width - 330);
+                nombre.Height = 20;
+                nombre.Cursor = Cursors.Hand;
+                nombre.Click += (s, e) => AlternarExpansionNodoProyecto(sub.Id);
+
+                Label resumen = new Label();
+                resumen.Text = sub.Quantity.ToString("0.##") + " " + sub.Unit + " | " +
+                    sub.Time.ToString("0.##") + " h | " + sub.Cost.ToString("N0") + " CLP | " +
+                    sub.Children.Count + " procesos | " + sub.Status;
+                resumen.Location = new Point(34, 27);
+                resumen.Width = fila.Width - 150;
+                resumen.Height = 20;
+                resumen.Font = new Font("Segoe UI", 8.7f);
+                resumen.ForeColor = Color.FromArgb(75, 75, 75);
+                resumen.Cursor = Cursors.Hand;
+                resumen.Click += (s, e) => SeleccionarNodoProyecto(sub.DomainObject);
+
+                Button ver = CrearBotonMini(expandido ? "â–¼" : "â–¶", (s, e) => AlternarExpansionNodoProyecto(sub.Id));
+                ver.Width = 82;
+                ver.Location = new Point(fila.Width - 92, 10);
+                tooltipPanelDerecho.SetToolTip(ver, expandido ? "Contraer procesos" : "Expandir procesos");
+
+                fila.Controls.Add(usar);
+                fila.Controls.Add(nombre);
+                fila.Controls.Add(resumen);
+                fila.Controls.Add(ver);
+
+                if (expandido)
+                {
+                    int py = 56;
+                    foreach (ProjectStructureNode proceso in sub.Children.OrderBy(p => p.SortOrder))
+                    {
+                        Label pl = new Label();
+                        pl.Text = "â€¢ " + proceso.Name + " | " + proceso.Time.ToString("0.##") + " h | " +
+                            proceso.Cost.ToString("N0") + " CLP | " + proceso.Status;
+                        pl.Location = new Point(34, py);
+                        pl.Width = fila.Width - 48;
+                        pl.Height = 22;
+                        pl.Font = new Font("Segoe UI", 8.5f);
+                        pl.Tag = proceso.DomainObject;
+                        pl.Cursor = Cursors.Hand;
+                        pl.Click += (s, e) => SeleccionarNodoProyecto(proceso.DomainObject);
+                        pl.DoubleClick += (s, e) => AbrirInspectorProyecto(proceso.DomainObject);
+                        pl.ContextMenuStrip = CrearMenuContextualNodoProyecto(proceso);
+                        fila.Controls.Add(pl);
+                        py += 24;
+                    }
+                }
+
+                card.Controls.Add(fila);
+                y += fila.Height + 6;
+            }
+        }
+
+        private void AlternarExpansionNodoProyecto(string id)
+        {
+            if (string.IsNullOrWhiteSpace(id))
+            {
+                return;
+            }
+
+            if (!nodosProyectoExpandidos.Add(id))
+            {
+                nodosProyectoExpandidos.Remove(id);
+            }
+            RefrescarProyectoUI();
+        }
+
+        private ContextMenuStrip CrearMenuContextualItemProyecto(ItemProyecto item)
+        {
+            ContextMenuStrip menu = new ContextMenuStrip();
+            menu.Items.Add("Editar instancia", null, (s, e) =>
+            {
+                SeleccionarNodoProyecto(item, false);
+                EditarItemProyectoEnInterfazActual();
+            });
+            menu.Items.Add("Ver detalles", null, (s, e) => AbrirInspectorProyecto(item));
+            menu.Items.Add("Ir al pipeline", null, (s, e) =>
+            {
+                SeleccionarNodoProyecto(item, false);
+                EditarItemProyectoEnInterfazActual();
+            });
+            menu.Items.Add("Duplicar", null, (s, e) => DuplicarItemProyecto(item));
+            menu.Items.Add("Quitar", null, (s, e) => QuitarItemProyecto(item));
+            menu.Items.Add(new ToolStripSeparator());
+            menu.Items.Add("Restaurar plantilla", null, (s, e) => RestaurarItemDesdePlantilla(item));
+            menu.Items.Add("Comparar con plantilla", null, (s, e) => CompararItemConPlantilla(item));
+            menu.Items.Add("Guardar como nueva plantilla", null, (s, e) => RegistrarIntencionNuevaPlantilla(item));
+            return menu;
+        }
+
+        private ContextMenuStrip CrearMenuContextualNodoProyecto(ProjectStructureNode nodo)
+        {
+            ContextMenuStrip menu = new ContextMenuStrip();
+            menu.Items.Add("Editar", null, (s, e) => AbrirInspectorProyecto(nodo.DomainObject));
+            menu.Items.Add("Expandir / contraer", null, (s, e) => AlternarExpansionNodoProyecto(nodo.Id));
+
+            if (nodo.DomainObject is ItemProyecto item)
+            {
+                menu.Items.Add("Duplicar", null, (s, e) => DuplicarItemProyecto(item));
+                menu.Items.Add("Quitar", null, (s, e) => QuitarItemProyecto(item));
+            }
+            else if (nodo.DomainObject is SubproductoProyecto sub)
+            {
+                menu.Items.Add(sub.Activo ? "Desactivar" : "Activar", null, (s, e) => AplicarEdicionSubproductoDesdeGrid(sub, "Activo", !sub.Activo));
+            }
+            else if (nodo.DomainObject is ProcesoProyecto proceso)
+            {
+                menu.Items.Add("Ver ecuacion", null, (s, e) => MessageBox.Show(this, proceso.ProcesoBibliotecaId, "Ecuacion del proceso", MessageBoxButtons.OK, MessageBoxIcon.Information));
+                menu.Items.Add("Detalle del calculo", null, (s, e) => AbrirInspectorProyecto(proceso));
+            }
+
+            return menu;
+        }
+
+        private string ObtenerUnidadVisibleItem(ItemProyecto item)
+        {
+            if (item == null)
+            {
+                return "";
+            }
+
+            if (!string.IsNullOrWhiteSpace(item.Unidad) &&
+                !string.Equals(item.Unidad, "proyecto", StringComparison.OrdinalIgnoreCase))
+            {
+                return item.Unidad;
+            }
+
+            string unidadSubproducto = (item.Subproductos ?? new List<SubproductoProyecto>())
+                .Select(s => s.Unidad)
+                .FirstOrDefault(u => !string.IsNullOrWhiteSpace(u) &&
+                    !string.Equals(u, "unidad", StringComparison.OrdinalIgnoreCase) &&
+                    !string.Equals(u, "proyecto", StringComparison.OrdinalIgnoreCase));
+
+            return string.IsNullOrWhiteSpace(unidadSubproducto) ? item.Unidad : unidadSubproducto;
+        }
+
+        private string ObtenerEstadoConfiguracionItem(ItemProyecto item)
+        {
+            if (item == null)
+            {
+                return "Sin seleccionar";
+            }
+
+            if ((item.Subproductos ?? new List<SubproductoProyecto>()).All(s => !s.Activo))
+            {
+                return "Configuracion incompleta";
+            }
+
+            return ItemTienePersonalizacionesProyecto(item)
+                ? "Modificada en este proyecto"
+                : "Desde plantilla global";
+        }
+
+        private void ReordenarItemProyecto(ItemProyecto origen, ItemProyecto destino)
+        {
+            GrupoProyecto grupoOrigen = proyectoCotizacionActual.Grupos.FirstOrDefault(g => (g.Items ?? new List<ItemProyecto>()).Contains(origen));
+            GrupoProyecto grupoDestino = proyectoCotizacionActual.Grupos.FirstOrDefault(g => (g.Items ?? new List<ItemProyecto>()).Contains(destino));
+            if (grupoOrigen == null || grupoDestino == null || !ReferenceEquals(grupoOrigen, grupoDestino))
+            {
+                return;
+            }
+
+            List<ItemProyecto> items = grupoOrigen.Items;
+            int oldIndex = items.IndexOf(origen);
+            int newIndex = items.IndexOf(destino);
+            if (oldIndex < 0 || newIndex < 0 || oldIndex == newIndex)
+            {
+                return;
+            }
+
+            items.RemoveAt(oldIndex);
+            items.Insert(newIndex, origen);
+            for (int i = 0; i < items.Count; i++)
+            {
+                items[i].Orden = i;
+            }
+
+            MarcarProyectoConCambiosPendientes();
+            RefrescarProyectoUI();
+        }
+
+        private Button CrearBotonMini(string texto, EventHandler click)
+        {
+            Button b = new Button();
+            b.Text = texto;
+            b.Width = 92;
+            b.Height = 28;
+            b.Font = new Font("Segoe UI", 8.3f, FontStyle.Bold);
+            b.FlatStyle = FlatStyle.Flat;
+            b.BackColor = Color.White;
+            b.Click += click;
+            return b;
+        }
+
+        private void ConstruirTablaProductosProyecto()
+        {
+            dgvProductosProyecto = new DataGridView();
+            dgvProductosProyecto.Dock = DockStyle.Fill;
+            dgvProductosProyecto.AllowUserToAddRows = false;
+            dgvProductosProyecto.AllowUserToDeleteRows = false;
+            dgvProductosProyecto.RowHeadersVisible = false;
+            dgvProductosProyecto.SelectionMode = DataGridViewSelectionMode.CellSelect;
+            dgvProductosProyecto.MultiSelect = false;
+            dgvProductosProyecto.ReadOnly = false;
+            dgvProductosProyecto.StandardTab = false;
+            dgvProductosProyecto.EditMode = DataGridViewEditMode.EditOnEnter;
+            dgvProductosProyecto.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
+            dgvProductosProyecto.BackgroundColor = Color.White;
+            dgvProductosProyecto.BorderStyle = BorderStyle.FixedSingle;
+            dgvProductosProyecto.Columns.Clear();
+            dgvProductosProyecto.Columns.Add("Nivel", "Nivel");
+            dgvProductosProyecto.Columns.Add("Elemento", "Elemento");
+            dgvProductosProyecto.Columns.Add("Tipo", "Tipo");
+            dgvProductosProyecto.Columns.Add("Cantidad", "Cantidad");
+            dgvProductosProyecto.Columns.Add("Unidad", "Unidad");
+            dgvProductosProyecto.Columns.Add("Capacidad", "Capacidad");
+            dgvProductosProyecto.Columns.Add("Periodo", "Periodo");
+            dgvProductosProyecto.Columns.Add("Subproductos", "Subproductos");
+            dgvProductosProyecto.Columns.Add("Procesos", "Procesos");
+            dgvProductosProyecto.Columns.Add("Horas", "Horas");
+            dgvProductosProyecto.Columns.Add("Costo", "Costo");
+            dgvProductosProyecto.Columns.Add("Precio", "Precio");
+            dgvProductosProyecto.Columns.Add("Margen", "Margen");
+            dgvProductosProyecto.Columns.Add("Origen", "Origen");
+            dgvProductosProyecto.Columns.Add("Estado", "Estado");
+            dgvProductosProyecto.Columns["Nivel"].Width = 70;
+            dgvProductosProyecto.Columns["Elemento"].Width = 300;
+            dgvProductosProyecto.Columns["Tipo"].Width = 110;
+            dgvProductosProyecto.Columns["Cantidad"].Width = 90;
+            dgvProductosProyecto.Columns["Unidad"].Width = 90;
+            dgvProductosProyecto.Columns["Capacidad"].Width = 95;
+            dgvProductosProyecto.Columns["Periodo"].Width = 90;
+            dgvProductosProyecto.Columns["Subproductos"].Width = 82;
+            dgvProductosProyecto.Columns["Procesos"].Width = 72;
+            dgvProductosProyecto.Columns["Horas"].Width = 80;
+            dgvProductosProyecto.Columns["Costo"].Width = 110;
+            dgvProductosProyecto.Columns["Precio"].Width = 110;
+            dgvProductosProyecto.Columns["Margen"].Width = 75;
+            dgvProductosProyecto.Columns["Origen"].Width = 120;
+            dgvProductosProyecto.Columns["Estado"].AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
+            ConfigurarColumnasEditablesTablaProductosProyecto();
+
+            foreach (ProjectStructureNode grupo in nodosProyectoPresentacion)
+            {
+                AgregarNodoTablaProyecto(grupo, 0);
+            }
+
+            dgvProductosProyecto.SelectionChanged += (s, e) =>
+            {
+                if (dgvProductosProyecto.IsCurrentCellInEditMode)
+                {
+                    return;
+                }
+
+                if (dgvProductosProyecto.CurrentRow != null)
+                {
+                    object nodoSeleccionado = dgvProductosProyecto.CurrentRow.Tag;
+                    if (!ReferenceEquals(nodoProyectoSeleccionado, nodoSeleccionado))
+                    {
+                        SeleccionarNodoProyecto(nodoSeleccionado, false);
+                    }
+                }
+            };
+            dgvProductosProyecto.CellMouseDown += (s, e) =>
+            {
+                if (e.RowIndex < 0 ||
+                    e.ColumnIndex < 0 ||
+                    EsClickEnIndicadorExpansionTablaProductosProyecto(e.RowIndex, e.ColumnIndex, e.X) ||
+                    !EsCeldaEditableTablaProductosProyecto(e.RowIndex, e.ColumnIndex))
+                {
+                    return;
+                }
+
+                object nodoEdicion = dgvProductosProyecto.Rows[e.RowIndex].Tag;
+                nodoProyectoSeleccionado = nodoEdicion;
+                itemProyectoSeleccionado = nodoEdicion as ItemProyecto ?? ObtenerItemContenedor(nodoEdicion);
+                columnaProyectoSeleccionada = dgvProductosProyecto.Columns[e.ColumnIndex].Name;
+            };
+            dgvProductosProyecto.KeyPress += (s, e) =>
+            {
+                if (dgvProductosProyecto.CurrentCell == null || dgvProductosProyecto.IsCurrentCellInEditMode)
+                {
+                    return;
+                }
+
+                int rowIndex = dgvProductosProyecto.CurrentCell.RowIndex;
+                int columnIndex = dgvProductosProyecto.CurrentCell.ColumnIndex;
+                if (EsCeldaEditableTablaProductosProyecto(rowIndex, columnIndex))
+                {
+                    IniciarEdicionTablaProductosProyecto(rowIndex, columnIndex);
+                }
+            };
+            dgvProductosProyecto.CellDoubleClick += (s, e) =>
+            {
+                if (e.RowIndex < 0 || e.ColumnIndex < 0)
+                {
+                    return;
+                }
+
+
+                if (EsCeldaEditableTablaProductosProyecto(e.RowIndex, e.ColumnIndex))
+                {
+                    IniciarEdicionTablaProductosProyecto(e.RowIndex, e.ColumnIndex);
+                    return;
+                }
+
+                AbrirInspectorProyecto(dgvProductosProyecto.Rows[e.RowIndex].Tag);
+            };
+            dgvProductosProyecto.CellMouseClick += (s, e) =>
+            {
+                if (e.Button == MouseButtons.Left && EsClickEnIndicadorExpansionTablaProductosProyecto(e.RowIndex, e.ColumnIndex, e.X))
+                {
+                    AlternarExpansionTablaProductosProyecto(e.RowIndex);
+                    return;
+                }
+
+                if (e.Button == MouseButtons.Left &&
+                    e.RowIndex >= 0 &&
+                    e.ColumnIndex >= 0 &&
+                    !dgvProductosProyecto.IsCurrentCellInEditMode)
+                {
+                    AbrirInspectorProyecto(dgvProductosProyecto.Rows[e.RowIndex].Tag);
+                }
+            };
+            dgvProductosProyecto.CellEndEdit += (s, e) => AplicarEdicionTablaProductos(e.RowIndex, e.ColumnIndex);
+            dgvProductosProyecto.CurrentCellDirtyStateChanged += (s, e) =>
+            {
+                if (dgvProductosProyecto.IsCurrentCellDirty)
+                {
+                    dgvProductosProyecto.CommitEdit(DataGridViewDataErrorContexts.Commit);
+                }
+            };
+            dgvProductosProyecto.DataError += (s, e) => { e.ThrowException = false; };
+            dgvProductosProyecto.CellBeginEdit += (s, e) =>
+            {
+                if (!EsCeldaEditableTablaProductosProyecto(e.RowIndex, e.ColumnIndex))
+                {
+                    e.Cancel = true;
+                    return;
+                }
+
+                object nodoEdicion = dgvProductosProyecto.Rows[e.RowIndex].Tag;
+                nodoProyectoSeleccionado = nodoEdicion;
+                itemProyectoSeleccionado = nodoEdicion as ItemProyecto ?? ObtenerItemContenedor(nodoEdicion);
+                columnaProyectoSeleccionada = dgvProductosProyecto.Columns[e.ColumnIndex].Name;
+            };
+            RestaurarSeleccionTablaProductosProyecto();
+        }
+
+        private void RestaurarSeleccionTablaProductosProyecto()
+        {
+            if (dgvProductosProyecto == null || nodoProyectoSeleccionado == null)
+            {
+                return;
+            }
+
+            DataGridViewRow fila = dgvProductosProyecto.Rows
+                .Cast<DataGridViewRow>()
+                .FirstOrDefault(r => ReferenceEquals(r.Tag, nodoProyectoSeleccionado));
+            if (fila == null)
+            {
+                return;
+            }
+
+            string columna = dgvProductosProyecto.Columns.Contains(columnaProyectoSeleccionada)
+                ? columnaProyectoSeleccionada
+                : "Elemento";
+            dgvProductosProyecto.CurrentCell = fila.Cells[columna];
+        }
+
+        private void ConfigurarColumnasEditablesTablaProductosProyecto()
+        {
+            HashSet<string> editables = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "Cantidad",
+                "Unidad",
+                "Capacidad",
+                "Periodo",
+                "Horas",
+                "Estado"
+            };
+
+            foreach (DataGridViewColumn columna in dgvProductosProyecto.Columns)
+            {
+                columna.ReadOnly = !editables.Contains(columna.Name);
+                columna.SortMode = DataGridViewColumnSortMode.NotSortable;
+                if (columna.ReadOnly)
+                {
+                    columna.DefaultCellStyle.BackColor = Color.FromArgb(246, 247, 249);
+                    columna.DefaultCellStyle.ForeColor = Color.FromArgb(80, 80, 80);
+                }
+            }
+        }
+        private void AgregarNodoTablaProyecto(ProjectStructureNode nodo, int nivel)
+        {
+            string indicador = nodo.Children.Count == 0
+                ? "    "
+                : (nodosProyectoExpandidos.Contains(nodo.Id) ? "[-] " : "[+] ");
+            int row = dgvProductosProyecto.Rows.Add(
+                nivel.ToString(),
+                new string(' ', nivel * 3) + indicador + nodo.Name,
+                nodo.NodeType,
+                nodo.Quantity.ToString("0.##"),
+                nodo.Unit,
+                nodo.Capacity > 0m ? nodo.Capacity.ToString("0.##") : "",
+                nodo.Period,
+                nodo.Children.Count(c => c.NodeType == "Subproducto"),
+                nodo.NodeType == "Subproducto" ? nodo.Children.Count : nodo.Children.Sum(c => c.Children.Count),
+                nodo.Time.ToString("0.##"),
+                nodo.Cost.ToString("N0"),
+                nodo.Price.ToString("N0"),
+                (nodo.Margin * 100m).ToString("0.#") + "%",
+                nodo.CalculationSource,
+                nodo.Status
+            );
+            dgvProductosProyecto.Rows[row].Tag = nodo.DomainObject;
+            dgvProductosProyecto.Rows[row].Cells["Elemento"].Tag = nodo.Id;
+            ConfigurarCeldasEditablesFilaTablaProductosProyecto(dgvProductosProyecto.Rows[row], nodo.DomainObject);
+            AplicarEstiloJerarquiaTablaProyecto(dgvProductosProyecto.Rows[row], nodo, nivel);
+
+            if (nodo.IsModified)
+            {
+                dgvProductosProyecto.Rows[row].DefaultCellStyle.ForeColor = Color.FromArgb(160, 86, 0);
+            }
+
+            if (nodo.Children.Count == 0 || !nodosProyectoExpandidos.Contains(nodo.Id))
+            {
+                return;
+            }
+
+            foreach (ProjectStructureNode hijo in nodo.Children.OrderBy(c => c.SortOrder))
+            {
+                AgregarNodoTablaProyecto(hijo, nivel + 1);
+            }
+        }
+
+        private void AplicarEstiloJerarquiaTablaProyecto(DataGridViewRow row, ProjectStructureNode nodo, int nivel)
+        {
+            if (row == null || nodo == null)
+            {
+                return;
+            }
+
+            bool esItemBase = nodo.NodeType == "Producto" || nodo.NodeType == "Servicio";
+            bool esGrupo = nodo.NodeType == "Grupo";
+            bool esSubproducto = nodo.NodeType == "Subproducto";
+
+            row.Height = esItemBase ? 28 : 24;
+            if (!esItemBase && !esGrupo && !esSubproducto)
+            {
+                return;
+            }
+
+            Font fuente = esItemBase || esGrupo
+                ? new Font(dgvProductosProyecto.Font, FontStyle.Bold)
+                : new Font(dgvProductosProyecto.Font, FontStyle.Regular);
+            Color fondo = esItemBase
+                ? Color.FromArgb(255, 252, 244)
+                : esGrupo ? Color.FromArgb(239, 246, 255) : Color.FromArgb(235, 246, 250);
+            Color texto = esItemBase
+                ? Color.FromArgb(130, 70, 0)
+                : esGrupo ? Color.FromArgb(15, 65, 110) : Color.FromArgb(35, 82, 100);
+
+            foreach (DataGridViewCell cell in row.Cells)
+            {
+                cell.Style.Font = fuente;
+                cell.Style.BackColor = fondo;
+                cell.Style.ForeColor = texto;
+                cell.Style.SelectionBackColor = esSubproducto
+                    ? Color.FromArgb(190, 222, 235)
+                    : esItemBase
+                        ? Color.FromArgb(244, 226, 184)
+                        : Color.FromArgb(205, 225, 246);
+                cell.Style.SelectionForeColor = Color.FromArgb(25, 45, 58);
+            }
+
+            if (esSubproducto && row.Cells["Elemento"] != null)
+            {
+                row.Cells["Elemento"].Style.Font =
+                    new Font(dgvProductosProyecto.Font, FontStyle.Bold);
+                row.Cells["Elemento"].Style.BackColor = Color.FromArgb(220, 239, 247);
+            }
+        }
+
+        private void AsegurarExpansionInicialTablaProyecto()
+        {
+            if (nodosProyectoExpandidos.Count > 0)
+            {
+                return;
+            }
+
+            foreach (ProjectStructureNode grupo in nodosProyectoPresentacion ?? new List<ProjectStructureNode>())
+            {
+                if (grupo.Children.Count > 0)
+                {
+                    nodosProyectoExpandidos.Add(grupo.Id);
+                }
+
+                foreach (ProjectStructureNode item in grupo.Children ?? new List<ProjectStructureNode>())
+                {
+                    if (item.Children.Count > 0)
+                    {
+                        nodosProyectoExpandidos.Add(item.Id);
+                    }
+
+                    foreach (ProjectStructureNode sub in item.Children ?? new List<ProjectStructureNode>())
+                    {
+                        if (sub.Children.Count > 0)
+                        {
+                            nodosProyectoExpandidos.Add(sub.Id);
+                        }
+                    }
+                }
+            }
+        }
+
+        private void ConfigurarCeldasEditablesFilaTablaProductosProyecto(DataGridViewRow row, object nodo)
+        {
+            if (row == null || dgvProductosProyecto == null)
+            {
+                return;
+            }
+
+            foreach (DataGridViewCell cell in row.Cells)
+            {
+                string columna = dgvProductosProyecto.Columns[cell.ColumnIndex].Name;
+                bool editable = EsColumnaEditableParaNodoTablaProductosProyecto(nodo, columna);
+                cell.ReadOnly = !editable;
+                cell.Style.BackColor = editable ? Color.White : Color.FromArgb(246, 247, 249);
+                cell.Style.ForeColor = editable ? Color.FromArgb(25, 25, 25) : Color.FromArgb(80, 80, 80);
+            }
+        }
+
+        private bool EsCeldaExpansionTablaProductosProyecto(int rowIndex, int columnIndex)
+        {
+            if (dgvProductosProyecto == null ||
+                rowIndex < 0 ||
+                columnIndex < 0 ||
+                rowIndex >= dgvProductosProyecto.Rows.Count ||
+                columnIndex >= dgvProductosProyecto.Columns.Count ||
+                dgvProductosProyecto.Columns[columnIndex].Name != "Elemento")
+            {
+                return false;
+            }
+
+            string texto = Convert.ToString(dgvProductosProyecto.Rows[rowIndex].Cells[columnIndex].Value) ?? "";
+            return texto.TrimStart().StartsWith("[+]", StringComparison.Ordinal) ||
+                texto.TrimStart().StartsWith("[-]", StringComparison.Ordinal);
+        }
+
+        private bool EsClickEnIndicadorExpansionTablaProductosProyecto(int rowIndex, int columnIndex, int x)
+        {
+            if (!EsCeldaExpansionTablaProductosProyecto(rowIndex, columnIndex))
+            {
+                return false;
+            }
+
+            string nivelTexto = Convert.ToString(dgvProductosProyecto.Rows[rowIndex].Cells["Nivel"].Value) ?? "0";
+            int nivel = 0;
+            int.TryParse(nivelTexto, out nivel);
+            int limiteIndicador = 18 + (nivel * 18) + 34;
+            return x <= limiteIndicador;
+        }
+
+        private void AlternarExpansionTablaProductosProyecto(int rowIndex)
+        {
+            if (dgvProductosProyecto == null || rowIndex < 0 || rowIndex >= dgvProductosProyecto.Rows.Count)
+            {
+                return;
+            }
+
+            string id = Convert.ToString(dgvProductosProyecto.Rows[rowIndex].Cells["Elemento"].Tag) ?? "";
+            if (string.IsNullOrWhiteSpace(id))
+            {
+                return;
+            }
+
+            if (!nodosProyectoExpandidos.Add(id))
+            {
+                nodosProyectoExpandidos.Remove(id);
+            }
+
+            RefrescarVistaProductosProyecto();
+        }
+
+        private bool EsCeldaEditableTablaProductosProyecto(int rowIndex, int columnIndex)
+        {
+            if (dgvProductosProyecto == null ||
+                rowIndex < 0 ||
+                columnIndex < 0 ||
+                rowIndex >= dgvProductosProyecto.Rows.Count ||
+                columnIndex >= dgvProductosProyecto.Columns.Count)
+            {
+                return false;
+            }
+
+            string columna = dgvProductosProyecto.Columns[columnIndex].Name;
+            object nodo = dgvProductosProyecto.Rows[rowIndex].Tag;
+            return EsColumnaEditableParaNodoTablaProductosProyecto(nodo, columna);
+        }
+
+        private bool EsColumnaEditableParaNodoTablaProductosProyecto(object nodo, string columna)
+        {
+            if (!EsColumnaEditableTablaProductosProyecto(columna))
+            {
+                return false;
+            }
+
+            if (nodo is GrupoProyecto)
+            {
+                return columna == "Estado";
+            }
+
+            if (nodo is ItemProyecto item)
+            {
+                bool usaSnapshot = CotizacionItemProyectoAdapterService.ItemTieneSnapshot(item);
+                return columna == "Cantidad" || columna == "Unidad" || columna == "Horas" ||
+                    columna == "Estado" ||
+                    (usaSnapshot && (columna == "Capacidad" || columna == "Periodo"));
+            }
+
+            if (nodo is SubproductoProyecto subproducto)
+            {
+                bool usaSnapshot = CotizacionItemProyectoAdapterService.ItemTieneSnapshot(
+                    ObtenerItemContenedor(subproducto));
+                return columna == "Cantidad" || columna == "Unidad" || columna == "Horas" ||
+                    columna == "Estado" ||
+                    (usaSnapshot && (columna == "Capacidad" || columna == "Periodo"));
+            }
+
+            if (nodo is ProcesoProyecto proceso)
+            {
+                bool usaSnapshot = CotizacionItemProyectoAdapterService.ItemTieneSnapshot(
+                    ObtenerItemContenedor(proceso));
+                return columna == "Cantidad" || columna == "Unidad" || columna == "Horas" ||
+                    columna == "Estado" ||
+                    (usaSnapshot && (columna == "Capacidad" || columna == "Periodo"));
+            }
+
+            if (nodo is FilaProductivaProyecto)
+            {
+                return columna == "Cantidad" || columna == "Unidad" || columna == "Horas" || columna == "Capacidad" || columna == "Periodo";
+            }
+
+            return false;
+        }
+
+        private void IniciarEdicionTablaProductosProyecto(int rowIndex, int columnIndex)
+        {
+            if (!EsCeldaEditableTablaProductosProyecto(rowIndex, columnIndex))
+            {
+                return;
+            }
+
+            dgvProductosProyecto.Focus();
+            dgvProductosProyecto.CurrentCell = dgvProductosProyecto.Rows[rowIndex].Cells[columnIndex];
+            dgvProductosProyecto.BeginEdit(true);
+        }
+
+        private void AplicarEdicionTablaProductos(int rowIndex, int columnIndex)
+        {
+            if (aplicandoEdicionTablaProyecto || refrescandoProyectoUI || rowIndex < 0 || columnIndex < 0)
+            {
+                return;
+            }
+
+            DataGridViewRow row = dgvProductosProyecto.Rows[rowIndex];
+            object nodo = row.Tag;
+            if (nodo == null)
+            {
+                return;
+            }
+
+            string col = dgvProductosProyecto.Columns[columnIndex].Name;
+            columnaProyectoSeleccionada = col;
+            if (!EsColumnaEditableTablaProductosProyecto(col))
+            {
+                return;
+            }
+
+            string valor = Convert.ToString(row.Cells[columnIndex].Value) ?? "";
+            aplicandoEdicionTablaProyecto = true;
+            try
+            {
+                bool cambio = AplicarCambioNodoTablaProductosProyecto(nodo, col, valor.Trim());
+                if (cambio)
+                {
+                    MarcarNodoProyectoModificado(nodo, col, valor.Trim());
+                    nodoProyectoSeleccionado = nodo;
+                    itemProyectoSeleccionado = nodo as ItemProyecto ?? ObtenerItemContenedor(nodo);
+                    RecalcularProyectoProductivoActual();
+                }
+            }
+            finally
+            {
+                aplicandoEdicionTablaProyecto = false;
+            }
+        }
+
+        private bool EsColumnaEditableTablaProductosProyecto(string columna)
+        {
+            return columna == "Cantidad" || columna == "Unidad" || columna == "Horas" || columna == "Capacidad" || columna == "Periodo" || columna == "Estado";
+        }
+
+        private bool AplicarCambioNodoTablaProductosProyecto(object nodo, string columna, string valor)
+        {
+            if (nodo is GrupoProyecto grupo)
+            {
+                return AplicarCambioGrupoTablaProyecto(grupo, columna, valor);
+            }
+
+            if (nodo is ItemProyecto item)
+            {
+                return AplicarCambioItemTablaProyecto(item, columna, valor);
+            }
+
+            if (nodo is SubproductoProyecto subproducto)
+            {
+                return AplicarCambioSubproductoTablaProyecto(subproducto, columna, valor);
+            }
+
+            if (nodo is ProcesoProyecto proceso)
+            {
+                return AplicarCambioProcesoTablaProyecto(proceso, columna, valor);
+            }
+
+            if (nodo is FilaProductivaProyecto fila)
+            {
+                return AplicarCambioFilaExpandidaTablaProyecto(fila, columna, valor);
+            }
+
+            return false;
+        }
+        private bool AplicarCambioFilaExpandidaTablaProyecto(FilaProductivaProyecto fila, string columna, string valor)
+        {
+            if (fila == null)
+            {
+                return false;
+            }
+
+            ItemProyecto item = ObtenerItemContenedor(fila);
+            Cotizacion snapshot = CargarSnapshotCotizacionItemProyecto(item);
+            List<RequerimientoProduccionInterna> requerimientos =
+                ObtenerRequerimientosFilaExpandida(snapshot, fila);
+
+            if (item == null || snapshot == null || requerimientos.Count == 0)
+            {
+                MessageBox.Show(this, "No se pudo ubicar el proceso dentro del snapshot local del proyecto.", "Productos y servicios", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
+            if (columna == "Cantidad")
+            {
+                if (!TryParseDecimalProyecto(valor, out decimal cantidad) || cantidad < 0m)
+                {
+                    MessageBox.Show(this, "La cantidad debe ser un numero mayor o igual a 0.", "Productos y servicios", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return false;
+                }
+
+                foreach (RequerimientoProduccionInterna req in requerimientos)
+                {
+                    req.Cantidad = Convert.ToDouble(cantidad);
+                    req.EditadoManualmente = true;
+                    req.TieneOverrideLocalCalculo = true;
+                }
+            }
+            else if (columna == "Unidad")
+            {
+                foreach (RequerimientoProduccionInterna req in requerimientos)
+                {
+                    req.Unidad = valor ?? "";
+                    req.EditadoManualmente = true;
+                    req.TieneOverrideLocalCalculo = true;
+                }
+            }
+            else if (columna == "Horas")
+            {
+                if (!TryParseDecimalProyecto(valor, out decimal horas) || horas < 0m)
+                {
+                    MessageBox.Show(this, "Las horas deben ser un numero mayor o igual a 0.", "Productos y servicios", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return false;
+                }
+
+                foreach (RequerimientoProduccionInterna req in requerimientos)
+                {
+                    AplicarHorasARequerimientoSnapshot(req, horas);
+                }
+            }
+            else if (columna == "Capacidad")
+            {
+                if (!TryParseDecimalProyecto(valor, out decimal capacidad) || capacidad <= 0m)
+                {
+                    MessageBox.Show(this, "La capacidad debe ser mayor a 0.", "Productos y servicios", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return false;
+                }
+
+                foreach (RequerimientoProduccionInterna req in requerimientos)
+                {
+                    AplicarRendimientoOverrideARequerimiento(req, capacidad, null);
+                }
+            }
+            else if (columna == "Periodo")
+            {
+                if (string.IsNullOrWhiteSpace(valor))
+                {
+                    return false;
+                }
+
+                foreach (RequerimientoProduccionInterna req in requerimientos)
+                {
+                    AplicarRendimientoOverrideARequerimiento(req, null, valor);
+                }
+            }
+            else
+            {
+                return false;
+            }
+
+            GuardarSnapshotCotizacionItemProyecto(item, snapshot);
+            return true;
+        }
+
+        private List<RequerimientoProduccionInterna> ObtenerRequerimientosFilaExpandida(
+            Cotizacion snapshot,
+            FilaProductivaProyecto fila)
+        {
+            List<RequerimientoProduccionInterna> todos = snapshot?.DesgloseProductivo?.Requerimientos?
+                .Where(r => r != null)
+                .ToList() ?? new List<RequerimientoProduccionInterna>();
+            if (fila == null || todos.Count == 0)
+            {
+                return new List<RequerimientoProduccionInterna>();
+            }
+
+            List<RequerimientoProduccionInterna> exactosPorId = todos
+                .Where(r => !string.IsNullOrWhiteSpace(fila.ProcesoProyectoId) &&
+                    string.Equals(r.ProcesoId, fila.ProcesoProyectoId, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            if (exactosPorId.Count > 0)
+            {
+                return exactosPorId;
+            }
+
+            List<RequerimientoProduccionInterna> exactosPorBiblioteca = todos
+                .Where(r => !string.IsNullOrWhiteSpace(fila.ProcesoBibliotecaId) &&
+                    (string.Equals(r.EcuacionUsada, fila.ProcesoBibliotecaId, StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(r.TipoInterno, fila.ProcesoBibliotecaId, StringComparison.OrdinalIgnoreCase)))
+                .ToList();
+            if (exactosPorBiblioteca.Count > 0)
+            {
+                return exactosPorBiblioteca;
+            }
+
+            List<RequerimientoProduccionInterna> relacionados = todos
+                .Where(r => CoincideRequerimientoConFilaExpandida(r, fila) &&
+                    (TextoRelacionadoProyecto(r.ProcesoId, fila.ProcesoProyectoId) ||
+                     TextoRelacionadoProyecto(r.EcuacionUsada, fila.ProcesoBibliotecaId) ||
+                     TextoRelacionadoProyecto(r.TipoInterno, fila.ProcesoBibliotecaId)))
+                .ToList();
+            if (relacionados.Count > 0)
+            {
+                return relacionados;
+            }
+
+            return todos
+                .Where(r => !string.IsNullOrWhiteSpace(fila.CargoId) &&
+                    TextoRelacionadoProyecto(r.CargoId, fila.CargoId))
+                .ToList();
+        }
+
+        private bool CoincideRequerimientoConFilaExpandida(RequerimientoProduccionInterna req, FilaProductivaProyecto fila)
+        {
+            if (req == null || fila == null)
+            {
+                return false;
+            }
+
+            return TextoRelacionadoProyecto(req.ProcesoId, fila.ProcesoProyectoId) ||
+                TextoRelacionadoProyecto(req.EcuacionUsada, fila.ProcesoBibliotecaId) ||
+                TextoRelacionadoProyecto(req.TipoInterno, fila.ProcesoBibliotecaId) ||
+                (!string.IsNullOrWhiteSpace(fila.CargoId) && TextoRelacionadoProyecto(req.CargoId, fila.CargoId));
+        }
+        private bool AplicarCambioGrupoTablaProyecto(GrupoProyecto grupo, string columna, string valor)
+        {
+            if (grupo == null) return false;
+            if (columna == "Elemento") { grupo.Nombre = LimpiarNombreJerarquiaProyecto(valor); return true; }
+            if (columna == "Cantidad") { return false; }
+            if (columna == "Unidad") { return false; }
+            if (columna == "Horas") { return false; }
+            if (columna == "Estado") { grupo.Activo = EsEstadoActivoProyecto(valor); return true; }
+            return false;
+        }
+
+        private bool AplicarCambioItemTablaProyecto(ItemProyecto item, string columna, string valor)
+        {
+            if (item == null) return false;
+            if (columna == "Elemento") { item.Nombre = LimpiarNombreJerarquiaProyecto(valor); return true; }
+            if (columna == "Cantidad")
+            {
+                if (!TryParseDecimalProyecto(valor, out decimal cantidad) || cantidad < 0m)
+                {
+                    MessageBox.Show(this, "La cantidad debe ser un numero mayor o igual a 0.", "Productos y servicios", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return false;
+                }
+                item.Cantidad = cantidad;
+                ActualizarCantidadSnapshotItemProyecto(item, cantidad);
+                return true;
+            }
+            if (columna == "Unidad") { item.Unidad = valor; return true; }
+            if (columna == "Horas")
+            {
+                if (!TryParseDecimalProyecto(valor, out decimal horas) || horas < 0m)
+                {
+                    MessageBox.Show(this, "Las horas deben ser un numero mayor o igual a 0.", "Productos y servicios", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return false;
+                }
+                AplicarHorasAItemProyecto(item, horas);
+                return true;
+            }
+            if (columna == "Capacidad")
+            {
+                if (!TryParseDecimalProyecto(valor, out decimal capacidad) || capacidad <= 0m)
+                {
+                    MessageBox.Show(this, "La capacidad debe ser mayor a 0.", "Productos y servicios", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return false;
+                }
+                ActualizarRendimientoSnapshotItemProyecto(item, capacidad, null);
+                return true;
+            }
+            if (columna == "Periodo")
+            {
+                if (string.IsNullOrWhiteSpace(valor)) return false;
+                ActualizarRendimientoSnapshotItemProyecto(item, null, valor);
+                return true;
+            }
+            if (columna == "Estado") { item.Activo = EsEstadoActivoProyecto(valor); return true; }
+            return false;
+        }
+
+        private bool AplicarCambioSubproductoTablaProyecto(SubproductoProyecto subproducto, string columna, string valor)
+        {
+            if (subproducto == null) return false;
+            if (columna == "Elemento") { subproducto.Nombre = LimpiarNombreJerarquiaProyecto(valor); return true; }
+            if (columna == "Cantidad")
+            {
+                if (!TryParseDecimalProyecto(valor, out decimal cantidad) || cantidad < 0m)
+                {
+                    MessageBox.Show(this, "La cantidad del subproducto debe ser un numero mayor o igual a 0.", "Productos y servicios", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return false;
+                }
+                subproducto.Cantidad = cantidad;
+                ActualizarCantidadSnapshotSubproductoProyecto(ObtenerItemContenedor(subproducto), subproducto, cantidad);
+                return true;
+            }
+            if (columna == "Unidad") { subproducto.Unidad = valor; return true; }
+            if (columna == "Horas")
+            {
+                if (!TryParseDecimalProyecto(valor, out decimal horas) || horas < 0m)
+                {
+                    MessageBox.Show(this, "Las horas del subproducto deben ser un numero mayor o igual a 0.", "Productos y servicios", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return false;
+                }
+                AplicarHorasASubproductoProyecto(subproducto, horas);
+                return true;
+            }
+            if (columna == "Capacidad")
+            {
+                if (!TryParseDecimalProyecto(valor, out decimal capacidad) || capacidad <= 0m)
+                {
+                    MessageBox.Show(this, "La capacidad del subproducto debe ser mayor a 0.", "Productos y servicios", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return false;
+                }
+                ActualizarRendimientoSnapshotSubproductoProyecto(ObtenerItemContenedor(subproducto), subproducto, capacidad, null);
+                return true;
+            }
+            if (columna == "Periodo")
+            {
+                if (string.IsNullOrWhiteSpace(valor)) return false;
+                ActualizarRendimientoSnapshotSubproductoProyecto(ObtenerItemContenedor(subproducto), subproducto, null, valor);
+                return true;
+            }
+            if (columna == "Estado") { subproducto.Activo = EsEstadoActivoProyecto(valor); return true; }
+            return false;
+        }
+
+        private bool AplicarCambioProcesoTablaProyecto(ProcesoProyecto proceso, string columna, string valor)
+        {
+            if (proceso == null) return false;
+            if (columna == "Elemento") { proceso.Nombre = LimpiarNombreJerarquiaProyecto(valor); return true; }
+            if (columna == "Cantidad")
+            {
+                if (!TryParseDecimalProyecto(valor, out decimal cantidad) || cantidad < 0m)
+                {
+                    MessageBox.Show(this, "La cantidad del proceso debe ser un numero mayor o igual a 0.", "Productos y servicios", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return false;
+                }
+                proceso.Cantidad = cantidad;
+                ActualizarCantidadSnapshotProcesoProyecto(ObtenerItemContenedor(proceso), proceso, cantidad);
+                return true;
+            }
+            if (columna == "Unidad")
+            {
+                proceso.Unidad = valor;
+                ActualizarUnidadSnapshotProcesoProyecto(ObtenerItemContenedor(proceso), proceso, valor);
+                return true;
+            }
+            if (columna == "Horas")
+            {
+                if (!TryParseDecimalProyecto(valor, out decimal horas) || horas < 0m)
+                {
+                    MessageBox.Show(this, "Las horas del proceso deben ser un numero mayor o igual a 0.", "Productos y servicios", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return false;
+                }
+                AplicarHorasAProcesoLocalProyecto(proceso, horas);
+                ActualizarHorasSnapshotProcesoProyecto(ObtenerItemContenedor(proceso), proceso, horas);
+                return true;
+            }
+            if (columna == "Capacidad")
+            {
+                if (!TryParseDecimalProyecto(valor, out decimal capacidad) || capacidad <= 0m)
+                {
+                    MessageBox.Show(this, "La capacidad del proceso debe ser mayor a 0.", "Productos y servicios", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return false;
+                }
+                proceso.Capacidad = capacidad;
+                ActualizarRendimientoSnapshotProcesoProyecto(ObtenerItemContenedor(proceso), proceso, capacidad, null);
+                return true;
+            }
+            if (columna == "Periodo")
+            {
+                if (string.IsNullOrWhiteSpace(valor)) return false;
+                proceso.Periodo = valor.Trim();
+                ActualizarRendimientoSnapshotProcesoProyecto(ObtenerItemContenedor(proceso), proceso, null, valor);
+                return true;
+            }
+            if (columna == "Estado") { proceso.Activo = EsEstadoActivoProyecto(valor); return true; }
+            return false;
+        }
+
+        private void AplicarHorasAProcesoLocalProyecto(ProcesoProyecto proceso, decimal horas)
+        {
+            if (proceso == null)
+            {
+                return;
+            }
+
+            horas = Math.Max(0m, horas);
+            proceso.Resultado = proceso.Resultado ?? new ResultadoProcesoProyecto();
+            List<AsignacionProductiva> asignaciones =
+                (proceso.Asignaciones ?? new List<AsignacionProductiva>())
+                .Where(a => a != null)
+                .ToList();
+
+            decimal costoTotal = 0m;
+            if (asignaciones.Count > 0)
+            {
+                decimal horasActuales = asignaciones.Sum(a =>
+                    a.HorasAsignadas > 0m ? a.HorasAsignadas : a.HorasCalculadas);
+                decimal restante = horas;
+
+                for (int i = 0; i < asignaciones.Count; i++)
+                {
+                    AsignacionProductiva asignacion = asignaciones[i];
+                    decimal horasBase = asignacion.HorasAsignadas > 0m
+                        ? asignacion.HorasAsignadas
+                        : asignacion.HorasCalculadas;
+                    decimal horasNuevas = i == asignaciones.Count - 1
+                        ? restante
+                        : horasActuales > 0m
+                            ? horas * horasBase / horasActuales
+                            : horas / asignaciones.Count;
+                    restante -= horasNuevas;
+
+                    decimal tarifaHora = horasBase > 0m && asignacion.CostoCalculado > 0m
+                        ? asignacion.CostoCalculado / horasBase
+                        : 0m;
+                    asignacion.HorasAsignadas = horasNuevas;
+                    asignacion.HorasCalculadas = horasNuevas;
+                    asignacion.OrigenHoras = OrigenHorasProductivas.Manual;
+                    if (tarifaHora > 0m)
+                    {
+                        asignacion.CostoCalculado = horasNuevas * tarifaHora;
+                    }
+                    costoTotal += asignacion.CostoCalculado;
+                }
+            }
+            else
+            {
+                decimal horasBase = proceso.Resultado.HorasAsignadas > 0m
+                    ? proceso.Resultado.HorasAsignadas
+                    : proceso.Resultado.HorasCalculadas;
+                decimal tarifaHora = horasBase > 0m && proceso.Resultado.CostoCalculado > 0m
+                    ? proceso.Resultado.CostoCalculado / horasBase
+                    : 0m;
+                costoTotal = tarifaHora > 0m
+                    ? horas * tarifaHora
+                    : proceso.Resultado.CostoCalculado;
+            }
+
+            proceso.Resultado.HorasAsignadas = horas;
+            proceso.Resultado.HorasCalculadas = horas;
+            proceso.Resultado.CostoCalculado = costoTotal;
+        }
+
+        private void AplicarHorasAItemProyecto(ItemProyecto item, decimal horas)
+        {
+            List<ProcesoProyecto> procesos = ObtenerProcesosItemProyecto(item);
+            DistribuirHorasEntreProcesos(procesos, horas);
+            ActualizarHorasSnapshotItemProyecto(item);
+        }
+
+        private void AplicarHorasASubproductoProyecto(SubproductoProyecto subproducto, decimal horas)
+        {
+            DistribuirHorasEntreProcesos((subproducto?.Procesos ?? new List<ProcesoProyecto>()).Where(p => p != null).ToList(), horas);
+            ActualizarHorasSnapshotSubproductoProyecto(ObtenerItemContenedor(subproducto), subproducto);
+        }
+
+        private void ActualizarHorasSnapshotItemProyecto(ItemProyecto item)
+        {
+            if (item == null)
+            {
+                return;
+            }
+
+            Cotizacion snapshot = CargarSnapshotCotizacionItemProyecto(item);
+            if (snapshot == null || snapshot.DesgloseProductivo == null)
+            {
+                return;
+            }
+
+            foreach (ProcesoProyecto proceso in ObtenerProcesosItemProyecto(item))
+            {
+                ActualizarRequerimientosSnapshotProceso(snapshot, proceso, ObtenerHorasProcesoProyecto(proceso), null);
+            }
+
+            GuardarSnapshotCotizacionItemProyecto(item, snapshot);
+        }
+
+        private void ActualizarHorasSnapshotSubproductoProyecto(ItemProyecto item, SubproductoProyecto subproducto)
+        {
+            if (item == null || subproducto == null)
+            {
+                return;
+            }
+
+            Cotizacion snapshot = CargarSnapshotCotizacionItemProyecto(item);
+            if (snapshot == null || snapshot.DesgloseProductivo == null)
+            {
+                return;
+            }
+
+            foreach (ProcesoProyecto proceso in (subproducto.Procesos ?? new List<ProcesoProyecto>()).Where(p => p != null))
+            {
+                ActualizarRequerimientosSnapshotProceso(snapshot, proceso, ObtenerHorasProcesoProyecto(proceso), subproducto);
+            }
+
+            GuardarSnapshotCotizacionItemProyecto(item, snapshot);
+        }
+
+        private void ActualizarHorasSnapshotProcesoProyecto(ItemProyecto item, ProcesoProyecto proceso, decimal horas)
+        {
+            if (item == null || proceso == null)
+            {
+                return;
+            }
+
+            Cotizacion snapshot = CargarSnapshotCotizacionItemProyecto(item);
+            if (snapshot == null || snapshot.DesgloseProductivo == null)
+            {
+                return;
+            }
+
+            ActualizarRequerimientosSnapshotProceso(snapshot, proceso, horas, null);
+            GuardarSnapshotCotizacionItemProyecto(item, snapshot);
+        }
+
+        private void ActualizarCantidadSnapshotItemProyecto(ItemProyecto item, decimal cantidad)
+        {
+            Cotizacion snapshot = CargarSnapshotCotizacionItemProyecto(item);
+            if (item == null || snapshot?.DesgloseProductivo?.Requerimientos == null)
+            {
+                return;
+            }
+
+            foreach (RequerimientoProduccionInterna req in snapshot.DesgloseProductivo.Requerimientos.Where(r => r != null))
+            {
+                req.Cantidad = Convert.ToDouble(cantidad);
+                req.EditadoManualmente = true;
+                req.TieneOverrideLocalCalculo = true;
+            }
+
+            GuardarSnapshotCotizacionItemProyecto(item, snapshot);
+        }
+
+        private void ActualizarUnidadSnapshotItemProyecto(ItemProyecto item, string unidad)
+        {
+            Cotizacion snapshot = CargarSnapshotCotizacionItemProyecto(item);
+            if (item == null || snapshot?.DesgloseProductivo?.Requerimientos == null)
+            {
+                return;
+            }
+
+            foreach (RequerimientoProduccionInterna req in snapshot.DesgloseProductivo.Requerimientos.Where(r => r != null))
+            {
+                req.Unidad = unidad ?? "";
+                req.EditadoManualmente = true;
+                req.TieneOverrideLocalCalculo = true;
+            }
+
+            GuardarSnapshotCotizacionItemProyecto(item, snapshot);
+        }
+
+        private void ActualizarCantidadSnapshotSubproductoProyecto(ItemProyecto item, SubproductoProyecto subproducto, decimal cantidad)
+        {
+            Cotizacion snapshot = CargarSnapshotCotizacionItemProyecto(item);
+            if (item == null || subproducto == null || snapshot?.DesgloseProductivo?.Requerimientos == null)
+            {
+                return;
+            }
+
+            foreach (RequerimientoProduccionInterna req in snapshot.DesgloseProductivo.Requerimientos.Where(r => r != null && CoincideRequerimientoConSubproducto(r, subproducto)))
+            {
+                req.Cantidad = Convert.ToDouble(cantidad);
+                req.EditadoManualmente = true;
+                req.TieneOverrideLocalCalculo = true;
+            }
+
+            GuardarSnapshotCotizacionItemProyecto(item, snapshot);
+        }
+
+        private void ActualizarUnidadSnapshotSubproductoProyecto(ItemProyecto item, SubproductoProyecto subproducto, string unidad)
+        {
+            Cotizacion snapshot = CargarSnapshotCotizacionItemProyecto(item);
+            if (item == null || subproducto == null || snapshot?.DesgloseProductivo?.Requerimientos == null)
+            {
+                return;
+            }
+
+            foreach (RequerimientoProduccionInterna req in snapshot.DesgloseProductivo.Requerimientos
+                .Where(r => r != null && CoincideRequerimientoConSubproducto(r, subproducto)))
+            {
+                req.Unidad = unidad ?? "";
+                req.EditadoManualmente = true;
+                req.TieneOverrideLocalCalculo = true;
+            }
+
+            GuardarSnapshotCotizacionItemProyecto(item, snapshot);
+        }
+
+        private void ActualizarCantidadSnapshotProcesoProyecto(ItemProyecto item, ProcesoProyecto proceso, decimal cantidad)
+        {
+            Cotizacion snapshot = CargarSnapshotCotizacionItemProyecto(item);
+            if (item == null || proceso == null || snapshot?.DesgloseProductivo?.Requerimientos == null)
+            {
+                return;
+            }
+
+            foreach (RequerimientoProduccionInterna req in snapshot.DesgloseProductivo.Requerimientos.Where(r => r != null && CoincideRequerimientoConProceso(r, proceso, null)))
+            {
+                req.Cantidad = Convert.ToDouble(cantidad);
+                req.EditadoManualmente = true;
+                req.TieneOverrideLocalCalculo = true;
+            }
+
+            GuardarSnapshotCotizacionItemProyecto(item, snapshot);
+        }
+
+        private void ActualizarRendimientoSnapshotItemProyecto(ItemProyecto item, decimal? capacidad, string periodo)
+        {
+            Cotizacion snapshot = CargarSnapshotCotizacionItemProyecto(item);
+            if (item == null || snapshot?.DesgloseProductivo?.Requerimientos == null)
+            {
+                return;
+            }
+
+            foreach (RequerimientoProduccionInterna req in snapshot.DesgloseProductivo.Requerimientos.Where(r => r != null))
+            {
+                AplicarRendimientoOverrideARequerimiento(req, capacidad, periodo);
+            }
+
+            GuardarSnapshotCotizacionItemProyecto(item, snapshot);
+        }
+
+        private void ActualizarUnidadSnapshotProcesoProyecto(ItemProyecto item, ProcesoProyecto proceso, string unidad)
+        {
+            Cotizacion snapshot = CargarSnapshotCotizacionItemProyecto(item);
+            if (item == null || proceso == null || snapshot?.DesgloseProductivo?.Requerimientos == null)
+            {
+                return;
+            }
+
+            foreach (RequerimientoProduccionInterna req in snapshot.DesgloseProductivo.Requerimientos
+                .Where(r => r != null && CoincideRequerimientoConProceso(r, proceso, null)))
+            {
+                req.Unidad = unidad ?? "";
+                req.EditadoManualmente = true;
+                req.TieneOverrideLocalCalculo = true;
+            }
+
+            GuardarSnapshotCotizacionItemProyecto(item, snapshot);
+        }
+
+        private void ActualizarRendimientoSnapshotSubproductoProyecto(ItemProyecto item, SubproductoProyecto subproducto, decimal? capacidad, string periodo)
+        {
+            Cotizacion snapshot = CargarSnapshotCotizacionItemProyecto(item);
+            if (item == null || subproducto == null || snapshot?.DesgloseProductivo?.Requerimientos == null)
+            {
+                return;
+            }
+
+            foreach (RequerimientoProduccionInterna req in snapshot.DesgloseProductivo.Requerimientos.Where(r => r != null && CoincideRequerimientoConSubproducto(r, subproducto)))
+            {
+                AplicarRendimientoOverrideARequerimiento(req, capacidad, periodo);
+            }
+
+            GuardarSnapshotCotizacionItemProyecto(item, snapshot);
+        }
+
+        private void ActualizarRendimientoSnapshotProcesoProyecto(ItemProyecto item, ProcesoProyecto proceso, decimal? capacidad, string periodo)
+        {
+            Cotizacion snapshot = CargarSnapshotCotizacionItemProyecto(item);
+            if (item == null || proceso == null || snapshot?.DesgloseProductivo?.Requerimientos == null)
+            {
+                return;
+            }
+
+            foreach (RequerimientoProduccionInterna req in snapshot.DesgloseProductivo.Requerimientos.Where(r => r != null && CoincideRequerimientoConProceso(r, proceso, null)))
+            {
+                AplicarRendimientoOverrideARequerimiento(req, capacidad, periodo);
+            }
+
+            GuardarSnapshotCotizacionItemProyecto(item, snapshot);
+        }
+
+        private void AplicarRendimientoOverrideARequerimiento(RequerimientoProduccionInterna req, decimal? capacidad, string periodo)
+        {
+            if (req == null)
+            {
+                return;
+            }
+
+            if (capacidad.HasValue && capacidad.Value > 0m)
+            {
+                double capacidadDouble = Convert.ToDouble(capacidad.Value);
+                req.RendimientoCantidad = capacidadDouble;
+                req.RendimientoCantidadOverride = capacidadDouble;
+            }
+
+            if (!string.IsNullOrWhiteSpace(periodo))
+            {
+                req.RendimientoPeriodo = periodo.Trim();
+                req.RendimientoPeriodoOverride = periodo.Trim();
+            }
+
+            req.TieneOverrideLocalCalculo = true;
+            req.EditadoManualmente = true;
+            req.RendimientoOrigen = "EditadoEnProyecto";
+            req.OrigenHoras = "Rendimiento editado en proyecto";
+        }
+        private Cotizacion CargarSnapshotCotizacionItemProyecto(ItemProyecto item)
+        {
+            if (item == null || string.IsNullOrWhiteSpace(item.CotizacionSnapshotJson))
+            {
+                return null;
+            }
+
+            try
+            {
+                return JsonSerializer.Deserialize<Cotizacion>(item.CotizacionSnapshotJson, CrearOpcionesSnapshotProyecto());
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private void GuardarSnapshotCotizacionItemProyecto(ItemProyecto item, Cotizacion snapshot)
+        {
+            if (item == null || snapshot == null)
+            {
+                return;
+            }
+
+            ProyectoCotizacion proyectoTemporal = snapshot.ProyectoProductivo;
+            snapshot.ProyectoProductivo = null;
+            try
+            {
+                item.CotizacionSnapshotJson = JsonSerializer.Serialize(snapshot, CrearOpcionesSnapshotProyecto());
+                item.FechaEdicionSnapshot = DateTime.Now;
+            }
+            finally
+            {
+                snapshot.ProyectoProductivo = proyectoTemporal;
+            }
+        }
+
+        private JsonSerializerOptions CrearOpcionesSnapshotProyecto()
+        {
+            return new JsonSerializerOptions
+            {
+                WriteIndented = true,
+                PropertyNameCaseInsensitive = true
+            };
+        }
+
+        private void ActualizarRequerimientosSnapshotProceso(Cotizacion snapshot, ProcesoProyecto proceso, decimal horas, SubproductoProyecto subproducto)
+        {
+            if (snapshot?.DesgloseProductivo?.Requerimientos == null || proceso == null)
+            {
+                return;
+            }
+
+            List<RequerimientoProduccionInterna> requerimientos = snapshot.DesgloseProductivo.Requerimientos
+                .Where(r => r != null && CoincideRequerimientoConProceso(r, proceso, subproducto))
+                .ToList();
+
+            foreach (RequerimientoProduccionInterna req in requerimientos)
+            {
+                AplicarHorasARequerimientoSnapshot(req, horas);
+            }
+        }
+
+        private void AplicarHorasARequerimientoSnapshot(RequerimientoProduccionInterna req, decimal horas)
+        {
+            double horasNuevas = Convert.ToDouble(Math.Max(0m, horas));
+            double horasAnteriores = req.HorasEstandar > 0.0 ? req.HorasEstandar : req.DiasPersonaStd * 8.0;
+            double ratioMin = horasAnteriores > 0.0 && req.HorasMinimas > 0.0 ? req.HorasMinimas / horasAnteriores : 1.0;
+            double ratioHolgura = horasAnteriores > 0.0 && req.HorasHolgura > 0.0 ? req.HorasHolgura / horasAnteriores : 1.0;
+            double tarifaHora = horasAnteriores > 0.0 && req.CostoEstandarCLP > 0.0
+                ? req.CostoEstandarCLP / horasAnteriores
+                : req.TarifaDiaCargoCLP > 0.0
+                    ? req.TarifaDiaCargoCLP / 8.0
+                    : 0.0;
+
+            req.HorasEstandar = horasNuevas;
+            req.HorasMinimas = horasNuevas * ratioMin;
+            req.HorasHolgura = horasNuevas * ratioHolgura;
+            req.DiasPersonaStd = horasNuevas / 8.0;
+            req.DiasPersonaMin = req.HorasMinimas / 8.0;
+            req.DiasPersonaHolgura = req.HorasHolgura / 8.0;
+            if (tarifaHora > 0.0)
+            {
+                req.CostoEstandarCLP = horasNuevas * tarifaHora;
+                req.CostoMinimoCLP = req.HorasMinimas * tarifaHora;
+                req.CostoHolguraCLP = req.HorasHolgura * tarifaHora;
+            }
+
+            if (!ModosCalculoProductivo.EsTiempoAsignado(req.ModoCalculoProductivo))
+            {
+                double diasPeriodo = BibliotecaRendimientosProductivosJsonService.ObtenerDiasPeriodo(
+                    req.RendimientoPeriodo,
+                    cotizacion != null && cotizacion.DiasHabilesEstudioPorSemana > 0.0 ? cotizacion.DiasHabilesEstudioPorSemana : 5.0
+                );
+
+                if (horasNuevas > 0.0 && req.Cantidad > 0.0 && diasPeriodo > 0.0)
+                {
+                    double capacidadEquivalente = (req.Cantidad * diasPeriodo * 8.0) / horasNuevas;
+                    req.RendimientoCantidad = capacidadEquivalente;
+                    req.RendimientoCantidadOverride = capacidadEquivalente;
+                    req.RendimientoPeriodoOverride = string.IsNullOrWhiteSpace(req.RendimientoPeriodo) ? "semana" : req.RendimientoPeriodo;
+                    req.RendimientoOrigen = "EditadoEnProyecto";
+                    req.OrigenHoras = "Rendimiento editado en proyecto";
+                }
+            }
+            else
+            {
+                req.OrigenHoras = "Tiempo asignado editado en proyecto";
+            }
+
+            req.EditadoManualmente = true;
+            req.TieneOverrideLocalCalculo = true;
+        }
+
+        private bool CoincideRequerimientoConProceso(RequerimientoProduccionInterna req, ProcesoProyecto proceso, SubproductoProyecto subproducto)
+        {
+            if (req == null || proceso == null)
+            {
+                return false;
+            }
+
+            if (subproducto != null && !CoincideRequerimientoConSubproducto(req, subproducto))
+            {
+                return false;
+            }
+
+            return TextoRelacionadoProyecto(req.ProcesoId, proceso.Id) ||
+                TextoRelacionadoProyecto(req.NombreRequerimiento, proceso.Nombre) ||
+                TextoRelacionadoProyecto(req.TipoInterno, proceso.ProcesoBibliotecaId) ||
+                TextoRelacionadoProyecto(req.EcuacionUsada, proceso.ProcesoBibliotecaId) ||
+                TextoRelacionadoProyecto(req.EcuacionUsada, proceso.Nombre) ||
+                TextoRelacionadoProyecto(req.NombreRequerimiento, proceso.ProcesoBibliotecaId);
+        }
+
+        private bool CoincideRequerimientoConSubproducto(RequerimientoProduccionInterna req, SubproductoProyecto subproducto)
+        {
+            if (req == null || subproducto == null)
+            {
+                return false;
+            }
+
+            return TextoRelacionadoProyecto(req.EntregableCliente, subproducto.Nombre) ||
+                TextoRelacionadoProyecto(req.NombreRequerimiento, subproducto.Nombre) ||
+                TextoRelacionadoProyecto(req.TipoInterno, subproducto.SubproductoBibliotecaId) ||
+                TextoRelacionadoProyecto(req.TipoInterno, subproducto.Nombre) ||
+                TextoRelacionadoProyecto(req.ProcesoId, subproducto.Id);
+        }
+
+        private bool TextoRelacionadoProyecto(string a, string b)
+        {
+            string na = NormalizarTextoProyecto(a);
+            string nb = NormalizarTextoProyecto(b);
+            if (string.IsNullOrWhiteSpace(na) || string.IsNullOrWhiteSpace(nb))
+            {
+                return false;
+            }
+
+            return na == nb || na.Contains(nb) || nb.Contains(na);
+        }
+
+        private bool TextoIgualProyecto(string a, string b)
+        {
+            return !string.IsNullOrWhiteSpace(a) &&
+                !string.IsNullOrWhiteSpace(b) &&
+                string.Equals(a.Trim(), b.Trim(), StringComparison.OrdinalIgnoreCase);
+        }
+
+        private List<ProcesoProyecto> ObtenerProcesosItemProyecto(ItemProyecto item)
+        {
+            List<ProcesoProyecto> procesos = new List<ProcesoProyecto>();
+            if (item == null)
+            {
+                return procesos;
+            }
+
+            procesos.AddRange((item.Procesos ?? new List<ProcesoProyecto>()).Where(p => p != null));
+            foreach (SubproductoProyecto sub in (item.Subproductos ?? new List<SubproductoProyecto>()).Where(s => s != null))
+            {
+                procesos.AddRange((sub.Procesos ?? new List<ProcesoProyecto>()).Where(p => p != null));
+                foreach (InstanciaSubproducto instancia in (sub.Instancias ?? new List<InstanciaSubproducto>()).Where(i => i != null))
+                {
+                    procesos.AddRange((instancia.Procesos ?? new List<ProcesoProyecto>()).Where(p => p != null));
+                }
+            }
+            return procesos;
+        }
+
+        private void DistribuirHorasEntreProcesos(List<ProcesoProyecto> procesos, decimal horasTotales)
+        {
+            procesos = (procesos ?? new List<ProcesoProyecto>()).Where(p => p != null && p.Activo).ToList();
+            if (procesos.Count == 0)
+            {
+                return;
+            }
+
+            decimal sumaActual = procesos.Sum(p => ObtenerHorasProcesoProyecto(p));
+            if (sumaActual <= 0m)
+            {
+                decimal porProceso = horasTotales / procesos.Count;
+                foreach (ProcesoProyecto proceso in procesos)
+                {
+                    proceso.Resultado = proceso.Resultado ?? new ResultadoProcesoProyecto();
+                    proceso.Resultado.HorasAsignadas = porProceso;
+                }
+                return;
+            }
+
+            foreach (ProcesoProyecto proceso in procesos)
+            {
+                decimal baseProceso = ObtenerHorasProcesoProyecto(proceso);
+                proceso.Resultado = proceso.Resultado ?? new ResultadoProcesoProyecto();
+                proceso.Resultado.HorasAsignadas = horasTotales * baseProceso / sumaActual;
+            }
+        }
+        private bool TryParseDecimalProyecto(string texto, out decimal valor)
+        {
+            texto = (texto ?? "").Trim().Replace(".", System.Globalization.CultureInfo.CurrentCulture.NumberFormat.NumberDecimalSeparator);
+            return decimal.TryParse(texto, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.CurrentCulture, out valor) ||
+                   decimal.TryParse((texto ?? "").Replace(",", "."), System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out valor);
+        }
+
+        private bool EsEstadoActivoProyecto(string valor)
+        {
+            string normalizado = NormalizarTextoProyecto(valor);
+            return !(normalizado.Contains("inactivo") || normalizado.Contains("no aplica") || normalizado.Contains("desactivado") || normalizado == "0" || normalizado == "false");
+        }
+
+        private string NormalizarTextoProyecto(string texto)
+        {
+            return (texto ?? "")
+                .Trim()
+                .ToLowerInvariant()
+                .Replace("á", "a")
+                .Replace("é", "e")
+                .Replace("í", "i")
+                .Replace("ó", "o")
+                .Replace("ú", "u");
+        }
+
+        private void SanearNombresJerarquiaProyecto()
+        {
+            if (proyectoCotizacionActual == null)
+            {
+                return;
+            }
+
+            foreach (GrupoProyecto grupo in proyectoCotizacionActual.Grupos ?? new List<GrupoProyecto>())
+            {
+                if (grupo == null)
+                {
+                    continue;
+                }
+
+                grupo.Nombre = LimpiarNombreJerarquiaProyecto(grupo.Nombre);
+                foreach (ItemProyecto item in grupo.Items ?? new List<ItemProyecto>())
+                {
+                    if (item == null)
+                    {
+                        continue;
+                    }
+
+                    item.Nombre = LimpiarNombreJerarquiaProyecto(item.Nombre);
+                    foreach (ProcesoProyecto proceso in item.Procesos ?? new List<ProcesoProyecto>())
+                    {
+                        if (proceso != null)
+                        {
+                            proceso.Nombre = LimpiarNombreJerarquiaProyecto(proceso.Nombre);
+                        }
+                    }
+
+                    foreach (SubproductoProyecto subproducto in item.Subproductos ?? new List<SubproductoProyecto>())
+                    {
+                        if (subproducto == null)
+                        {
+                            continue;
+                        }
+
+                        subproducto.Nombre = LimpiarNombreJerarquiaProyecto(subproducto.Nombre);
+                        foreach (ProcesoProyecto proceso in subproducto.Procesos ?? new List<ProcesoProyecto>())
+                        {
+                            if (proceso != null)
+                            {
+                                proceso.Nombre = LimpiarNombreJerarquiaProyecto(proceso.Nombre);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        private string LimpiarNombreJerarquiaProyecto(string nombre)
+        {
+            string limpio = (nombre ?? "").Trim();
+            while (limpio.StartsWith("[-]", StringComparison.Ordinal) ||
+                   limpio.StartsWith("[+]", StringComparison.Ordinal))
+            {
+                limpio = limpio.Substring(3).TrimStart();
+            }
+
+            return limpio;
+        }
+
+        private void MarcarNodoProyectoModificado(object nodo, string campo, string valor)
+        {
+            if (proyectoCotizacionActual != null)
+            {
+                proyectoCotizacionActual.FechaModificacion = DateTime.Now;
+            }
+
+            ItemProyecto item = nodo as ItemProyecto ?? ObtenerItemContenedor(nodo);
+            if (item == null)
+            {
+                return;
+            }
+
+            item.FechaEdicionSnapshot = DateTime.Now;
+            item.Overrides = item.Overrides ?? new List<OverrideProductivo>();
+            item.Overrides.RemoveAll(o => o != null && o.RutaElemento == ObtenerRutaNodoProyecto(nodo) && o.Campo == campo);
+            item.Overrides.Add(new OverrideProductivo
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                Campo = campo,
+                ValorJson = JsonSerializer.Serialize(valor ?? ""),
+                Motivo = "Editado desde tabla de Productos y servicios",
+                Alcance = AlcanceModificacion.ProductoProyecto,
+                Estado = EstadoPersonalizacionProyecto.PersonalizadoProyecto,
+                RutaElemento = ObtenerRutaNodoProyecto(nodo),
+                BibliotecaId = item.BibliotecaId ?? "",
+                Fecha = DateTime.Now
+            });
+            if (cotizacion != null)
+            {
+                cotizacion.ProyectoProductivo = proyectoCotizacionActual;
+            }
+            MarcarProyectoConCambiosPendientes();
+        }
+
+        private string ObtenerRutaNodoProyecto(object nodo)
+        {
+            if (nodo is GrupoProyecto grupo) return "grupo/" + grupo.Id;
+            if (nodo is ItemProyecto item) return "item/" + item.Id;
+            if (nodo is SubproductoProyecto subproducto) return "subproducto/" + subproducto.Id;
+            if (nodo is ProcesoProyecto proceso) return "proceso/" + proceso.Id;
+            return "nodo";
+        }
+
+        private void RefrescarArbolProyecto()
+        {
+            tvProyecto = new TreeView();
+            tvProyecto.Dock = DockStyle.Fill;
+            tvProyecto.HideSelection = false;
+            tvProyecto.Font = new Font("Segoe UI", 9.4f);
+            tvProyecto.AfterSelect += (s, e) => SeleccionarNodoProyecto(e.Node == null ? null : e.Node.Tag, false);
+            tvProyecto.NodeMouseDoubleClick += (s, e) => AbrirInspectorProyecto(e.Node == null ? null : e.Node.Tag);
+            tvProyecto.KeyDown += (s, e) =>
+            {
+                if (e.KeyCode == Keys.Enter && tvProyecto.SelectedNode != null)
+                {
+                    AbrirInspectorProyecto(tvProyecto.SelectedNode.Tag);
+                    e.Handled = true;
+                }
+                else if (e.KeyCode == Keys.Space && tvProyecto.SelectedNode != null)
+                {
+                    if (tvProyecto.SelectedNode.IsExpanded)
+                    {
+                        tvProyecto.SelectedNode.Collapse();
+                    }
+                    else
+                    {
+                        tvProyecto.SelectedNode.Expand();
+                    }
+                    e.Handled = true;
+                }
+            };
+            tvProyecto.Nodes.Clear();
+
+            TreeNode raiz = new TreeNode(proyectoCotizacionActual.Nombre + " | " + lblMetricasProyecto.Text) { Tag = proyectoCotizacionActual };
+            tvProyecto.Nodes.Add(raiz);
+
+            foreach (ProjectStructureNode grupo in nodosProyectoPresentacion)
+            {
+                TreeNode nGrupo = CrearNodoArbolProyecto(grupo);
+                raiz.Nodes.Add(nGrupo);
+            }
+
+            raiz.Expand();
+        }
+
+        private TreeNode CrearNodoArbolProyecto(ProjectStructureNode nodo)
+        {
+            string texto = nodo.Name;
+            if (nodo.NodeType != "Grupo")
+            {
+                texto += " | " + nodo.Quantity.ToString("0.##") + " " + nodo.Unit +
+                    " | " + nodo.Time.ToString("0.##") + " h | " +
+                    nodo.Cost.ToString("N0") + " CLP | " + nodo.Status;
+            }
+
+            TreeNode treeNode = new TreeNode(texto) { Tag = nodo.DomainObject };
+            foreach (ProjectStructureNode hijo in nodo.Children.OrderBy(c => c.SortOrder))
+            {
+                treeNode.Nodes.Add(CrearNodoArbolProyecto(hijo));
+            }
+
+            if (nodosProyectoExpandidos.Contains(nodo.Id))
+            {
+                treeNode.Expand();
+            }
+
+            return treeNode;
+        }
+
+        private void SeleccionarNodoProyecto(object nodo, bool refrescar = true)
+        {
+            nodoProyectoSeleccionado = nodo;
+            itemProyectoSeleccionado = nodo as ItemProyecto ?? ObtenerItemContenedor(nodo);
+            if (refrescar)
+            {
+                RefrescarProyectoUI();
+            }
+            else
+            {
+                MostrarEditorNodoProyecto(nodo);
+            }
+        }
+
+        private SubproductoProyecto ObtenerSubproductoContenedor(object nodo)
+        {
+            if (nodo is SubproductoProyecto subDirecto)
+            {
+                return subDirecto;
+            }
+
+            ProcesoProyecto proceso = nodo as ProcesoProyecto;
+            if (proceso == null || proyectoCotizacionActual == null)
+            {
+                return null;
+            }
+
+            return proyectoCotizacionActual.Grupos
+                .SelectMany(g => g.Items ?? new List<ItemProyecto>())
+                .SelectMany(i => i.Subproductos ?? new List<SubproductoProyecto>())
+                .FirstOrDefault(s => (s.Procesos ?? new List<ProcesoProyecto>()).Contains(proceso));
+        }
+
+        private ItemProyecto ObtenerItemContenedor(object nodo)
+        {
+            if (nodo is SubproductoProyecto sub)
+            {
+                return proyectoCotizacionActual.Grupos
+                    .SelectMany(g => g.Items ?? new List<ItemProyecto>())
+                    .FirstOrDefault(i => (i.Subproductos ?? new List<SubproductoProyecto>()).Contains(sub));
+            }
+
+            if (nodo is InstanciaSubproducto instancia)
+            {
+                return proyectoCotizacionActual.Grupos
+                    .SelectMany(g => g.Items ?? new List<ItemProyecto>())
+                    .FirstOrDefault(i => (i.Subproductos ?? new List<SubproductoProyecto>())
+                        .Any(s => (s.Instancias ?? new List<InstanciaSubproducto>()).Contains(instancia)));
+            }
+
+            if (nodo is ProcesoProyecto proceso)
+            {
+                return proyectoCotizacionActual.Grupos
+                    .SelectMany(g => g.Items ?? new List<ItemProyecto>())
+                    .FirstOrDefault(i =>
+                        (i.Procesos ?? new List<ProcesoProyecto>()).Contains(proceso) ||
+                        (i.Subproductos ?? new List<SubproductoProyecto>())
+                            .Any(s => (s.Procesos ?? new List<ProcesoProyecto>()).Contains(proceso)));
+            }
+
+            if (nodo is FilaProductivaProyecto fila)
+            {
+                return proyectoCotizacionActual.Grupos
+                    .SelectMany(g => g.Items ?? new List<ItemProyecto>())
+                    .FirstOrDefault(i => string.Equals(i.Id, fila.ItemId, StringComparison.OrdinalIgnoreCase));
+            }
+
+            return null;
+        }
+
+        private void MostrarEditorNodoProyecto(object nodo)
+        {
+            panelEditorProyecto.Controls.Clear();
+            panelEditorProyecto.AutoScroll = true;
+
+            if (!ProyectoTieneItems())
+            {
+                ConstruirEditorVacioProyecto();
+                return;
+            }
+
+
+            if (nodo is ItemProyecto item)
+            {
+                ConstruirEditorItemProyecto(item);
+                return;
+            }
+
+            if (nodo is SubproductoProyecto sub)
+            {
+                ConstruirEditorSubproducto(sub);
+                return;
+            }
+
+            if (nodo is GrupoProyecto grupo)
+            {
+                ConstruirEditorGrupo(grupo);
+                return;
+            }
+
+            if (nodo is ProcesoProyecto proceso)
+            {
+                ConstruirEditorProceso(proceso);
+                return;
+            }
+
+            if (nodo is FilaProductivaProyecto fila)
+            {
+                ConstruirEditorFilaProductiva(fila);
+                return;
+            }
+
+            ConstruirEditorProyectoGeneral();
+        }
+
+        private Control CrearCabeceraInspectorProyecto()
+        {
+            Panel panel = new Panel();
+            panel.Dock = DockStyle.Top;
+            panel.Height = 38;
+            panel.BackColor = Color.White;
+            panel.Margin = new Padding(0, 0, 0, 8);
+
+            Label titulo = new Label();
+            titulo.Text = "Inspector contextual";
+            titulo.Font = new Font("Segoe UI", 10f, FontStyle.Bold);
+            titulo.AutoSize = true;
+            titulo.Location = new Point(0, 8);
+
+            Button cerrar = CrearBotonMini("Cerrar", (s, e) => CerrarInspectorProyecto());
+            cerrar.Width = 76;
+            cerrar.Location = new Point(Math.Max(80, panelEditorProyecto.ClientSize.Width - 112), 4);
+            panel.Controls.Add(titulo);
+            panel.Controls.Add(cerrar);
+            return panel;
+        }
+
+        private void ConstruirEditorVacioProyecto()
+        {
+            Panel panel = new Panel();
+            panel.Dock = DockStyle.Fill;
+            panel.BackColor = Color.White;
+
+            Label titulo = new Label();
+            titulo.Text = "Aun no hay productos en este proyecto";
+            titulo.Font = new Font("Segoe UI", 18f, FontStyle.Bold);
+            titulo.AutoSize = true;
+            titulo.Location = new Point(30, 40);
+
+            Label texto = new Label();
+            texto.Text = "Agrega un producto desde la biblioteca global o crea uno personalizado para empezar a configurar cantidades, parametros y subproductos.";
+            texto.Font = new Font("Segoe UI", 10f);
+            texto.ForeColor = Color.FromArgb(85, 85, 85);
+            texto.MaximumSize = new Size(680, 0);
+            texto.AutoSize = true;
+            texto.Location = new Point(32, 84);
+
+            Button agregar = CrearBotonProyecto("Agregar desde catalogo", (s, e) => AgregarProductoServicioDesdeBiblioteca(), 180);
+            agregar.Location = new Point(32, 142);
+            Button nuevo = CrearBotonProyecto("Crear producto nuevo", (s, e) => AgregarProductoServicioDesdeBiblioteca(), 180);
+            nuevo.Location = new Point(224, 142);
+
+            panel.Controls.Add(titulo);
+            panel.Controls.Add(texto);
+            panel.Controls.Add(agregar);
+            panel.Controls.Add(nuevo);
+            panelEditorProyecto.Controls.Add(panel);
+        }
+
+        private void ConstruirEditorProyectoGeneral()
+        {
+            Label titulo = CrearTituloEditor("Proyecto");
+            panelEditorProyecto.Controls.Add(titulo);
+            panelEditorProyecto.Controls.Add(CrearTextoEditor("Selecciona un producto o servicio para modificar cantidades, subproductos, pipeline y overrides."));
+        }
+
+        private void ConstruirEditorGrupo(GrupoProyecto grupo)
+        {
+            panelEditorProyecto.Controls.Add(CrearTituloEditor("Grupo"));
+            TableLayoutPanel form = CrearFormularioEditor();
+            AgregarEditorTexto(form, "Nombre", grupo.Nombre, v =>
+            {
+                grupo.Nombre = v;
+                grupo.FechaModificacionSeguro(proyectoCotizacionActual);
+                nodoProyectoSeleccionado = grupo;
+                MarcarProyectoConCambiosPendientes();
+                RecalcularProyectoProductivoActual();
+            });
+            AgregarEditorTexto(form, "Descripcion", grupo.Descripcion, v =>
+            {
+                grupo.Descripcion = v;
+                grupo.FechaModificacionSeguro(proyectoCotizacionActual);
+                nodoProyectoSeleccionado = grupo;
+                MarcarProyectoConCambiosPendientes();
+                RecalcularProyectoProductivoActual();
+            }, true);
+            panelEditorProyecto.Controls.Add(form);
+        }
+
+        private FlowLayoutPanel CrearInspectorElementoProyecto(string nombre, string subtitulo, string estado)
+        {
+            FlowLayoutPanel contenedor = new FlowLayoutPanel();
+            contenedor.Dock = DockStyle.Top;
+            contenedor.AutoSize = true;
+            contenedor.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            contenedor.FlowDirection = FlowDirection.TopDown;
+            contenedor.WrapContents = false;
+            contenedor.Padding = new Padding(0, 0, 10, 16);
+            contenedor.Margin = new Padding(0);
+            contenedor.Width = Math.Max(300, panelEditorProyecto.ClientSize.Width - 28);
+            contenedor.Controls.Add(CrearCabeceraElementoInspectorProyecto(nombre, subtitulo, estado));
+            return contenedor;
+        }
+
+        private Control CrearCabeceraElementoInspectorProyecto(string nombre, string subtitulo, string estado)
+        {
+            TableLayoutPanel header = new TableLayoutPanel();
+            header.Width = Math.Max(300, panelEditorProyecto.ClientSize.Width - 34);
+            header.AutoSize = true;
+            header.ColumnCount = 2;
+            header.RowCount = 3;
+            header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 82));
+            header.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            header.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            header.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            header.Margin = new Padding(0, 0, 0, 12);
+            header.Padding = new Padding(0, 0, 0, 8);
+
+            Label titulo = new Label();
+            titulo.Text = nombre ?? "Sin nombre";
+            titulo.Font = new Font("Segoe UI", 13.5f, FontStyle.Bold);
+            titulo.AutoSize = true;
+            titulo.MaximumSize = new Size(Math.Max(190, header.Width - 92), 0);
+            titulo.Margin = new Padding(0, 0, 8, 4);
+
+            Button cerrar = CrearBotonMini("Cerrar", (s, e) => CerrarInspectorProyecto());
+            cerrar.Width = 76;
+            cerrar.Height = 28;
+            cerrar.Margin = new Padding(0, 0, 0, 0);
+
+            Label meta = new Label();
+            meta.Text = subtitulo ?? "";
+            meta.Font = new Font("Segoe UI", 9.2f, FontStyle.Regular);
+            meta.ForeColor = Color.FromArgb(80, 85, 92);
+            meta.AutoSize = true;
+            meta.MaximumSize = new Size(Math.Max(260, header.Width - 12), 0);
+            meta.Margin = new Padding(0, 0, 0, 4);
+
+            Label estadoLbl = new Label();
+            estadoLbl.Text = string.IsNullOrWhiteSpace(estado) ? "Sin estado" : estado;
+            estadoLbl.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
+            estadoLbl.ForeColor = Color.FromArgb(48, 105, 70);
+            estadoLbl.AutoSize = true;
+            estadoLbl.MaximumSize = new Size(Math.Max(260, header.Width - 12), 0);
+            estadoLbl.Margin = new Padding(0, 0, 0, 0);
+
+            header.Controls.Add(titulo, 0, 0);
+            header.Controls.Add(cerrar, 1, 0);
+            header.Controls.Add(meta, 0, 1);
+            header.SetColumnSpan(meta, 2);
+            header.Controls.Add(estadoLbl, 0, 2);
+            header.SetColumnSpan(estadoLbl, 2);
+            return header;
+        }
+
+        private Control CrearSeccionInspectorProyecto(string titulo, Control contenido)
+        {
+            TableLayoutPanel panel = new TableLayoutPanel();
+            panel.Width = Math.Max(300, panelEditorProyecto.ClientSize.Width - 34);
+            panel.AutoSize = true;
+            panel.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            panel.ColumnCount = 1;
+            panel.RowCount = 2;
+            panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            panel.Margin = new Padding(0, 0, 0, 12);
+            panel.Padding = new Padding(0, 0, 0, 8);
+            panel.BackColor = Color.White;
+
+            Label lbl = new Label();
+            lbl.Text = titulo.ToUpperInvariant();
+            lbl.AutoSize = true;
+            lbl.Font = new Font("Segoe UI", 9.4f, FontStyle.Bold);
+            lbl.ForeColor = Color.FromArgb(35, 35, 35);
+            lbl.Margin = new Padding(0, 0, 0, 6);
+
+            contenido.Width = Math.Max(280, panel.Width - 8);
+            contenido.Margin = new Padding(0);
+            panel.Controls.Add(lbl, 0, 0);
+            panel.Controls.Add(contenido, 0, 1);
+            return panel;
+        }
+
+        private TableLayoutPanel CrearTablaInspectorProyecto()
+        {
+            TableLayoutPanel tabla = new TableLayoutPanel();
+            tabla.Width = Math.Max(280, panelEditorProyecto.ClientSize.Width - 42);
+            tabla.AutoSize = true;
+            tabla.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            tabla.ColumnCount = 2;
+            tabla.RowCount = 0;
+            tabla.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 108));
+            tabla.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            tabla.Margin = new Padding(0);
+            return tabla;
+        }
+
+        private void AgregarDatoInspectorProyecto(TableLayoutPanel tabla, string etiqueta, string valor)
+        {
+            Label control = new Label();
+            control.Text = valor ?? "";
+            control.AutoSize = true;
+            control.MaximumSize = new Size(Math.Max(170, panelEditorProyecto.ClientSize.Width - 170), 0);
+            control.Font = new Font("Segoe UI", 9.1f);
+            control.ForeColor = Color.FromArgb(45, 45, 45);
+            AgregarFilaEditorProyecto(tabla, etiqueta, control);
+        }
+
+        private string ResumirParametrosProyecto(Dictionary<string, object> parametros)
+        {
+            if (parametros == null || parametros.Count == 0)
+            {
+                return "Sin parámetros adicionales";
+            }
+
+            return string.Join(
+                " · ",
+                parametros
+                    .Where(p => !string.IsNullOrWhiteSpace(p.Key))
+                    .Select(p => p.Key + ": " + (Convert.ToString(p.Value) ?? ""))
+            );
+        }
+
+        private string ResumirOverridesProyecto(List<OverrideProductivo> overrides)
+        {
+            List<OverrideProductivo> lista = (overrides ?? new List<OverrideProductivo>())
+                .Where(o => o != null)
+                .OrderByDescending(o => o.Fecha)
+                .ToList();
+            if (lista.Count == 0)
+            {
+                return "Sin modificaciones locales";
+            }
+
+            return string.Join(
+                " · ",
+                lista.Select(o => string.IsNullOrWhiteSpace(o.Campo) ? "Cambio local" : o.Campo)
+            );
+        }
+
+        private string ResumirAsignacionesProcesoProyecto(ProcesoProyecto proceso)
+        {
+            List<AsignacionProductiva> asignaciones = (proceso?.Asignaciones ??
+                new List<AsignacionProductiva>())
+                .Where(a => a != null && !string.IsNullOrWhiteSpace(a.CargoId))
+                .ToList();
+            if (asignaciones.Count == 0)
+            {
+                return "Sin cargos asignados directamente";
+            }
+
+            return string.Join(
+                " · ",
+                asignaciones.Select(a =>
+                    a.CargoId + " (" + a.DedicacionPorcentaje.ToString("0.##") + "%)")
+            );
+        }
+
+        private FlowLayoutPanel CrearAccionesInspectorProyecto()
+        {
+            FlowLayoutPanel acciones = new FlowLayoutPanel();
+            acciones.Width = Math.Max(280, panelEditorProyecto.ClientSize.Width - 42);
+            acciones.AutoSize = true;
+            acciones.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            acciones.WrapContents = true;
+            acciones.FlowDirection = FlowDirection.LeftToRight;
+            acciones.Margin = new Padding(0);
+            return acciones;
+        }
+        private void ConstruirEditorItemProyecto(ItemProyecto item)
+        {
+            ProyectoProductivoExpandido expandido = ProyectoProductivoExpansionService.Expandir(proyectoCotizacionActual);
+            List<FilaProductivaProyecto> filas = expandido.Filas.Where(f => f.ItemId == item.Id).ToList();
+            decimal horas = SumarHorasFilas(filas);
+            decimal costo = filas.Sum(f => f.Costo);
+            int procesos = filas.Select(f => f.ProcesoProyectoId).Where(id => !string.IsNullOrWhiteSpace(id)).Distinct().Count();
+            string estado = ObtenerEstadoConfiguracionItem(item);
+
+            FlowLayoutPanel inspector = CrearInspectorElementoProyecto(item.Nombre, item.Tipo + " - " + ObtenerUnidadVisibleItem(item), estado);
+
+            TableLayoutPanel definicion = CrearTablaInspectorProyecto();
+            AgregarDatoInspectorProyecto(definicion, "Tipo", item.Tipo.ToString());
+            AgregarDatoInspectorProyecto(
+                definicion,
+                "Plantilla",
+                string.IsNullOrWhiteSpace(item.Snapshot?.NombreBiblioteca)
+                    ? (string.IsNullOrWhiteSpace(item.BibliotecaId) ? "Elemento local" : item.BibliotecaId)
+                    : item.Snapshot.NombreBiblioteca
+            );
+            AgregarDatoInspectorProyecto(definicion, "Descripción", string.IsNullOrWhiteSpace(item.Descripcion) ? "Sin descripción" : item.Descripcion);
+            AgregarDatoInspectorProyecto(definicion, "Unidad base", string.IsNullOrWhiteSpace(item.Snapshot?.UnidadBase) ? ObtenerUnidadVisibleItem(item) : item.Snapshot.UnidadBase);
+            AgregarDatoInspectorProyecto(definicion, "Parámetros", ResumirParametrosProyecto(item.Parametros));
+            AgregarDatoInspectorProyecto(definicion, "Personalización", ResumirOverridesProyecto(item.Overrides));
+            AgregarDatoInspectorProyecto(definicion, "Snapshot", item.Snapshot == null ? "Sin snapshot" : item.Snapshot.FechaSnapshot.ToString("g"));
+            inspector.Controls.Add(CrearSeccionInspectorProyecto("Definición actual", definicion));
+
+            TableLayoutPanel editables = CrearTablaInspectorProyecto();
+            AgregarEditorTexto(editables, "Nombre", item.Nombre, v => AplicarCambioProductoProyecto(item, "Nombre", v, () => item.Nombre = v));
+            AgregarEditorDecimal(editables, "Cantidad", item.Cantidad, v => AplicarCambioProductoProyecto(item, "Cantidad", v, () => { item.Cantidad = v; SincronizarCantidadUnidadSubproductos(item); }));
+            AgregarEditorTexto(editables, "Unidad", ObtenerUnidadVisibleItem(item), v => AplicarCambioProductoProyecto(item, "Unidad", v, () => { item.Unidad = v; SincronizarCantidadUnidadSubproductos(item); }));
+            inspector.Controls.Add(CrearSeccionInspectorProyecto("Campos editables", editables));
+
+            TableLayoutPanel resultados = CrearTablaInspectorProyecto();
+            AgregarDatoInspectorProyecto(resultados, "Subproductos", (item.Subproductos == null ? 0 : item.Subproductos.Count).ToString());
+            AgregarDatoInspectorProyecto(resultados, "Procesos", procesos.ToString());
+            AgregarDatoInspectorProyecto(resultados, "Horas", horas.ToString("0.##") + " h");
+            AgregarDatoInspectorProyecto(resultados, "Costo", costo.ToString("N0") + " CLP");
+            AgregarDatoInspectorProyecto(resultados, "Precio", costo.ToString("N0") + " CLP");
+            AgregarDatoInspectorProyecto(resultados, "Estado", estado);
+            inspector.Controls.Add(CrearSeccionInspectorProyecto("Resultados", resultados));
+
+            FlowLayoutPanel acciones = CrearAccionesInspectorProyecto();
+            acciones.Controls.Add(CrearBotonProyecto("Editar producto", (s, e) => { itemProyectoSeleccionado = item; EditarItemProyectoEnInterfazActual(); }, 132));
+            acciones.Controls.Add(CrearBotonProyecto("Duplicar producto", (s, e) => DuplicarItemProyecto(item), 136));
+            acciones.Controls.Add(CrearBotonProyecto("Quitar producto", (s, e) => QuitarItemProyecto(item), 128));
+            acciones.Controls.Add(CrearBotonProyecto("Abrir pipeline", (s, e) => { itemProyectoSeleccionado = item; EditarItemProyectoEnInterfazActual(); }, 128));
+            inspector.Controls.Add(CrearSeccionInspectorProyecto("Acciones", acciones));
+
+            panelEditorProyecto.Controls.Add(inspector);
+        }
+
+        private Control CrearEncabezadoProductoProyecto(ItemProyecto item)
+        {
+            Panel panel = new Panel();
+            panel.Width = Math.Max(720, panelEditorProyecto.ClientSize.Width - 50);
+            panel.Height = 118;
+            panel.BackColor = Color.White;
+            panel.Margin = new Padding(0, 0, 0, 12);
+
+            Label nombre = new Label();
+            nombre.Text = item.Nombre;
+            nombre.Font = new Font("Segoe UI", 18f, FontStyle.Bold);
+            nombre.AutoEllipsis = true;
+            nombre.Width = panel.Width - 210;
+            nombre.Height = 34;
+            nombre.Location = new Point(0, 0);
+
+            Label origen = new Label();
+            origen.Text = "Plantilla global: " + (string.IsNullOrWhiteSpace(item.Snapshot?.NombreBiblioteca) ? item.BibliotecaId : item.Snapshot.NombreBiblioteca);
+            origen.Font = new Font("Segoe UI", 9.3f);
+            origen.ForeColor = Color.FromArgb(80, 85, 92);
+            origen.Width = panel.Width - 20;
+            origen.Height = 22;
+            origen.Location = new Point(2, 42);
+
+            Label cantidad = new Label();
+            cantidad.Text = item.Cantidad.ToString("0.##") + " " + ObtenerUnidadVisibleItem(item) + " | " + ObtenerEstadoConfiguracionItem(item);
+            cantidad.Font = new Font("Segoe UI", 10f, FontStyle.Bold);
+            cantidad.ForeColor = ItemTienePersonalizacionesProyecto(item) ? Color.FromArgb(160, 86, 0) : Color.FromArgb(48, 105, 70);
+            cantidad.Width = panel.Width - 20;
+            cantidad.Height = 24;
+            cantidad.Location = new Point(2, 68);
+
+            Button acciones = CrearBotonProyecto("Acciones", (s, e) =>
+            {
+                ContextMenuStrip menu = CrearMenuContextualItemProyecto(item);
+                menu.Show(panel, new Point(panel.Width - 130, 32));
+            }, 116);
+            acciones.Location = new Point(panel.Width - 130, 6);
+
+            panel.Controls.Add(nombre);
+            panel.Controls.Add(origen);
+            panel.Controls.Add(cantidad);
+            panel.Controls.Add(acciones);
+            return panel;
+        }
+
+        private Control CrearSeccionEditorProyecto(string titulo, Control contenido)
+        {
+            Panel panel = new Panel();
+            panel.Width = Math.Max(720, panelEditorProyecto.ClientSize.Width - 50);
+            panel.AutoSize = true;
+            panel.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            panel.BackColor = Color.White;
+            panel.Margin = new Padding(0, 0, 0, 12);
+            panel.Padding = new Padding(0, 0, 0, 10);
+
+            Label lbl = new Label();
+            lbl.Text = titulo;
+            lbl.Font = new Font("Segoe UI", 12.5f, FontStyle.Bold);
+            lbl.AutoSize = true;
+            lbl.Margin = new Padding(0, 0, 0, 8);
+            lbl.Dock = DockStyle.Top;
+
+            contenido.Dock = DockStyle.Top;
+            panel.Controls.Add(contenido);
+            panel.Controls.Add(lbl);
+            return panel;
+        }
+
+        private Control CrearConfiguracionComercialItem(ItemProyecto item)
+        {
+            ProyectoProductivoExpandido expandido = ProyectoProductivoExpansionService.Expandir(proyectoCotizacionActual);
+            List<FilaProductivaProyecto> filas = expandido.Filas.Where(f => f.ItemId == item.Id).ToList();
+            decimal horas = filas.Sum(f => f.HorasAsignadas > 0m ? f.HorasAsignadas : f.HorasCalculadas);
+            decimal costo = filas.Sum(f => f.Costo);
+            decimal cantidad = item.Cantidad <= 0m ? 1m : item.Cantidad;
+            decimal horasUnitarias = horas / cantidad;
+            decimal costoUnitario = costo / cantidad;
+
+            TableLayoutPanel form = CrearFormularioEditorAncho(4);
+            AgregarEditorDecimal(form, "Cantidad", item.Cantidad, v => AplicarCambioProductoProyecto(item, "Cantidad", v, () =>
+            {
+                item.Cantidad = v;
+                SincronizarCantidadUnidadSubproductos(item);
+            }));
+            AgregarEditorTexto(form, "Unidad", ObtenerUnidadVisibleItem(item), v => AplicarCambioProductoProyecto(item, "Unidad", v, () =>
+            {
+                item.Unidad = v;
+                SincronizarCantidadUnidadSubproductos(item);
+            }));
+            AgregarEditorSoloLectura(form, "Tiempo unitario", horasUnitarias.ToString("0.##") + " h / " + ObtenerUnidadVisibleItem(item));
+            AgregarEditorSoloLectura(form, "Tiempo total", horas.ToString("0.##") + " h");
+            AgregarEditorSoloLectura(form, "Costo unitario", costoUnitario.ToString("N0") + " CLP / " + ObtenerUnidadVisibleItem(item));
+            AgregarEditorSoloLectura(form, "Costo total", costo.ToString("N0") + " CLP");
+            AgregarEditorSoloLectura(form, "Precio unitario", costoUnitario.ToString("N0") + " CLP / " + ObtenerUnidadVisibleItem(item));
+            AgregarEditorSoloLectura(form, "Precio total", costo.ToString("N0") + " CLP");
+            return form;
+        }
+
+        private void SincronizarCantidadUnidadSubproductos(ItemProyecto item)
+        {
+            foreach (SubproductoProyecto sub in item.Subproductos ?? new List<SubproductoProyecto>())
+            {
+                sub.Cantidad = item.Cantidad;
+                if (!string.IsNullOrWhiteSpace(item.Unidad))
+                {
+                    sub.Unidad = item.Unidad;
+                }
+            }
+        }
+
+        private Control CrearEditorParametrosItem(ItemProyecto item)
+        {
+            TableLayoutPanel form = CrearFormularioEditorAncho(6);
+            List<string> claves = (item.Parametros ?? new Dictionary<string, object>())
+                .Keys
+                .Where(k => !string.Equals(k, "PersonalizadoProyecto", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(k => k)
+                .ToList();
+            if (claves.Count == 0)
+            {
+                claves.AddRange(new[] { "Complejidad", "Acabado", "CiclosRevision", "TasaRetrabajo", "Duracion" });
+            }
+
+            foreach (string clave in claves)
+            {
+                object valor = item.Parametros != null && item.Parametros.TryGetValue(clave, out object existente)
+                    ? existente
+                    : "";
+                decimal numero;
+                if (decimal.TryParse(Convert.ToString(valor), out numero))
+                {
+                    AgregarEditorParametroDecimal(form, item, clave, numero);
+                }
+                else
+                {
+                    AgregarEditorParametroTexto(form, item, clave, Convert.ToString(valor) ?? "");
+                }
+            }
+            return form;
+        }
+
+        private void AgregarEditorParametroTexto(TableLayoutPanel form, ItemProyecto item, string clave, string fallback)
+        {
+            string valor = ObtenerParametroItem(item, clave, fallback);
+            AgregarEditorTexto(form, EtiquetaParametroAmigable(clave), valor, v =>
+            {
+                item.Parametros[clave] = v;
+                ProyectoOverridesService.RegistrarOverrideProducto(item, "Parametro." + clave, v, AlcanceModificacion.ProductoProyecto, "Parametro editado en proyecto");
+                nodoProyectoSeleccionado = item;
+                itemProyectoSeleccionado = item;
+                MarcarProyectoConCambiosPendientes();
+                RecalcularProyectoProductivoActual();
+            });
+        }
+
+        private void AgregarEditorParametroDecimal(TableLayoutPanel form, ItemProyecto item, string clave, decimal fallback)
+        {
+            decimal valor = ObtenerParametroDecimalItem(item, clave, fallback);
+            AgregarEditorDecimal(form, EtiquetaParametroAmigable(clave), valor, v =>
+            {
+                item.Parametros[clave] = v;
+                ProyectoOverridesService.RegistrarOverrideProducto(item, "Parametro." + clave, v, AlcanceModificacion.ProductoProyecto, "Parametro editado en proyecto");
+                nodoProyectoSeleccionado = item;
+                itemProyectoSeleccionado = item;
+                MarcarProyectoConCambiosPendientes();
+                RecalcularProyectoProductivoActual();
+            });
+        }
+
+        private string EtiquetaParametroAmigable(string clave)
+        {
+            if (string.IsNullOrWhiteSpace(clave))
+            {
+                return "";
+            }
+
+            Dictionary<string, string> etiquetas = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                { "CiclosRevision", "Ciclos de revision" },
+                { "TasaRetrabajo", "Tasa de retrabajo" },
+                { "Duracion", "Duracion" },
+                { "Complejidad", "Complejidad" },
+                { "Acabado", "Acabado" },
+                { "Personajes", "Personajes" },
+                { "Planos", "Planos" },
+                { "FramesPorSegundo", "Frames por segundo" }
+            };
+
+            if (etiquetas.TryGetValue(clave, out string etiqueta))
+            {
+                return etiqueta;
+            }
+
+            return System.Text.RegularExpressions.Regex.Replace(clave, "([a-z])([A-Z])", "$1 $2");
+        }
+
+        private string ObtenerParametroItem(ItemProyecto item, string clave, string fallback)
+        {
+            if (item.Parametros != null && item.Parametros.TryGetValue(clave, out object valor))
+            {
+                return Convert.ToString(valor) ?? fallback;
+            }
+
+            return fallback;
+        }
+
+        private decimal ObtenerParametroDecimalItem(ItemProyecto item, string clave, decimal fallback)
+        {
+            if (item.Parametros != null && item.Parametros.TryGetValue(clave, out object valor))
+            {
+                decimal resultado;
+                if (decimal.TryParse(Convert.ToString(valor), out resultado))
+                {
+                    return resultado;
+                }
+            }
+
+            return fallback;
+        }
+
+        private Control CrearGridSubproductosItem(ItemProyecto item)
+        {
+            DataGridView grid = new DataGridView();
+            grid.Height = 260;
+            grid.Dock = DockStyle.Top;
+            grid.AllowUserToAddRows = false;
+            grid.AllowUserToDeleteRows = false;
+            grid.RowHeadersVisible = false;
+            grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
+            grid.BackgroundColor = Color.White;
+            grid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+            grid.MultiSelect = false;
+            grid.AllowDrop = true;
+            DataGridViewCheckBoxColumn usarCol = new DataGridViewCheckBoxColumn();
+            usarCol.Name = "Activo";
+            usarCol.HeaderText = "Usar";
+            usarCol.Width = 54;
+            grid.Columns.Add(usarCol);
+            grid.Columns.Add("Nombre", "Subproducto");
+            grid.Columns.Add("Cantidad", "Cantidad");
+            grid.Columns.Add("Unidad", "Unidad");
+            grid.Columns.Add("Procesos", "Procesos");
+            grid.Columns.Add("Tiempo", "Tiempo");
+            grid.Columns.Add("Costo", "Costo");
+            grid.Columns.Add("Estado", "Estado");
+            grid.Columns["Nombre"].Width = 220;
+            grid.Columns["Cantidad"].Width = 85;
+            grid.Columns["Unidad"].Width = 105;
+            grid.Columns["Procesos"].Width = 80;
+            grid.Columns["Tiempo"].Width = 90;
+            grid.Columns["Costo"].Width = 110;
+            grid.Columns["Estado"].AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
+
+            ProyectoProductivoExpandido expandido = ProyectoProductivoExpansionService.Expandir(proyectoCotizacionActual);
+
+            foreach (SubproductoProyecto sub in (item.Subproductos ?? new List<SubproductoProyecto>()).OrderBy(s => s.Orden))
+            {
+                List<FilaProductivaProyecto> filasSub = expandido.Filas.Where(f => f.SubproductoProyectoId == sub.Id).ToList();
+                decimal horas = filasSub.Sum(f => f.HorasAsignadas > 0m ? f.HorasAsignadas : f.HorasCalculadas);
+                decimal costo = filasSub.Sum(f => f.Costo);
+                int row = grid.Rows.Add(
+                    sub.Activo,
+                    sub.Nombre,
+                    sub.Cantidad,
+                    sub.Unidad,
+                    sub.Procesos == null ? 0 : sub.Procesos.Count,
+                    horas.ToString("0.##") + " h",
+                    costo.ToString("N0") + " CLP",
+                    ProyectoOverridesService.TieneOverrides(sub) ? "Personalizado" : "Plantilla"
+                );
+                grid.Rows[row].Tag = sub;
+            }
+
+            int dragRowIndex = -1;
+            grid.MouseDown += (s, e) =>
+            {
+                DataGridView.HitTestInfo hit = grid.HitTest(e.X, e.Y);
+                dragRowIndex = hit.RowIndex;
+            };
+            grid.MouseMove += (s, e) =>
+            {
+                if (e.Button == MouseButtons.Left && dragRowIndex >= 0 && dragRowIndex < grid.Rows.Count)
+                {
+                    grid.DoDragDrop(grid.Rows[dragRowIndex].Tag, DragDropEffects.Move);
+                }
+            };
+            grid.DragEnter += (s, e) =>
+            {
+                e.Effect = e.Data != null && e.Data.GetDataPresent(typeof(SubproductoProyecto))
+                    ? DragDropEffects.Move
+                    : DragDropEffects.None;
+            };
+            grid.DragDrop += (s, e) =>
+            {
+                Point client = grid.PointToClient(new Point(e.X, e.Y));
+                DataGridView.HitTestInfo hit = grid.HitTest(client.X, client.Y);
+                SubproductoProyecto origen = e.Data == null ? null : e.Data.GetData(typeof(SubproductoProyecto)) as SubproductoProyecto;
+                SubproductoProyecto destino = hit.RowIndex >= 0 && hit.RowIndex < grid.Rows.Count
+                    ? grid.Rows[hit.RowIndex].Tag as SubproductoProyecto
+                    : null;
+                if (origen != null && destino != null && !ReferenceEquals(origen, destino))
+                {
+                    ReordenarSubproductoProyecto(item, origen, destino);
+                }
+            };
+
+            grid.CellEndEdit += (s, e) =>
+            {
+                if (e.RowIndex < 0 || e.ColumnIndex < 0)
+                {
+                    return;
+                }
+
+                DataGridViewRow row = grid.Rows[e.RowIndex];
+                SubproductoProyecto sub = row.Tag as SubproductoProyecto;
+                if (sub == null)
+                {
+                    return;
+                }
+
+                string col = grid.Columns[e.ColumnIndex].Name;
+                object value = row.Cells[e.ColumnIndex].Value;
+                AplicarEdicionSubproductoDesdeGrid(sub, col, value);
+            };
+            grid.CurrentCellDirtyStateChanged += (s, e) =>
+            {
+                if (grid.IsCurrentCellDirty)
+                {
+                    grid.CommitEdit(DataGridViewDataErrorContexts.Commit);
+                }
+            };
+            grid.CellValueChanged += (s, e) =>
+            {
+                if (e.RowIndex < 0 || e.ColumnIndex < 0 || grid.Columns[e.ColumnIndex].Name != "Activo")
+                {
+                    return;
+                }
+
+                DataGridViewRow row = grid.Rows[e.RowIndex];
+                if (row.Tag is SubproductoProyecto sub)
+                {
+                    AplicarEdicionSubproductoDesdeGrid(sub, "Activo", row.Cells[e.ColumnIndex].Value);
+                }
+            };
+            grid.CellDoubleClick += (s, e) =>
+            {
+                if (e.RowIndex >= 0 && grid.Rows[e.RowIndex].Tag is SubproductoProyecto sub)
+                {
+                    SeleccionarNodoProyecto(sub);
+                }
+            };
+
+            grid.CellDoubleClick += (s, e) =>
+            {
+                if (e.RowIndex >= 0 && grid.Rows[e.RowIndex].Tag is ProcesoProyecto proceso)
+                {
+                    procesoProyectoSeleccionado = proceso;
+                    AbrirInspectorProyecto(proceso);
+                }
+            };
+
+            return grid;
+        }
+
+        private void ReordenarSubproductoProyecto(ItemProyecto item, SubproductoProyecto origen, SubproductoProyecto destino)
+        {
+            List<SubproductoProyecto> subs = item.Subproductos ?? new List<SubproductoProyecto>();
+            int oldIndex = subs.IndexOf(origen);
+            int newIndex = subs.IndexOf(destino);
+            if (oldIndex < 0 || newIndex < 0 || oldIndex == newIndex)
+            {
+                return;
+            }
+
+            subs.RemoveAt(oldIndex);
+            subs.Insert(newIndex, origen);
+            for (int i = 0; i < subs.Count; i++)
+            {
+                subs[i].Orden = i;
+            }
+
+            MarcarProyectoConCambiosPendientes();
+            RefrescarProyectoUI();
+        }
+
+        private void AplicarEdicionSubproductoDesdeGrid(SubproductoProyecto sub, string campo, object value)
+        {
+            if (sub == null)
+            {
+                return;
+            }
+
+            string valor = Convert.ToString(value) ?? "";
+            bool aplicado;
+            if (campo == "Activo")
+            {
+                bool activo;
+                aplicado = bool.TryParse(valor, out activo);
+                if (aplicado)
+                {
+                    sub.Activo = activo;
+                }
+            }
+            else
+            {
+                string columna = campo == "Nombre" ? "Elemento" : campo;
+                aplicado = AplicarCambioSubproductoTablaProyecto(sub, columna, valor);
+            }
+
+            if (!aplicado)
+            {
+                return;
+            }
+
+            ItemProyecto item = ObtenerItemContenedor(sub);
+            ProyectoOverridesService.RegistrarOverrideSubproducto(
+                sub,
+                campo,
+                campo == "Cantidad" ? sub.Cantidad : value,
+                AlcanceModificacion.SubproductoProyecto,
+                "Editado localmente en el JSON del proyecto");
+            nodoProyectoSeleccionado = sub;
+            itemProyectoSeleccionado = item;
+            MarcarProyectoConCambiosPendientes();
+            RecalcularProyectoProductivoActual();
+            nodoProyectoSeleccionado = sub;
+            itemProyectoSeleccionado = item;
+            inspectorProyectoVisible = true;
+            MostrarEditorNodoProyecto(sub);
+            if (lblEstadoProyecto != null)
+            {
+                lblEstadoProyecto.Text = "Subproducto actualizado en este proyecto.";
+            }
+        }
+
+        private Control CrearResumenCalculoItem(ItemProyecto item)
+        {
+            ProyectoProductivoExpandido expandido = ProyectoProductivoExpansionService.Expandir(proyectoCotizacionActual);
+            List<FilaProductivaProyecto> filas = expandido.Filas.Where(f => f.ItemId == item.Id).ToList();
+            decimal horas = filas.Sum(f => f.HorasAsignadas > 0m ? f.HorasAsignadas : f.HorasCalculadas);
+            decimal costo = filas.Sum(f => f.Costo);
+            int procesos = filas.Select(f => f.ProcesoProyectoId).Where(id => !string.IsNullOrWhiteSpace(id)).Distinct().Count();
+            int alertas = filas.Count(f => !string.IsNullOrWhiteSpace(f.Diagnostico));
+
+            TableLayoutPanel resumen = CrearFormularioEditorAncho(4);
+            AgregarEditorSoloLectura(resumen, "Procesos activos", procesos.ToString());
+            AgregarEditorSoloLectura(resumen, "Tiempo total", horas.ToString("0.##") + " h");
+            AgregarEditorSoloLectura(resumen, "Costo total", costo.ToString("N0") + " CLP");
+            AgregarEditorSoloLectura(resumen, "Precio estimado", costo.ToString("N0") + " CLP");
+            AgregarEditorSoloLectura(resumen, "Alertas", alertas == 0 ? "Sin alertas" : alertas + " diagnosticos");
+            return resumen;
+        }
+
+        private Control CrearAccionesItem(ItemProyecto item)
+        {
+            FlowLayoutPanel acciones = new FlowLayoutPanel();
+            acciones.Dock = DockStyle.Top;
+            acciones.AutoSize = true;
+            acciones.WrapContents = true;
+            acciones.Controls.Add(CrearBotonProyecto("Duplicar", (s, e) => DuplicarItemProyecto(item), 100));
+            acciones.Controls.Add(CrearBotonProyecto("Quitar", (s, e) => QuitarItemProyecto(item), 90));
+            acciones.Controls.Add(CrearBotonProyecto("Restaurar plantilla", (s, e) => RestaurarItemDesdePlantilla(item), 150));
+            acciones.Controls.Add(CrearBotonProyecto("Comparar plantilla", (s, e) => CompararItemConPlantilla(item), 150));
+            acciones.Controls.Add(CrearBotonProyecto("Guardar nueva plantilla", (s, e) => RegistrarIntencionNuevaPlantilla(item), 170));
+            acciones.Controls.Add(CrearBotonProyecto("Editor heredado", (s, e) => EditarItemProyectoEnInterfazActual(), 130));
+            return acciones;
+        }
+
+        private void ConstruirEditorSubproducto(SubproductoProyecto sub)
+        {
+            ProyectoProductivoExpandido expandido = ProyectoProductivoExpansionService.Expandir(proyectoCotizacionActual);
+            List<FilaProductivaProyecto> filasSub = (expandido?.Filas ?? new List<FilaProductivaProyecto>()).Where(f => string.Equals(f.SubproductoProyectoId, sub.Id, StringComparison.OrdinalIgnoreCase)).ToList();
+            decimal horas = SumarHorasFilas(filasSub);
+            decimal costo = filasSub.Sum(f => f.Costo);
+            ItemProyecto item = ObtenerItemContenedor(sub);
+            string estado = ObtenerEstadoSubproductoProyecto(sub, filasSub);
+
+            FlowLayoutPanel inspector = CrearInspectorElementoProyecto(sub.Nombre, "Subproducto - " + (item == null ? "Sin producto" : item.Nombre), estado);
+
+            TableLayoutPanel definicion = CrearTablaInspectorProyecto();
+            AgregarDatoInspectorProyecto(definicion, "Producto padre", item == null ? "Sin producto" : item.Nombre);
+            AgregarDatoInspectorProyecto(definicion, "Referencia", string.IsNullOrWhiteSpace(sub.SubproductoBibliotecaId) ? "Subproducto local" : sub.SubproductoBibliotecaId);
+            AgregarDatoInspectorProyecto(definicion, "Modo cantidad", sub.ModoCantidad.ToString());
+            AgregarDatoInspectorProyecto(definicion, "Parámetros", ResumirParametrosProyecto(sub.Parametros));
+            AgregarDatoInspectorProyecto(definicion, "Etapa", string.IsNullOrWhiteSpace(ObtenerEtapaSubproductoProyecto(sub)) ? "Sin etapa común" : ObtenerEtapaSubproductoProyecto(sub));
+            AgregarDatoInspectorProyecto(definicion, "Dependencias", string.IsNullOrWhiteSpace(ObtenerDependenciasSubproductoProyecto(sub)) ? "Sin dependencias" : ObtenerDependenciasSubproductoProyecto(sub));
+            AgregarDatoInspectorProyecto(definicion, "Instancias", (sub.Instancias ?? new List<InstanciaSubproducto>()).Count.ToString());
+            AgregarDatoInspectorProyecto(definicion, "Notas", string.IsNullOrWhiteSpace(sub.Notas) ? "Sin notas" : sub.Notas);
+            AgregarDatoInspectorProyecto(definicion, "Personalización", ResumirOverridesProyecto(sub.Overrides));
+            inspector.Controls.Add(CrearSeccionInspectorProyecto("Definición actual", definicion));
+
+            TableLayoutPanel editables = CrearTablaInspectorProyecto();
+            AgregarEditorTexto(editables, "Nombre", sub.Nombre, v => AplicarEdicionSubproductoDesdeGrid(sub, "Nombre", v));
+            AgregarEditorDecimal(editables, "Cantidad", sub.Cantidad, v => AplicarEdicionSubproductoDesdeGrid(sub, "Cantidad", v));
+            AgregarEditorTexto(editables, "Unidad", sub.Unidad, v => AplicarEdicionSubproductoDesdeGrid(sub, "Unidad", v));
+            AgregarEditorTexto(editables, "Etapa", ObtenerEtapaSubproductoProyecto(sub), v => AplicarEtapaSubproductoDesdeInspector(sub, v));
+            AgregarEditorTexto(editables, "Dependencia", ObtenerDependenciasSubproductoProyecto(sub), v => AplicarDependenciasSubproductoDesdeInspector(sub, v));
+            inspector.Controls.Add(CrearSeccionInspectorProyecto("Campos editables", editables));
+
+            TableLayoutPanel resultados = CrearTablaInspectorProyecto();
+            AgregarDatoInspectorProyecto(resultados, "Procesos", (sub.Procesos == null ? 0 : sub.Procesos.Count).ToString());
+            AgregarDatoInspectorProyecto(resultados, "Horas", horas.ToString("0.##") + " h");
+            AgregarDatoInspectorProyecto(resultados, "Costo", costo.ToString("N0") + " CLP");
+            AgregarDatoInspectorProyecto(resultados, "Estado", estado);
+            inspector.Controls.Add(CrearSeccionInspectorProyecto("Resultados", resultados));
+
+            FlowLayoutPanel acciones = CrearAccionesInspectorProyecto();
+            acciones.Controls.Add(CrearBotonProyecto("Agregar proceso", (s, e) => AgregarProcesoLocalSubproducto(sub), 132));
+            acciones.Controls.Add(CrearBotonProyecto("Editar procesos", (s, e) => AbrirEditorPipelineSubproductoProyecto(sub), 148));
+            acciones.Controls.Add(CrearBotonProyecto("Duplicar subproducto", (s, e) => DuplicarSubproductoProyecto(sub), 156));
+            acciones.Controls.Add(CrearBotonProyecto("Quitar subproducto", (s, e) => QuitarSubproductoProyecto(sub), 148));
+            acciones.Controls.Add(CrearBotonProyecto("Abrir pipeline", (s, e) => { itemProyectoSeleccionado = item; if (item != null) EditarItemProyectoEnInterfazActual(); }, 128));
+            inspector.Controls.Add(CrearSeccionInspectorProyecto("Acciones", acciones));
+
+            panelEditorProyecto.Controls.Add(inspector);
+        }
+
+        private string ObtenerEtapaSubproductoProyecto(SubproductoProyecto sub)
+        {
+            List<string> etapas = (sub?.Procesos ?? new List<ProcesoProyecto>())
+                .Select(p => p.EtapaId)
+                .Where(v => !string.IsNullOrWhiteSpace(v))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (etapas.Count == 0)
+            {
+                return "";
+            }
+            return etapas.Count == 1 ? etapas[0] : string.Join("; ", etapas);
+        }
+
+        private string ObtenerDependenciasSubproductoProyecto(SubproductoProyecto sub)
+        {
+            List<string> dependencias = (sub?.Procesos ?? new List<ProcesoProyecto>())
+                .SelectMany(p => p.Dependencias ?? new List<string>())
+                .Where(v => !string.IsNullOrWhiteSpace(v))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            return dependencias.Count == 0 ? "" : string.Join("; ", dependencias);
+        }
+
+        private void AplicarEtapaSubproductoDesdeInspector(SubproductoProyecto sub, string valor)
+        {
+            if (sub == null)
+            {
+                return;
+            }
+            foreach (ProcesoProyecto proceso in sub.Procesos ?? new List<ProcesoProyecto>())
+            {
+                proceso.EtapaId = valor ?? "";
+            }
+            ProyectoOverridesService.RegistrarOverrideSubproducto(sub, "EtapaProcesos", valor ?? "", AlcanceModificacion.SubproductoProyecto, "Etapa editada desde inspector de subproducto");
+            MarcarProyectoConCambiosPendientes();
+            RecalcularProyectoProductivoActual();
+            AbrirInspectorProyecto(sub);
+        }
+
+        private void AplicarDependenciasSubproductoDesdeInspector(SubproductoProyecto sub, string valor)
+        {
+            if (sub == null)
+            {
+                return;
+            }
+            List<string> dependencias = (valor ?? "")
+                .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(v => v.Trim())
+                .Where(v => !string.IsNullOrWhiteSpace(v))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            foreach (ProcesoProyecto proceso in sub.Procesos ?? new List<ProcesoProyecto>())
+            {
+                proceso.Dependencias = new List<string>(dependencias);
+            }
+            ProyectoOverridesService.RegistrarOverrideSubproducto(sub, "DependenciasProcesos", valor ?? "", AlcanceModificacion.SubproductoProyecto, "Dependencias editadas desde inspector de subproducto");
+            MarcarProyectoConCambiosPendientes();
+            RecalcularProyectoProductivoActual();
+            AbrirInspectorProyecto(sub);
+        }
+        private Control CrearEditorPipelineSubproductoProyecto(SubproductoProyecto sub)
+        {
+            Panel contenedor = new Panel();
+            contenedor.Dock = DockStyle.Fill;
+            contenedor.AutoScroll = true;
+            contenedor.BackColor = Color.White;
+
+            TableLayoutPanel layout = new TableLayoutPanel();
+            layout.Dock = DockStyle.Top;
+            layout.AutoSize = true;
+            layout.ColumnCount = 1;
+            layout.RowCount = 3;
+            layout.Padding = new Padding(0);
+
+            ProyectoProductivoExpandido expandido = ProyectoProductivoExpansionService.Expandir(proyectoCotizacionActual);
+            List<FilaProductivaProyecto> filasSub = (expandido?.Filas ?? new List<FilaProductivaProyecto>())
+                .Where(f => string.Equals(f.SubproductoProyectoId, sub.Id, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            decimal horas = SumarHorasFilas(filasSub);
+            decimal costo = filasSub.Sum(f => f.Costo);
+            int alertas = filasSub.Count(f => !string.IsNullOrWhiteSpace(f.Diagnostico) &&
+                !string.Equals(f.Diagnostico, "OK", StringComparison.OrdinalIgnoreCase));
+
+            Panel header = new Panel();
+            header.Width = Math.Max(360, panelEditorProyecto.ClientSize.Width - 40);
+            header.Height = 118;
+            header.BackColor = Color.White;
+            header.Margin = new Padding(0, 0, 0, 8);
+
+            Label titulo = new Label();
+            titulo.Text = sub.Nombre;
+            titulo.Font = new Font("Segoe UI", 15f, FontStyle.Bold);
+            titulo.Width = header.Width - 200;
+            titulo.Height = 32;
+            titulo.Location = new Point(0, 0);
+
+            Label meta = new Label();
+            meta.Text =
+                "Estado: " + ObtenerEstadoSubproductoProyecto(sub, filasSub) +
+                " | Cantidad: " + sub.Cantidad.ToString("0.##") + " " + sub.Unidad +
+                " | Tiempo: " + horas.ToString("0.##") + " h" +
+                " | Costo: " + costo.ToString("N0") + " CLP" +
+                " | Alertas: " + alertas;
+            meta.Font = new Font("Segoe UI", 9.2f, FontStyle.Bold);
+            meta.ForeColor = alertas == 0 ? Color.FromArgb(48, 105, 70) : Color.FromArgb(180, 80, 40);
+            meta.Width = header.Width - 10;
+            meta.Height = 42;
+            meta.Location = new Point(0, 38);
+
+            Button volver = CrearBotonMini("Volver", (s, e) => AbrirInspectorProyecto(sub));
+            volver.Width = 82;
+            volver.Location = new Point(Math.Max(0, header.Width - 174), 0);
+
+            Button cerrar = CrearBotonMini("Cerrar", (s, e) => CerrarInspectorProyecto());
+            cerrar.Width = 76;
+            cerrar.Location = new Point(Math.Max(0, header.Width - 86), 0);
+
+            header.Controls.Add(titulo);
+            header.Controls.Add(meta);
+            header.Controls.Add(volver);
+            header.Controls.Add(cerrar);
+
+            FlowLayoutPanel acciones = new FlowLayoutPanel();
+            acciones.AutoSize = true;
+            acciones.WrapContents = true;
+            acciones.Margin = new Padding(0, 0, 0, 8);
+            acciones.Controls.Add(CrearBotonProyecto("Agregar proceso", (s, e) => AgregarProcesoLocalSubproducto(sub), 132));
+            acciones.Controls.Add(CrearBotonProyecto("Duplicar proceso", (s, e) => DuplicarProcesoLocalSeleccionado(sub), 132));
+            acciones.Controls.Add(CrearBotonProyecto("Quitar proceso", (s, e) => QuitarProcesoLocalSeleccionado(sub), 120));
+            acciones.Controls.Add(CrearBotonProyecto("Subir", (s, e) => MoverProcesoLocalSeleccionado(sub, -1), 74));
+            acciones.Controls.Add(CrearBotonProyecto("Bajar", (s, e) => MoverProcesoLocalSeleccionado(sub, 1), 74));
+
+            DataGridView grid = CrearGridProcesosSubproductoProyecto(sub);
+
+            layout.Controls.Add(header, 0, 0);
+            layout.Controls.Add(acciones, 0, 1);
+            layout.Controls.Add(grid, 0, 2);
+            contenedor.Controls.Add(layout);
+            return contenedor;
+        }
+
+        private DataGridView CrearGridProcesosSubproductoProyecto(SubproductoProyecto sub)
+        {
+            ProyectoProductivoExpandido expandido =
+                ProyectoProductivoExpansionService.Expandir(proyectoCotizacionActual);
+            List<FilaProductivaProyecto> filasSub =
+                (expandido?.Filas ?? new List<FilaProductivaProyecto>())
+                .Where(f => string.Equals(
+                    f.SubproductoProyectoId,
+                    sub.Id,
+                    StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            DataGridView grid = new DataGridView();
+            grid.Width = Math.Max(360, panelEditorProyecto.ClientSize.Width - 40);
+            grid.Height = Math.Max(260, panelEditorProyecto.ClientSize.Height - 210);
+            grid.AllowUserToAddRows = false;
+            grid.AllowUserToDeleteRows = false;
+            grid.RowHeadersVisible = false;
+            grid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+            grid.MultiSelect = false;
+            grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
+            grid.BackgroundColor = Color.White;
+            grid.BorderStyle = BorderStyle.FixedSingle;
+            grid.Tag = sub;
+
+            grid.Columns.Add("Nombre", "Proceso");
+            grid.Columns.Add("Etapa", "Etapa");
+            grid.Columns.Add("Subetapa", "Subetapa");
+            grid.Columns.Add("Cantidad", "Cantidad");
+            grid.Columns.Add("Unidad", "Unidad");
+            grid.Columns.Add("Horas", "Horas");
+            grid.Columns.Add("Capacidad", "Capacidad");
+            grid.Columns.Add("Periodo", "Periodo");
+            grid.Columns.Add("Costo", "Costo");
+            grid.Columns.Add("Cargo", "Cargo");
+            grid.Columns.Add("Estado", "Estado");
+            grid.Columns.Add("Dependencias", "Dependencias");
+            grid.Columns["Nombre"].Width = 180;
+            grid.Columns["Etapa"].Width = 90;
+            grid.Columns["Subetapa"].Width = 110;
+            grid.Columns["Cantidad"].Width = 78;
+            grid.Columns["Unidad"].Width = 82;
+            grid.Columns["Horas"].Width = 70;
+            grid.Columns["Capacidad"].Width = 84;
+            grid.Columns["Periodo"].Width = 82;
+            grid.Columns["Costo"].Width = 90;
+            grid.Columns["Cargo"].Width = 120;
+            grid.Columns["Estado"].Width = 100;
+            grid.Columns["Dependencias"].AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
+
+            foreach (ProcesoProyecto proceso in (sub.Procesos ?? new List<ProcesoProyecto>()).Where(p => p != null))
+            {
+                FilaProductivaProyecto filaProceso = filasSub.FirstOrDefault(f =>
+                    string.Equals(
+                        f.ProcesoProyectoId,
+                        proceso.Id,
+                        StringComparison.OrdinalIgnoreCase));
+                int row = grid.Rows.Add(
+                    proceso.Nombre,
+                    proceso.EtapaId,
+                    proceso.SubetapaId,
+                    proceso.Cantidad.ToString("0.##"),
+                    string.IsNullOrWhiteSpace(proceso.Unidad) ? sub.Unidad : proceso.Unidad,
+                    ObtenerHorasProcesoProyecto(proceso).ToString("0.##"),
+                    (filaProceso?.Capacidad ?? 0m).ToString("0.##"),
+                    filaProceso?.Periodo ?? "",
+                    ObtenerCostoProcesoProyecto(proceso).ToString("N0"),
+                    ObtenerCargoPrincipalProceso(proceso),
+                    proceso.Activo ? (string.IsNullOrWhiteSpace(proceso.Resultado?.Diagnostico) ? "OK" : proceso.Resultado.Diagnostico) : "Inactivo",
+                    proceso.Dependencias == null ? "" : string.Join(", ", proceso.Dependencias)
+                );
+                grid.Rows[row].Tag = proceso;
+            }
+
+            grid.SelectionChanged += (s, e) =>
+            {
+                procesoProyectoSeleccionado = grid.CurrentRow == null ? null : grid.CurrentRow.Tag as ProcesoProyecto;
+            };
+
+            grid.CellEndEdit += (s, e) =>
+            {
+                if (e.RowIndex < 0 || e.ColumnIndex < 0)
+                {
+                    return;
+                }
+
+                ProcesoProyecto proceso = grid.Rows[e.RowIndex].Tag as ProcesoProyecto;
+                if (proceso == null)
+                {
+                    return;
+                }
+
+                string columna = grid.Columns[e.ColumnIndex].Name;
+                string valor = Convert.ToString(grid.Rows[e.RowIndex].Cells[e.ColumnIndex].Value) ?? "";
+                AplicarEdicionProcesoSubproducto(sub, proceso, columna, valor);
+            };
+
+            return grid;
+        }
+
+        private void AbrirEditorPipelineSubproductoProyecto(SubproductoProyecto sub)
+        {
+            if (sub == null)
+            {
+                return;
+            }
+
+            nodoProyectoSeleccionado = sub;
+            itemProyectoSeleccionado = ObtenerItemContenedor(sub);
+            inspectorProyectoVisible = true;
+            estructuraProyectoExpandida = false;
+            if (splitProyectoEstructuraInspector != null)
+            {
+                splitProyectoEstructuraInspector.Panel2Collapsed = false;
+            }
+
+            panelEditorProyecto.Controls.Clear();
+            panelEditorProyecto.Controls.Add(CrearEditorPipelineSubproductoProyecto(sub));
+        }
+
+        private decimal ObtenerHorasProcesoProyecto(ProcesoProyecto proceso)
+        {
+            if (proceso == null)
+            {
+                return 0m;
+            }
+            if (proceso.Resultado != null && proceso.Resultado.HorasAsignadas > 0m)
+            {
+                return proceso.Resultado.HorasAsignadas;
+            }
+            if (proceso.Resultado != null && proceso.Resultado.HorasCalculadas > 0m)
+            {
+                return proceso.Resultado.HorasCalculadas;
+            }
+            return (proceso.Asignaciones ?? new List<AsignacionProductiva>()).Sum(a => a.HorasAsignadas > 0m ? a.HorasAsignadas : a.HorasCalculadas);
+        }
+
+        private decimal ObtenerCostoProcesoProyecto(ProcesoProyecto proceso)
+        {
+            if (proceso == null)
+            {
+                return 0m;
+            }
+            if (proceso.Resultado != null && proceso.Resultado.CostoCalculado > 0m)
+            {
+                return proceso.Resultado.CostoCalculado;
+            }
+            return (proceso.Asignaciones ?? new List<AsignacionProductiva>()).Sum(a => a.CostoCalculado);
+        }
+
+        private string ObtenerCargoPrincipalProceso(ProcesoProyecto proceso)
+        {
+            return (proceso?.Asignaciones ?? new List<AsignacionProductiva>())
+                .Select(a => a.CargoId)
+                .FirstOrDefault(c => !string.IsNullOrWhiteSpace(c)) ?? "";
+        }
+
+        private void AplicarEdicionProcesoSubproducto(SubproductoProyecto sub, ProcesoProyecto proceso, string columna, string valor)
+        {
+            if (proceso == null)
+            {
+                return;
+            }
+
+            proceso.Resultado = proceso.Resultado ?? new ResultadoProcesoProyecto();
+            switch (columna)
+            {
+                case "Nombre":
+                    proceso.Nombre = valor;
+                    break;
+                case "Ecuacion":
+                    proceso.ProcesoBibliotecaId = valor;
+                    break;
+                case "Etapa":
+                    proceso.EtapaId = valor;
+                    break;
+                case "Subetapa":
+                    proceso.SubetapaId = valor;
+                    break;
+                case "Cantidad":
+                    AplicarCambioProcesoTablaProyecto(proceso, "Cantidad", valor);
+                    break;
+                case "Horas":
+                    AplicarCambioProcesoTablaProyecto(proceso, "Horas", valor);
+                    break;
+                case "Capacidad":
+                    AplicarCambioProcesoTablaProyecto(proceso, "Capacidad", valor);
+                    break;
+                case "Periodo":
+                    AplicarCambioProcesoTablaProyecto(proceso, "Periodo", valor);
+                    break;
+                case "Costo":
+                    if (decimal.TryParse(valor, out decimal costo))
+                    {
+                        proceso.Resultado.CostoCalculado = Math.Max(0m, costo);
+                    }
+                    break;
+                case "Cargo":
+                    if (proceso.Asignaciones == null)
+                    {
+                        proceso.Asignaciones = new List<AsignacionProductiva>();
+                    }
+                    if (proceso.Asignaciones.Count == 0)
+                    {
+                        proceso.Asignaciones.Add(new AsignacionProductiva { Id = Guid.NewGuid().ToString("N"), ProcesoProyectoId = proceso.Id });
+                    }
+                    proceso.Asignaciones[0].CargoId = valor;
+                    break;
+                case "Dependencias":
+                    proceso.Dependencias = (valor ?? "")
+                        .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
+                        .Select(v => v.Trim())
+                        .Where(v => !string.IsNullOrWhiteSpace(v))
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+                    break;
+            }
+
+            ProyectoOverridesService.RegistrarOverrideSubproducto(sub, "Proceso." + proceso.Id + "." + columna, valor, AlcanceModificacion.SubproductoProyecto, "Pipeline editado en Productos y servicios");
+            MarcarProyectoConCambiosPendientes();
+            TabPage tabOrigen = tabs == null ? null : tabs.SelectedTab;
+            nodoProyectoSeleccionado = sub;
+            itemProyectoSeleccionado = ObtenerItemContenedor(sub);
+            inspectorProyectoVisible = true;
+            RecalcularProyectoProductivoActual();
+            nodoProyectoSeleccionado = sub;
+            itemProyectoSeleccionado = ObtenerItemContenedor(sub);
+            inspectorProyectoVisible = true;
+            if (splitProyectoEstructuraInspector != null)
+            {
+                splitProyectoEstructuraInspector.Panel2Collapsed = false;
+            }
+            if (tabs != null && tabOrigen != null && tabs.TabPages.Contains(tabOrigen))
+            {
+                tabs.SelectedTab = tabOrigen;
+            }
+
+            BeginInvoke(new Action(() =>
+            {
+                if (!IsDisposed && inspectorProyectoVisible)
+                {
+                    AbrirEditorPipelineSubproductoProyecto(sub);
+                }
+            }));
+        }
+
+        private void AgregarProcesoLocalSubproducto(SubproductoProyecto sub)
+        {
+            if (sub == null)
+            {
+                return;
+            }
+            if (sub.Procesos == null)
+            {
+                sub.Procesos = new List<ProcesoProyecto>();
+            }
+
+            ProcesoProyecto proceso = new ProcesoProyecto
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                ProcesoBibliotecaId = "",
+                Nombre = "Nuevo proceso",
+                EtapaId = "",
+                SubetapaId = "",
+                Activo = true,
+                Resultado = new ResultadoProcesoProyecto()
+            };
+            sub.Procesos.Add(proceso);
+            procesoProyectoSeleccionado = proceso;
+            ProyectoOverridesService.RegistrarOverrideSubproducto(sub, "Proceso.Agregado", proceso.Id, AlcanceModificacion.SubproductoProyecto, "Proceso agregado en Productos y servicios");
+            MarcarProyectoConCambiosPendientes();
+            RecalcularProyectoProductivoActual();
+            AbrirInspectorProyecto(sub);
+        }
+
+        private void DuplicarProcesoLocalSeleccionado(SubproductoProyecto sub)
+        {
+            ProcesoProyecto origen = procesoProyectoSeleccionado;
+            if (sub == null || origen == null || sub.Procesos == null || !sub.Procesos.Contains(origen))
+            {
+                return;
+            }
+
+            ProcesoProyecto copia = new ProcesoProyecto
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                ProcesoBibliotecaId = origen.ProcesoBibliotecaId,
+                Nombre = origen.Nombre + " copia",
+                TipoProceso = origen.TipoProceso,
+                MetodoCalculo = origen.MetodoCalculo,
+                AlcanceTemporal = origen.AlcanceTemporal,
+                EtapaId = origen.EtapaId,
+                SubetapaId = origen.SubetapaId,
+                Cantidad = origen.Cantidad,
+                Unidad = origen.Unidad,
+                Capacidad = origen.Capacidad,
+                Periodo = origen.Periodo,
+                Paralelo = origen.Paralelo,
+                Dependencias = new List<string>(origen.Dependencias ?? new List<string>()),
+                Asignaciones = (origen.Asignaciones ?? new List<AsignacionProductiva>())
+                    .Select(a => new AsignacionProductiva
+                    {
+                        Id = Guid.NewGuid().ToString("N"),
+                        ProcesoProyectoId = "",
+                        CargoId = a.CargoId,
+                        PersonaId = a.PersonaId,
+                        HorasCalculadas = a.HorasCalculadas,
+                        HorasAsignadas = a.HorasAsignadas,
+                        OrigenHoras = a.OrigenHoras,
+                        DedicacionPorcentaje = a.DedicacionPorcentaje,
+                        CostoCalculado = a.CostoCalculado,
+                        Notas = a.Notas
+                    })
+                    .ToList(),
+                Resultado = new ResultadoProcesoProyecto
+                {
+                    HorasCalculadas = origen.Resultado?.HorasCalculadas ?? 0m,
+                    HorasAsignadas = origen.Resultado?.HorasAsignadas ?? 0m,
+                    CostoCalculado = origen.Resultado?.CostoCalculado ?? 0m,
+                    DuracionSemanas = origen.Resultado?.DuracionSemanas ?? 0m,
+                    Diagnostico = origen.Resultado?.Diagnostico ?? "",
+                    Warnings = new List<string>(origen.Resultado?.Warnings ?? new List<string>())
+                },
+                Activo = origen.Activo
+            };
+            foreach (AsignacionProductiva asignacion in copia.Asignaciones)
+            {
+                asignacion.ProcesoProyectoId = copia.Id;
+            }
+
+            int indice = sub.Procesos.IndexOf(origen);
+            sub.Procesos.Insert(indice + 1, copia);
+            procesoProyectoSeleccionado = copia;
+            ProyectoOverridesService.RegistrarOverrideSubproducto(sub, "Proceso.Duplicado", copia.Id, AlcanceModificacion.SubproductoProyecto, "Proceso duplicado en Productos y servicios");
+            MarcarProyectoConCambiosPendientes();
+            RecalcularProyectoProductivoActual();
+            AbrirInspectorProyecto(sub);
+        }
+
+        private void QuitarProcesoLocalSeleccionado(SubproductoProyecto sub)
+        {
+            ProcesoProyecto proceso = procesoProyectoSeleccionado;
+            if (sub == null || proceso == null || sub.Procesos == null || !sub.Procesos.Remove(proceso))
+            {
+                return;
+            }
+
+            procesoProyectoSeleccionado = null;
+            ProyectoOverridesService.RegistrarOverrideSubproducto(sub, "Proceso.Quitado", proceso.Id, AlcanceModificacion.SubproductoProyecto, "Proceso quitado en Productos y servicios");
+            MarcarProyectoConCambiosPendientes();
+            RecalcularProyectoProductivoActual();
+            AbrirInspectorProyecto(sub);
+        }
+
+        private void MoverProcesoLocalSeleccionado(SubproductoProyecto sub, int delta)
+        {
+            ProcesoProyecto proceso = procesoProyectoSeleccionado;
+            if (sub == null || proceso == null || sub.Procesos == null)
+            {
+                return;
+            }
+
+            int indice = sub.Procesos.IndexOf(proceso);
+            int destino = indice + delta;
+            if (indice < 0 || destino < 0 || destino >= sub.Procesos.Count)
+            {
+                return;
+            }
+
+            sub.Procesos.RemoveAt(indice);
+            sub.Procesos.Insert(destino, proceso);
+            ProyectoOverridesService.RegistrarOverrideSubproducto(sub, "Proceso.Orden", proceso.Id, AlcanceModificacion.SubproductoProyecto, "Proceso reordenado en Productos y servicios");
+            MarcarProyectoConCambiosPendientes();
+            RecalcularProyectoProductivoActual();
+            AbrirInspectorProyecto(sub);
+        }
+        private FilaProductivaProyecto ObtenerFilaExpandidaProcesoProyecto(ProcesoProyecto proceso)
+        {
+            if (proceso == null)
+            {
+                return null;
+            }
+
+            return (expandidoProyectoPresentacion?.Filas ?? new List<FilaProductivaProyecto>())
+                .Where(f => f != null && string.Equals(f.ProcesoProyectoId, proceso.Id, StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(f => f.TieneOverrideLocalCalculo)
+                .ThenByDescending(f => f.HorasAsignadas > 0m ? f.HorasAsignadas : f.HorasCalculadas)
+                .FirstOrDefault();
+        }
+        private void ConstruirEditorProceso(ProcesoProyecto proceso)
+        {
+            SubproductoProyecto sub = ObtenerSubproductoContenedor(proceso);
+            ItemProyecto item = ObtenerItemContenedor(proceso);
+            EcuacionProductivaDefinicion ecuacion = ObtenerEcuacionProcesoProyecto(proceso);
+            FilaProductivaProyecto filaProceso = ObtenerFilaExpandidaProcesoProyecto(proceso);
+            procesoProyectoSeleccionado = proceso;
+            string estado = proceso.Activo ? (string.IsNullOrWhiteSpace(proceso.Resultado?.Diagnostico) ? "Configurado" : "Con alertas") : "Inactivo";
+
+            FlowLayoutPanel inspector = CrearInspectorElementoProyecto(proceso.Nombre, "Proceso - " + (sub == null ? "Sin subproducto" : sub.Nombre), estado);
+
+            TableLayoutPanel definicion = CrearTablaInspectorProyecto();
+            AgregarDatoInspectorProyecto(definicion, "Tipo", proceso.TipoProceso.ToString());
+            AgregarDatoInspectorProyecto(definicion, "Método", ConstruirMetodoCalculoSimpleProyecto(proceso.MetodoCalculo));
+            AgregarDatoInspectorProyecto(definicion, "Alcance", proceso.AlcanceTemporal.ToString());
+            AgregarDatoInspectorProyecto(definicion, "Etapa", string.IsNullOrWhiteSpace(proceso.EtapaId) ? "Sin etapa" : proceso.EtapaId);
+            AgregarDatoInspectorProyecto(definicion, "Subetapa", string.IsNullOrWhiteSpace(proceso.SubetapaId) ? "Sin subetapa" : proceso.SubetapaId);
+            AgregarDatoInspectorProyecto(definicion, "Ecuación", ConstruirDescripcionEcuacionSimpleProyecto(proceso, ecuacion));
+            AgregarDatoInspectorProyecto(definicion, "Fórmula técnica", ecuacion == null || string.IsNullOrWhiteSpace(ecuacion.FormulaReferencia) ? "No disponible" : ecuacion.FormulaReferencia);
+            AgregarDatoInspectorProyecto(definicion, "Variables", ecuacion == null || string.IsNullOrWhiteSpace(ecuacion.Variables) ? "Sin variables declaradas" : ecuacion.Variables);
+            AgregarDatoInspectorProyecto(definicion, "Dependencias", proceso.Dependencias == null || proceso.Dependencias.Count == 0 ? "Sin dependencias" : string.Join(", ", proceso.Dependencias));
+            AgregarDatoInspectorProyecto(definicion, "Cargos", ResumirAsignacionesProcesoProyecto(proceso));
+            AgregarDatoInspectorProyecto(definicion, "Paralelo", proceso.Paralelo ? "Sí" : "No");
+            AgregarDatoInspectorProyecto(definicion, "Capacidad", filaProceso == null || filaProceso.Capacidad <= 0m ? "No definida" : filaProceso.Capacidad.ToString("0.##") + " / " + filaProceso.Periodo);
+            AgregarDatoInspectorProyecto(definicion, "Origen", filaProceso == null || string.IsNullOrWhiteSpace(filaProceso.OrigenCalculo) ? (string.IsNullOrWhiteSpace(proceso.ProcesoBibliotecaId) ? "Proceso local" : proceso.ProcesoBibliotecaId) : filaProceso.OrigenCalculo);
+            inspector.Controls.Add(CrearSeccionInspectorProyecto("Definición actual", definicion));
+
+            TableLayoutPanel editables = CrearTablaInspectorProyecto();
+            AgregarEditorTexto(editables, "Nombre", proceso.Nombre, v => AplicarEdicionProcesoDesdeInspector(sub, proceso, "Nombre", v));
+            AgregarEditorTexto(editables, "Etapa", proceso.EtapaId, v => AplicarEdicionProcesoDesdeInspector(sub, proceso, "Etapa", v));
+            AgregarEditorTexto(editables, "Subetapa", proceso.SubetapaId, v => AplicarEdicionProcesoDesdeInspector(sub, proceso, "Subetapa", v));
+            AgregarEditorTexto(editables, "Dependencias", proceso.Dependencias == null || proceso.Dependencias.Count == 0 ? "" : string.Join("; ", proceso.Dependencias), v => AplicarEdicionProcesoDesdeInspector(sub, proceso, "Dependencias", v));
+            AgregarEditorTexto(editables, "Cargos", ObtenerCargosVisiblesProcesoProyecto(proceso, filaProceso, ecuacion), v => AplicarCargosProcesoDesdeInspector(sub, proceso, filaProceso, v));
+            AgregarEditorDecimal(editables, "Cantidad", proceso.Cantidad, v => AplicarValorCalculadoProcesoDesdeInspector(sub, proceso, filaProceso, "Cantidad", v.ToString("0.####")));
+            AgregarEditorDecimal(editables, "Horas", filaProceso == null ? ObtenerHorasProcesoProyecto(proceso) : (filaProceso.HorasAsignadas > 0m ? filaProceso.HorasAsignadas : filaProceso.HorasCalculadas), v => AplicarValorCalculadoProcesoDesdeInspector(sub, proceso, filaProceso, "Horas", v.ToString("0.####")));
+            if (CotizacionItemProyectoAdapterService.ItemTieneSnapshot(item))
+            {
+                AgregarEditorDecimal(editables, "Capacidad", filaProceso == null ? 0m : filaProceso.Capacidad, v => AplicarValorCalculadoProcesoDesdeInspector(sub, proceso, filaProceso, "Capacidad", v.ToString("0.####")));
+                AgregarEditorTexto(editables, "Periodo", filaProceso == null ? "" : filaProceso.Periodo, v => AplicarValorCalculadoProcesoDesdeInspector(sub, proceso, filaProceso, "Periodo", v));
+            }
+            inspector.Controls.Add(CrearSeccionInspectorProyecto("Campos editables", editables));
+
+            TableLayoutPanel resultados = CrearTablaInspectorProyecto();
+            AgregarDatoInspectorProyecto(resultados, "Metodo", ConstruirMetodoCalculoSimpleProyecto(proceso.MetodoCalculo));
+            AgregarDatoInspectorProyecto(resultados, "Cargos", ObtenerCargosVisiblesProcesoProyecto(proceso, filaProceso, ecuacion));
+            AgregarDatoInspectorProyecto(resultados, "Costo", (proceso.Resultado?.CostoCalculado ?? 0m).ToString("N0") + " CLP");
+            AgregarDatoInspectorProyecto(resultados, "Ecuacion", ConstruirDescripcionEcuacionSimpleProyecto(proceso, ecuacion));
+            AgregarDatoInspectorProyecto(resultados, "Referencia", string.IsNullOrWhiteSpace(proceso.ProcesoBibliotecaId) ? "Proceso local" : proceso.ProcesoBibliotecaId);
+            AgregarDatoInspectorProyecto(resultados, "Origen", filaProceso == null || string.IsNullOrWhiteSpace(filaProceso.OrigenCalculo) ? (ecuacion == null ? "Proceso local / sin ecuacion" : ecuacion.Clave + " | " + ecuacion.NombreVisible) : filaProceso.OrigenCalculo);
+            AgregarDatoInspectorProyecto(resultados, "Depende de", proceso.Dependencias == null || proceso.Dependencias.Count == 0 ? "Sin dependencias" : string.Join(", ", proceso.Dependencias));
+            AgregarDatoInspectorProyecto(resultados, "Estado", estado);
+            inspector.Controls.Add(CrearSeccionInspectorProyecto("Resultados", resultados));
+
+            FlowLayoutPanel acciones = CrearAccionesInspectorProyecto();
+            acciones.Controls.Add(CrearBotonProyecto("Ver ecuacion", (s, e) => AbrirEcuacionProcesoProyecto(proceso), 116));
+            acciones.Controls.Add(CrearBotonProyecto("Editar ecuacion", (s, e) => AbrirEcuacionProcesoProyecto(proceso), 128));
+            acciones.Controls.Add(CrearBotonProyecto("Duplicar proceso", (s, e) => { if (sub != null) { procesoProyectoSeleccionado = proceso; DuplicarProcesoLocalSeleccionado(sub); } }, 136));
+            acciones.Controls.Add(CrearBotonProyecto("Quitar proceso", (s, e) => { if (sub != null) { procesoProyectoSeleccionado = proceso; QuitarProcesoLocalSeleccionado(sub); } }, 126));
+            acciones.Controls.Add(CrearBotonProyecto("Abrir pipeline", (s, e) => { itemProyectoSeleccionado = item; if (item != null) EditarItemProyectoEnInterfazActual(); }, 128));
+            inspector.Controls.Add(CrearSeccionInspectorProyecto("Acciones", acciones));
+
+            panelEditorProyecto.Controls.Add(inspector);
+        }
+
+        private void AplicarEdicionProcesoDesdeInspector(SubproductoProyecto sub, ProcesoProyecto proceso, string columna, string valor)
+        {
+            if (sub == null)
+            {
+                sub = ObtenerSubproductoContenedor(proceso);
+            }
+
+            if (sub == null || proceso == null)
+            {
+                return;
+            }
+
+            procesoProyectoSeleccionado = proceso;
+            AplicarEdicionProcesoSubproducto(sub, proceso, columna, valor);
+        }
+
+        private string ObtenerCargosVisiblesProcesoProyecto(
+            ProcesoProyecto proceso,
+            FilaProductivaProyecto fila,
+            EcuacionProductivaDefinicion ecuacion)
+        {
+            List<string> cargos = (proceso?.Asignaciones ?? new List<AsignacionProductiva>())
+                .Where(a => a != null && !string.IsNullOrWhiteSpace(a.CargoId))
+                .Select(a => a.CargoId.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (cargos.Count == 0 && fila != null && !string.IsNullOrWhiteSpace(fila.CargoId))
+            {
+                cargos.Add(fila.CargoId.Trim());
+            }
+            if (cargos.Count == 0 && ecuacion != null)
+            {
+                cargos.AddRange((ecuacion.CargosPermitidos ?? "")
+                    .Split(new[] { ';', ',', '|' }, StringSplitOptions.RemoveEmptyEntries)
+                    .Select(c => c.Trim())
+                    .Where(c => !string.IsNullOrWhiteSpace(c)));
+            }
+
+            return string.Join("; ", cargos.Distinct(StringComparer.OrdinalIgnoreCase));
+        }
+
+        private string ConstruirDescripcionEcuacionSimpleProyecto(
+            ProcesoProyecto proceso,
+            EcuacionProductivaDefinicion ecuacion)
+        {
+            if (ecuacion == null)
+            {
+                return proceso != null &&
+                    (proceso.MetodoCalculo == MetodoCalculoProceso.Manual ||
+                     proceso.MetodoCalculo == MetodoCalculoProceso.Fijo)
+                    ? "Horas definidas manualmente"
+                    : "Proceso local";
+            }
+
+            string formula = ecuacion.FormulaReferencia ?? "";
+            if (proceso != null && proceso.MetodoCalculo == MetodoCalculoProceso.PorPorcentajeProduccion)
+            {
+                int multiplicacion = formula.LastIndexOf('*');
+                if (multiplicacion >= 0)
+                {
+                    string factorTexto = formula.Substring(multiplicacion + 1).Trim();
+                    if (decimal.TryParse(
+                        factorTexto,
+                        System.Globalization.NumberStyles.Number,
+                        System.Globalization.CultureInfo.InvariantCulture,
+                        out decimal factor))
+                    {
+                        return (factor * 100m).ToString("0.##") + " % de las horas del proceso base";
+                    }
+                }
+                return "Porcentaje de las horas del proceso base";
+            }
+
+            if (proceso != null && proceso.MetodoCalculo == MetodoCalculoProceso.PorCapacidad)
+            {
+                return "Horas = cantidad ÷ capacidad";
+            }
+
+            if (proceso != null &&
+                (proceso.MetodoCalculo == MetodoCalculoProceso.Manual ||
+                 proceso.MetodoCalculo == MetodoCalculoProceso.Fijo))
+            {
+                return "Horas definidas manualmente";
+            }
+
+            return string.IsNullOrWhiteSpace(formula)
+                ? ecuacion.NombreVisible
+                : formula.Replace("_", " ");
+        }
+
+        private string ConstruirMetodoCalculoSimpleProyecto(MetodoCalculoProceso metodo)
+        {
+            switch (metodo)
+            {
+                case MetodoCalculoProceso.PorPorcentajeProduccion:
+                    return "Porcentaje del proceso base";
+                case MetodoCalculoProceso.PorCapacidad:
+                    return "Cantidad y capacidad";
+                case MetodoCalculoProceso.PorCantidad:
+                    return "Por cantidad";
+                case MetodoCalculoProceso.PorDuracionEntregable:
+                case MetodoCalculoProceso.PorDuracionEtapa:
+                case MetodoCalculoProceso.PorDuracionProyecto:
+                    return "Por duracion";
+                case MetodoCalculoProceso.PorRevision:
+                    return "Por revisiones";
+                case MetodoCalculoProceso.PorEvento:
+                    return "Por evento";
+                case MetodoCalculoProceso.Fijo:
+                case MetodoCalculoProceso.Manual:
+                    return "Horas manuales";
+                default:
+                    return "Sin metodo definido";
+            }
+        }
+
+        private void AplicarCargosProcesoDesdeInspector(
+            SubproductoProyecto sub,
+            ProcesoProyecto proceso,
+            FilaProductivaProyecto fila,
+            string textoCargos)
+        {
+            if (proceso == null)
+            {
+                return;
+            }
+
+            List<string> cargos = (textoCargos ?? "")
+                .Split(new[] { ';', ',', '|' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(c => c.Trim())
+                .Where(c => !string.IsNullOrWhiteSpace(c))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (cargos.Count == 0)
+            {
+                MessageBox.Show(
+                    this,
+                    "Debes indicar al menos un cargo, separado por punto y coma.",
+                    "Productos y servicios",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            ItemProyecto item = ObtenerItemContenedor(proceso);
+            if (CotizacionItemProyectoAdapterService.ItemTieneSnapshot(item))
+            {
+                AplicarCargosEnSnapshotProyecto(item, fila, cargos);
+            }
+            else
+            {
+                AplicarCargosEnProcesoLocalProyecto(proceso, cargos);
+            }
+
+            sub = sub ?? ObtenerSubproductoContenedor(proceso);
+            if (sub != null)
+            {
+                ProyectoOverridesService.RegistrarOverrideSubproducto(
+                    sub,
+                    "Proceso." + proceso.Id + ".Cargos",
+                    cargos,
+                    AlcanceModificacion.SubproductoProyecto,
+                    "Cargos editados localmente en el JSON del proyecto");
+            }
+            else if (item != null)
+            {
+                ProyectoOverridesService.RegistrarOverrideProducto(
+                    item,
+                    "Proceso." + proceso.Id + ".Cargos",
+                    cargos,
+                    AlcanceModificacion.ProductoProyecto,
+                    "Cargos editados localmente en el JSON del proyecto");
+            }
+
+            procesoProyectoSeleccionado = proceso;
+            nodoProyectoSeleccionado = proceso;
+            itemProyectoSeleccionado = item;
+            MarcarProyectoConCambiosPendientes();
+            RecalcularProyectoProductivoActual();
+        }
+
+        private void AplicarCargosEnProcesoLocalProyecto(
+            ProcesoProyecto proceso,
+            List<string> cargos)
+        {
+            decimal horasTotales = (proceso.Asignaciones ?? new List<AsignacionProductiva>())
+                .Where(a => a != null)
+                .Sum(a => a.HorasAsignadas > 0m ? a.HorasAsignadas : a.HorasCalculadas);
+            if (horasTotales <= 0m)
+            {
+                horasTotales = ObtenerHorasProcesoProyecto(proceso);
+            }
+
+            proceso.Asignaciones = new List<AsignacionProductiva>();
+            decimal horasRestantes = horasTotales;
+            decimal costoTotal = 0m;
+            for (int i = 0; i < cargos.Count; i++)
+            {
+                string cargoTexto = cargos[i];
+                CategoriaTrabajador cargo = BuscarCargoProyecto(cargoTexto);
+                decimal horasCargo = i == cargos.Count - 1
+                    ? horasRestantes
+                    : horasTotales / cargos.Count;
+                horasRestantes -= horasCargo;
+                decimal tarifaHora = cargo == null || cargo.SueldoMensualCLPTipico <= 0.0
+                    ? 0m
+                    : Convert.ToDecimal(cargo.SueldoMensualCLPTipico / 22.0 / 8.0);
+                decimal costo = horasCargo * tarifaHora;
+                costoTotal += costo;
+                proceso.Asignaciones.Add(new AsignacionProductiva
+                {
+                    Id = "asg_local_" + Guid.NewGuid().ToString("N"),
+                    ProcesoProyectoId = proceso.Id,
+                    CargoId = cargo == null ? cargoTexto : cargo.NombreCompleto,
+                    HorasCalculadas = horasCargo,
+                    HorasAsignadas = horasCargo,
+                    OrigenHoras = OrigenHorasProductivas.Manual,
+                    DedicacionPorcentaje = 100m / cargos.Count,
+                    CostoCalculado = costo,
+                    Notas = cargo == null ? "Cargo no encontrado en la biblioteca del proyecto." : "Asignacion local del proyecto"
+                });
+            }
+
+            proceso.Resultado = proceso.Resultado ?? new ResultadoProcesoProyecto();
+            proceso.Resultado.HorasCalculadas = horasTotales;
+            proceso.Resultado.HorasAsignadas = horasTotales;
+            proceso.Resultado.CostoCalculado = costoTotal;
+        }
+
+        private void AplicarCargosEnSnapshotProyecto(
+            ItemProyecto item,
+            FilaProductivaProyecto fila,
+            List<string> cargos)
+        {
+            Cotizacion snapshot = CargarSnapshotCotizacionItemProyecto(item);
+            List<RequerimientoProduccionInterna> requerimientos =
+                ObtenerRequerimientosFilaExpandida(snapshot, fila);
+            if (snapshot == null || requerimientos.Count == 0)
+            {
+                MessageBox.Show(
+                    this,
+                    "No se pudo asociar los cargos con el proceso del snapshot local.",
+                    "Productos y servicios",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            List<CargoParticipanteFormula> participantes = new List<CargoParticipanteFormula>();
+            foreach (string cargoTexto in cargos)
+            {
+                CategoriaTrabajador cargo = BuscarCargoProyecto(cargoTexto);
+                participantes.Add(new CargoParticipanteFormula
+                {
+                    Cargo = cargo == null ? cargoTexto : cargo.NombreCompleto,
+                    Activo = true,
+                    TarifaDiariaCLP = cargo == null ? 0.0 : cargo.SueldoMensualCLPTipico / 22.0,
+                    HorasPorDia = 8.0,
+                    DedicacionPorcentaje = 100.0 / cargos.Count
+                });
+            }
+
+            double tarifaDiaPonderada = participantes.Sum(p =>
+                p.TarifaDiariaCLP * p.DedicacionPorcentaje / 100.0);
+            foreach (RequerimientoProduccionInterna req in requerimientos)
+            {
+                req.CargoId = participantes[0].Cargo;
+                req.CargoSugerido = string.Join("; ", participantes.Select(p => p.Cargo));
+                req.CargosParticipantesOverrideJson = JsonSerializer.Serialize(participantes);
+                req.TarifaDiaCargoCLP = tarifaDiaPonderada;
+                req.CostoMinimoCLP = req.DiasPersonaMin * tarifaDiaPonderada;
+                req.CostoEstandarCLP = req.DiasPersonaStd * tarifaDiaPonderada;
+                req.CostoHolguraCLP = req.DiasPersonaHolgura * tarifaDiaPonderada;
+                req.EditadoManualmente = true;
+                req.TieneOverrideLocalCalculo = true;
+            }
+
+            GuardarSnapshotCotizacionItemProyecto(item, snapshot);
+        }
+
+        private CategoriaTrabajador BuscarCargoProyecto(string texto)
+        {
+            string normalizado = NormalizarTextoProyecto(texto);
+            return BibliotecaCargosJsonService.CargarCargos()
+                .FirstOrDefault(c => c != null &&
+                    (NormalizarTextoProyecto(c.NombreCompleto) == normalizado ||
+                     NormalizarTextoProyecto(c.Nombre) == normalizado)) ??
+                BibliotecaCargosJsonService.BuscarCargo(texto, "", "");
+        }
+
+        private void AplicarValorCalculadoProcesoDesdeInspector(
+            SubproductoProyecto sub,
+            ProcesoProyecto proceso,
+            FilaProductivaProyecto fila,
+            string columna,
+            string valor)
+        {
+            if (proceso == null)
+            {
+                return;
+            }
+
+            sub = sub ?? ObtenerSubproductoContenedor(proceso);
+            ItemProyecto item = ObtenerItemContenedor(proceso);
+            bool usaSnapshot = CotizacionItemProyectoAdapterService.ItemTieneSnapshot(item);
+            if (!usaSnapshot)
+            {
+                AplicarEdicionProcesoDesdeInspector(sub, proceso, columna, valor);
+                return;
+            }
+
+            bool aplicadoEnSnapshot = fila != null &&
+                AplicarCambioFilaExpandidaTablaProyecto(fila, columna, valor);
+            if (!aplicadoEnSnapshot)
+            {
+                AplicarEdicionProcesoDesdeInspector(sub, proceso, columna, valor);
+                return;
+            }
+
+            if (columna == "Cantidad" && TryParseDecimalProyecto(valor, out decimal cantidad))
+            {
+                proceso.Cantidad = cantidad;
+            }
+            else if (columna == "Horas" && TryParseDecimalProyecto(valor, out decimal horas))
+            {
+                proceso.Resultado = proceso.Resultado ?? new ResultadoProcesoProyecto();
+                proceso.Resultado.HorasAsignadas = horas;
+                proceso.Resultado.HorasCalculadas = horas;
+            }
+
+            if (sub != null)
+            {
+                ProyectoOverridesService.RegistrarOverrideSubproducto(
+                    sub,
+                    "Proceso." + proceso.Id + "." + columna,
+                    valor,
+                    AlcanceModificacion.SubproductoProyecto,
+                    "Override manual aplicado al snapshot JSON del proyecto");
+            }
+
+            procesoProyectoSeleccionado = proceso;
+            nodoProyectoSeleccionado = proceso;
+            itemProyectoSeleccionado = item;
+            MarcarProyectoConCambiosPendientes();
+            RecalcularProyectoProductivoActual();
+        }
+
+        private EcuacionProductivaDefinicion ObtenerEcuacionProcesoProyecto(ProcesoProyecto proceso)
+        {
+            if (proceso == null)
+            {
+                return null;
+            }
+
+            string clave = proceso.ProcesoBibliotecaId ?? "";
+            string nombre = proceso.Nombre ?? "";
+            return BibliotecaEcuacionesProductivasJsonService.CargarEcuaciones()
+                .FirstOrDefault(e => e != null &&
+                    (string.Equals(e.Clave, clave, StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(e.IdProceso, clave, StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(e.NombreVisible, nombre, StringComparison.OrdinalIgnoreCase) ||
+                     (!string.IsNullOrWhiteSpace(clave) && !string.IsNullOrWhiteSpace(e.Clave) && clave.Contains(e.Clave)) ||
+                     (!string.IsNullOrWhiteSpace(clave) && !string.IsNullOrWhiteSpace(e.NombreVisible) && clave.Contains(e.NombreVisible))));
+        }
+
+        private void AbrirEcuacionProcesoProyecto(ProcesoProyecto proceso)
+        {
+            EcuacionProductivaDefinicion ecuacion = ObtenerEcuacionProcesoProyecto(proceso);
+            string busqueda = ecuacion == null
+                ? (proceso == null ? "" : (string.IsNullOrWhiteSpace(proceso.ProcesoBibliotecaId) ? proceso.Nombre : proceso.ProcesoBibliotecaId))
+                : ecuacion.Clave + " | " + ecuacion.NombreVisible;
+
+            if (string.IsNullOrWhiteSpace(busqueda))
+            {
+                MessageBox.Show(this, "Este proceso no tiene una ecuacion vinculada todavia.", "Ecuacion productiva", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            AbrirTabEcuacionesProductivas(busqueda);
+        }
+
+        private void ConstruirEditorFilaProductiva(FilaProductivaProyecto fila)
+        {
+            panelEditorProyecto.Controls.Add(CrearTituloEditor(ObtenerNombreProcesoProyecto(itemProyectoSeleccionado, null, fila.ProcesoProyectoId)));
+            TableLayoutPanel form = CrearFormularioEditor();
+            AgregarEditorSoloLectura(form, "Proceso", fila.ProcesoProyectoId);
+            AgregarEditorSoloLectura(form, "Cargo", fila.CargoId);
+            AgregarEditorSoloLectura(form, "Etapa", fila.EtapaId);
+            AgregarEditorSoloLectura(form, "Cantidad", fila.Cantidad.ToString("0.##") + " " + fila.Unidad);
+            AgregarEditorSoloLectura(form, "Tiempo", SumarHorasFilas(new[] { fila }).ToString("0.##") + " h");
+            AgregarEditorSoloLectura(form, "Costo", fila.Costo.ToString("N0") + " CLP");
+            AgregarEditorSoloLectura(form, "Diagnostico", string.IsNullOrWhiteSpace(fila.Diagnostico) ? "OK" : fila.Diagnostico);
+            panelEditorProyecto.Controls.Add(form);
+        }
+
+        private Label CrearTituloEditor(string texto)
+        {
+            Label lbl = new Label();
+            lbl.Text = texto;
+            lbl.Font = new Font("Segoe UI", 14f, FontStyle.Bold);
+            lbl.AutoSize = true;
+            lbl.Margin = new Padding(0, 0, 0, 8);
+            return lbl;
+        }
+
+        private Label CrearSubtituloEditor(string texto)
+        {
+            Label lbl = new Label();
+            lbl.Text = texto;
+            lbl.Font = new Font("Segoe UI", 10.5f, FontStyle.Bold);
+            lbl.AutoSize = true;
+            lbl.Margin = new Padding(0, 14, 0, 6);
+            return lbl;
+        }
+
+        private Label CrearTextoEditor(string texto)
+        {
+            Label lbl = new Label();
+            lbl.Text = texto;
+            lbl.Font = new Font("Segoe UI", 9.2f);
+            lbl.ForeColor = Color.DimGray;
+            lbl.AutoSize = true;
+            lbl.MaximumSize = new Size(360, 0);
+            lbl.Margin = new Padding(0, 0, 0, 12);
+            return lbl;
+        }
+
+        private TableLayoutPanel CrearFormularioEditor()
+        {
+            TableLayoutPanel layout = new TableLayoutPanel();
+            layout.Dock = DockStyle.Top;
+            layout.AutoSize = true;
+            layout.ColumnCount = 2;
+            layout.RowCount = 1;
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            layout.Margin = new Padding(0, 0, 0, 6);
+            return layout;
+        }
+
+        private TableLayoutPanel CrearFormularioEditorAncho(int columnas)
+        {
+            TableLayoutPanel layout = new TableLayoutPanel();
+            layout.Dock = DockStyle.Top;
+            layout.AutoSize = true;
+            layout.ColumnCount = Math.Max(2, columnas);
+            layout.RowCount = 0;
+            layout.Margin = new Padding(0, 0, 0, 6);
+
+            for (int i = 0; i < layout.ColumnCount; i += 2)
+            {
+                layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 135));
+                layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f / Math.Max(1, layout.ColumnCount / 2)));
+            }
+
+            return layout;
+        }
+
+        private void AgregarEditorTexto(TableLayoutPanel layout, string etiqueta, string valor, Action<string> aplicar, bool multilinea = false)
+        {
+            TableLayoutPanel editor = new TableLayoutPanel();
+            editor.Dock = DockStyle.Fill;
+            editor.Height = multilinea ? 70 : 28;
+            editor.Margin = new Padding(0, 4, 0, 4);
+            editor.ColumnCount = 2;
+            editor.RowCount = 1;
+            editor.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            editor.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 80));
+            editor.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+
+            TextBox txt = new TextBox();
+            txt.Text = valor ?? "";
+            txt.Multiline = multilinea;
+            txt.Dock = DockStyle.Fill;
+            txt.Margin = new Padding(0, 1, 0, 1);
+            txt.Tag = txt.Text;
+
+            Button aplicarBtn = CrearBotonMini("Aplicar", (s, e) => AplicarEditorTextoSiCambio(txt, aplicar));
+            aplicarBtn.Dock = DockStyle.Fill;
+            aplicarBtn.Margin = new Padding(6, 0, 0, 0);
+
+            txt.KeyDown += (s, e) =>
+            {
+                if (e.KeyCode == Keys.Enter && !multilinea)
+                {
+                    AplicarEditorTextoSiCambio(txt, aplicar);
+                    e.Handled = true;
+                    e.SuppressKeyPress = true;
+                }
+            };
+
+            editor.Controls.Add(txt, 0, 0);
+            editor.Controls.Add(aplicarBtn, 1, 0);
+            AgregarFilaEditorProyecto(layout, etiqueta, editor);
+        }
+
+        private void AplicarEditorTextoSiCambio(TextBox txt, Action<string> aplicar)
+        {
+            if (txt == null || aplicar == null || txt.IsDisposed)
+            {
+                return;
+            }
+
+            string anterior = txt.Tag as string ?? "";
+            string actual = txt.Text ?? "";
+            if (string.Equals(anterior, actual, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            txt.Tag = actual;
+            TabPage tabOrigen = tabs == null ? null : tabs.SelectedTab;
+            inspectorProyectoVisible = true;
+            aplicar(actual);
+            inspectorProyectoVisible = true;
+            if (splitProyectoEstructuraInspector != null)
+            {
+                splitProyectoEstructuraInspector.Panel2Collapsed = false;
+            }
+            if (tabs != null && tabOrigen != null && tabs.TabPages.Contains(tabOrigen))
+            {
+                tabs.SelectedTab = tabOrigen;
+            }
+        }
+
+        private void AgregarEditorDecimal(TableLayoutPanel layout, string etiqueta, decimal valor, Action<decimal> aplicar)
+        {
+            TableLayoutPanel editor = new TableLayoutPanel();
+            editor.Dock = DockStyle.Fill;
+            editor.Height = 28;
+            editor.Margin = new Padding(0, 4, 0, 4);
+            editor.ColumnCount = 2;
+            editor.RowCount = 1;
+            editor.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            editor.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 80));
+            editor.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+
+            NumericUpDown nud = new NumericUpDown();
+            nud.DecimalPlaces = 2;
+            nud.Maximum = 1000000;
+            nud.Minimum = 0;
+            nud.Increment = 0.25m;
+            nud.Value = Math.Max(nud.Minimum, Math.Min(nud.Maximum, valor));
+            nud.Tag = nud.Value;
+            nud.Dock = DockStyle.Fill;
+            nud.Margin = new Padding(0, 1, 0, 1);
+
+            Button aplicarBtn = CrearBotonMini("Aplicar", (s, e) => AplicarEditorDecimalSiCambio(nud, aplicar));
+            aplicarBtn.Dock = DockStyle.Fill;
+            aplicarBtn.Margin = new Padding(6, 0, 0, 0);
+
+            nud.KeyDown += (s, e) =>
+            {
+                if (e.KeyCode == Keys.Enter)
+                {
+                    AplicarEditorDecimalSiCambio(nud, aplicar);
+                    e.Handled = true;
+                    e.SuppressKeyPress = true;
+                }
+            };
+
+            editor.Controls.Add(nud, 0, 0);
+            editor.Controls.Add(aplicarBtn, 1, 0);
+            AgregarFilaEditorProyecto(layout, etiqueta, editor);
+        }
+
+        private void AplicarEditorDecimalSiCambio(NumericUpDown nud, Action<decimal> aplicar)
+        {
+            if (nud == null || aplicar == null || nud.IsDisposed)
+            {
+                return;
+            }
+
+            decimal valorActual = nud.Value;
+            if (TryParseDecimalProyecto(nud.Text, out decimal valorEscrito))
+            {
+                valorActual = Math.Max(nud.Minimum, Math.Min(nud.Maximum, valorEscrito));
+                if (nud.Value != valorActual)
+                {
+                    nud.Value = valorActual;
+                }
+            }
+
+            decimal anterior = nud.Tag is decimal previo ? previo : nud.Value;
+            if (anterior == valorActual)
+            {
+                return;
+            }
+
+            nud.Tag = valorActual;
+            TabPage tabOrigen = tabs == null ? null : tabs.SelectedTab;
+            inspectorProyectoVisible = true;
+            aplicar(valorActual);
+            inspectorProyectoVisible = true;
+            if (splitProyectoEstructuraInspector != null)
+            {
+                splitProyectoEstructuraInspector.Panel2Collapsed = false;
+            }
+            if (tabs != null && tabOrigen != null && tabs.TabPages.Contains(tabOrigen))
+            {
+                tabs.SelectedTab = tabOrigen;
+            }
+        }
+
+        private void AgregarEditorSoloLectura(TableLayoutPanel layout, string etiqueta, string valor)
+        {
+            Label lbl = new Label();
+            lbl.Text = valor ?? "";
+            lbl.AutoSize = true;
+            lbl.Margin = new Padding(0, 6, 0, 6);
+            AgregarFilaEditorProyecto(layout, etiqueta, lbl);
+        }
+
+        private void AgregarFilaEditorProyecto(TableLayoutPanel layout, string etiqueta, Control control)
+        {
+            int pares = Math.Max(1, layout.ColumnCount / 2);
+            int indiceCampo = layout.Controls.OfType<Label>().Count(l => l.Tag as string == "EtiquetaEditor");
+            int fila = indiceCampo / pares;
+            int par = indiceCampo % pares;
+            int columnaEtiqueta = par * 2;
+            int columnaControl = columnaEtiqueta + 1;
+            while (layout.RowCount <= fila)
+            {
+                layout.RowCount++;
+                layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            }
+
+            Label lbl = new Label();
+            lbl.Text = etiqueta + ":";
+            lbl.AutoSize = true;
+            lbl.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
+            lbl.Margin = new Padding(0, 6, 10, 6);
+            lbl.Tag = "EtiquetaEditor";
+            control.Margin = new Padding(0, 4, 0, 4);
+            layout.Controls.Add(lbl, columnaEtiqueta, fila);
+            layout.Controls.Add(control, columnaControl, fila);
+        }
+
+        private void DuplicarSubproductoProyecto(SubproductoProyecto sub)
+        {
+            ItemProyecto item = ObtenerItemContenedor(sub);
+            if (item == null || sub == null)
+            {
+                return;
+            }
+            if (item.Subproductos == null)
+            {
+                item.Subproductos = new List<SubproductoProyecto>();
+            }
+
+            SubproductoProyecto copia = ClonarSubproductos(new List<SubproductoProyecto> { sub }, item.Id).FirstOrDefault();
+            if (copia == null)
+            {
+                return;
+            }
+            copia.Id = "sub_" + Guid.NewGuid().ToString("N");
+            copia.Nombre = sub.Nombre + " copia";
+            copia.Orden = item.Subproductos.Count;
+
+            item.Subproductos.Add(copia);
+            ProyectoOverridesService.RegistrarOverrideProducto(item, "Subproducto.Duplicado", copia.Id, AlcanceModificacion.ProductoProyecto, "Subproducto duplicado desde inspector");
+            MarcarProyectoConCambiosPendientes();
+            RecalcularProyectoProductivoActual();
+            AbrirInspectorProyecto(copia);
+        }
+
+        private void QuitarSubproductoProyecto(SubproductoProyecto sub)
+        {
+            ItemProyecto item = ObtenerItemContenedor(sub);
+            if (item == null || sub == null || item.Subproductos == null)
+            {
+                return;
+            }
+            if (MessageBox.Show(this, "Quitar subproducto '" + sub.Nombre + "' de este producto?", "Productos y servicios", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) != DialogResult.OK)
+            {
+                return;
+            }
+            if (!item.Subproductos.Remove(sub))
+            {
+                return;
+            }
+
+            ProyectoOverridesService.RegistrarOverrideProducto(item, "Subproducto.Quitado", sub.Id, AlcanceModificacion.ProductoProyecto, "Subproducto quitado desde inspector");
+            MarcarProyectoConCambiosPendientes();
+            RecalcularProyectoProductivoActual();
+            AbrirInspectorProyecto(item);
+        }
+        private void ActualizarResumenProyecto()
+        {
+            ProyectoProductivoExpandido expandido = ProyectoProductivoExpansionService.Expandir(proyectoCotizacionActual);
+            ProyectoConsolidado consolidado = ProyectoConsolidacionService.Consolidar(proyectoCotizacionActual, expandido);
+            int items = proyectoCotizacionActual.Grupos.SelectMany(g => g.Items ?? new List<ItemProyecto>()).Count(i => i.Activo);
+            decimal horasTotales =
+                consolidado.HorasProductivas +
+                consolidado.HorasRevision +
+                consolidado.HorasCorreccion +
+                consolidado.HorasSupervision +
+                consolidado.HorasDireccion +
+                consolidado.HorasGestion;
+            string estado = items == 0
+                ? "Sin productos"
+                : consolidado.Diagnosticos.Count == 0
+                    ? "Configurable"
+                    : consolidado.Diagnosticos.Count + " alertas";
+            lblMetricasProyecto.Text =
+                "Productos: " + items +
+                "   |   Subproductos: " + consolidado.TotalSubproductos +
+                "   |   Tiempo total: " + horasTotales.ToString("0.##") + " h" +
+                "   |   Costo total: " + consolidado.CostoTotal.ToString("N0") + " CLP" +
+                "   |   Precio total: " + consolidado.Precio.ToString("N0") + " CLP" +
+                "   |   Margen: " + (consolidado.Margen * 100m).ToString("0.#") + " %" +
+                "   |   Estado: " + estado;
+            lblEstadoProyecto.Text = proyectoCotizacionActual.Nombre + " | " + proyectoCotizacionActual.Grupos.Count + " grupos";
+        }
+
+        private List<GrupoProyecto> ObtenerGruposProyectoOrdenados()
+        {
+            return (proyectoCotizacionActual.Grupos ?? new List<GrupoProyecto>())
+                .Where(g => g != null && g.Activo)
+                .OrderBy(g => g.Orden)
+                .ToList();
+        }
+
+        private GrupoProyecto ObtenerGrupoSeleccionadoProyecto()
+        {
+            if (nodoProyectoSeleccionado is GrupoProyecto grupo)
+            {
+                return grupo;
+            }
+            if (itemProyectoSeleccionado != null)
+            {
+                return proyectoCotizacionActual.Grupos.FirstOrDefault(g => (g.Items ?? new List<ItemProyecto>()).Contains(itemProyectoSeleccionado));
+            }
+            return proyectoCotizacionActual.Grupos.FirstOrDefault() ?? ObtenerGrupoProduccionProyecto();
+        }
+
+        private ItemProyecto ObtenerItemSeleccionadoProyecto()
+        {
+            return itemProyectoSeleccionado;
+        }
+
+        private ItemProyecto ObtenerItemEditableSeleccionadoProyecto()
+        {
+            return itemProyectoSeleccionado;
+        }
+
+        private bool ItemTienePersonalizacionesProyecto(ItemProyecto item)
+        {
+            if (item == null)
+            {
+                return false;
+            }
+
+            return CotizacionItemProyectoAdapterService.ItemTieneSnapshot(item) ||
+                ProyectoOverridesService.TieneOverrides(item) ||
+                (item.Parametros != null && item.Parametros.Count > 0) ||
+                (item.Subproductos ?? new List<SubproductoProyecto>())
+                    .Any(s => s != null &&
+                        ((s.Parametros != null && s.Parametros.Count > 0) ||
+                         ProyectoOverridesService.TieneOverrides(s)));
+        }
+
+        private void AplicarCambioProductoProyecto(ItemProyecto item, string campo, object valor, Action aplicar)
+        {
+            if (item == null || aplicar == null)
+            {
+                return;
+            }
+
+            aplicar();
+            SincronizarCampoProductoConSnapshotProyecto(item, campo, valor);
+            ProyectoOverridesService.RegistrarOverrideProducto(
+                item,
+                campo,
+                valor,
+                AlcanceModificacion.ProductoProyecto,
+                "Editado localmente en el JSON del proyecto");
+            proyectoCotizacionActual.FechaModificacion = DateTime.Now;
+            if (cotizacion != null)
+            {
+                cotizacion.ProyectoProductivo = proyectoCotizacionActual;
+            }
+            nodoProyectoSeleccionado = item;
+            itemProyectoSeleccionado = item;
+            MarcarProyectoConCambiosPendientes();
+            RecalcularProyectoProductivoActual();
+        }
+
+        private void SincronizarCampoProductoConSnapshotProyecto(ItemProyecto item, string campo, object valor)
+        {
+            if (item == null)
+            {
+                return;
+            }
+
+            if (string.Equals(campo, "Cantidad", StringComparison.OrdinalIgnoreCase) &&
+                TryParseDecimalProyecto(Convert.ToString(valor), out decimal cantidad))
+            {
+                ActualizarCantidadSnapshotItemProyecto(item, cantidad);
+                return;
+            }
+
+            if (string.Equals(campo, "Unidad", StringComparison.OrdinalIgnoreCase))
+            {
+                ActualizarUnidadSnapshotItemProyecto(item, Convert.ToString(valor) ?? "");
+                return;
+            }
+
+            if (string.Equals(campo, "Nombre", StringComparison.OrdinalIgnoreCase))
+            {
+                Cotizacion snapshot = CargarSnapshotCotizacionItemProyecto(item);
+                if (snapshot != null)
+                {
+                    snapshot.NombreProyecto = Convert.ToString(valor) ?? item.Nombre;
+                    GuardarSnapshotCotizacionItemProyecto(item, snapshot);
+                }
+            }
+        }
+
+        private void AgregarGrupoProyecto()
+        {
+            int orden = proyectoCotizacionActual.Grupos.Count;
+            GrupoProyecto grupo = new GrupoProyecto
+            {
+                Id = "grp_personalizado_" + Guid.NewGuid().ToString("N").Substring(0, 8),
+                Nombre = "Nuevo grupo",
+                Tipo = TipoGrupoProyecto.Personalizado,
+                Orden = orden
+            };
+            proyectoCotizacionActual.Grupos.Add(grupo);
+            SeleccionarNodoProyecto(grupo);
+            ProyectoCotizacionJsonService.Normalizar(proyectoCotizacionActual);
+            MarcarProyectoConCambiosPendientes();
+        }
+
+        private void AgregarProductoServicioDesdeBiblioteca()
+        {
+            if (proyectoCotizacionActual == null)
+            {
+                proyectoCotizacionActual = new ProyectoCotizacion
+                {
+                    Id = "prj_" + Guid.NewGuid().ToString("N"),
+                    Nombre = cotizacion == null ? "Proyecto" : cotizacion.NombreProyecto,
+                    Cliente = cotizacion == null ? "" : cotizacion.NombreCliente,
+                    FechaCreacion = DateTime.Now,
+                    FechaModificacion = DateTime.Now
+                };
+            }
+
+            using (FormAgregarProductoServicioProyecto dialogo =
+                new FormAgregarProductoServicioProyecto(AbrirPipelineProductoDesdeAgregar))
+            {
+                if (dialogo.ShowDialog(this) != DialogResult.OK)
+                {
+                    return;
+                }
+
+                GrupoProyecto grupo = ObtenerGrupoSeleccionadoProyecto() ?? ObtenerGrupoProduccionProyecto();
+                ProductoProyecto item = ProyectoProductoBibliotecaAdapterService.CrearProductoDesdeBiblioteca(
+                    dialogo.ProductoSeleccionado,
+                    dialogo.Opciones,
+                    grupo.Items.Count);
+
+                grupo.Items.Add(item);
+                proyectoCotizacionActual.FechaModificacion = DateTime.Now;
+                ProyectoCotizacionJsonService.Normalizar(proyectoCotizacionActual);
+                MarcarProyectoConCambiosPendientes();
+                itemProyectoSeleccionado = item;
+                nodoProyectoSeleccionado = item;
+                RecalcularProyectoProductivoActual();
+            }
+        }
+
+        private void AbrirPipelineProductoDesdeAgregar(string nombreProducto)
+        {
+            if (string.IsNullOrWhiteSpace(nombreProducto))
+            {
+                return;
+            }
+
+            SincronizarProductoSeleccionadoParaPipeline(nombreProducto);
+            BtnEditarPipelineProducto_Click(this, EventArgs.Empty);
+        }
+
+        private GrupoProyecto ObtenerGrupoProduccionProyecto()
+        {
+            GrupoProyecto grupo = proyectoCotizacionActual.Grupos.FirstOrDefault(g =>
+                g != null &&
+                g.Activo &&
+                (g.Tipo == TipoGrupoProyecto.Produccion ||
+                 string.Equals(g.Nombre, "Produccion", StringComparison.OrdinalIgnoreCase)));
+            if (grupo != null)
+            {
+                return grupo;
+            }
+
+            grupo = new GrupoProyecto
+            {
+                Id = "grp_produccion",
+                Nombre = "Produccion",
+                Tipo = TipoGrupoProyecto.Produccion,
+                Orden = proyectoCotizacionActual.Grupos.Count
+            };
+            proyectoCotizacionActual.Grupos.Add(grupo);
+            return grupo;
+        }
+
+        private void DuplicarSeleccionProyecto()
+        {
+            if (itemProyectoSeleccionado != null)
+            {
+                DuplicarItemProyecto(itemProyectoSeleccionado);
+            }
+        }
+
+        private void DuplicarItemProyecto(ItemProyecto item)
+        {
+            GrupoProyecto grupo = proyectoCotizacionActual.Grupos.FirstOrDefault(g => (g.Items ?? new List<ItemProyecto>()).Contains(item));
+            if (grupo == null || item == null)
+            {
+                return;
+            }
+
+            ProductoProyecto copia = new ProductoProyecto
+            {
+                Id = item.Id + "_copia_" + Guid.NewGuid().ToString("N").Substring(0, 6),
+                BibliotecaId = item.BibliotecaId,
+                Nombre = item.Nombre + " copia",
+                Descripcion = item.Descripcion,
+                Cantidad = item.Cantidad,
+                Unidad = item.Unidad,
+                Orden = grupo.Items.Count,
+                Snapshot = item.Snapshot,
+                CotizacionSnapshotJson = item.CotizacionSnapshotJson,
+                FechaEdicionSnapshot = item.FechaEdicionSnapshot,
+                Parametros = new Dictionary<string, object>(item.Parametros ?? new Dictionary<string, object>()),
+                Overrides = new List<OverrideProductivo>(item.Overrides ?? new List<OverrideProductivo>()),
+                Subproductos = ClonarSubproductos(item.Subproductos, item.Id + "_copia")
+            };
+            grupo.Items.Add(copia);
+            SeleccionarNodoProyecto(copia);
+            MarcarProyectoConCambiosPendientes();
+        }
+
+        private List<SubproductoProyecto> ClonarSubproductos(List<SubproductoProyecto> origen, string productoId)
+        {
+            List<SubproductoProyecto> resultado = new List<SubproductoProyecto>();
+            foreach (SubproductoProyecto sub in origen ?? new List<SubproductoProyecto>())
+            {
+                SubproductoProyecto copia = new SubproductoProyecto
+                {
+                    Id = "sub_" + Guid.NewGuid().ToString("N"),
+                    ProductoProyectoId = productoId,
+                    SubproductoBibliotecaId = sub.SubproductoBibliotecaId,
+                    Nombre = sub.Nombre,
+                    Cantidad = sub.Cantidad,
+                    Unidad = sub.Unidad,
+                    ModoCantidad = sub.ModoCantidad,
+                    Parametros = new Dictionary<string, object>(sub.Parametros ?? new Dictionary<string, object>()),
+                    Overrides = new List<OverrideProductivo>(sub.Overrides ?? new List<OverrideProductivo>()),
+                    Activo = sub.Activo,
+                    Orden = sub.Orden,
+                    Notas = sub.Notas,
+                    Procesos = (sub.Procesos ?? new List<ProcesoProyecto>())
+                        .Where(p => p != null)
+                        .Select(p =>
+                        {
+                            string procesoId = Guid.NewGuid().ToString("N");
+                            return new ProcesoProyecto
+                            {
+                                Id = procesoId,
+                                ProcesoBibliotecaId = p.ProcesoBibliotecaId,
+                                Nombre = p.Nombre,
+                                TipoProceso = p.TipoProceso,
+                                MetodoCalculo = p.MetodoCalculo,
+                                AlcanceTemporal = p.AlcanceTemporal,
+                                EtapaId = p.EtapaId,
+                                SubetapaId = p.SubetapaId,
+                                Cantidad = p.Cantidad,
+                                Unidad = p.Unidad,
+                                Capacidad = p.Capacidad,
+                                Periodo = p.Periodo,
+                                Paralelo = p.Paralelo,
+                                Dependencias = new List<string>(p.Dependencias ?? new List<string>()),
+                                Activo = p.Activo,
+                                Asignaciones = (p.Asignaciones ?? new List<AsignacionProductiva>())
+                                    .Where(a => a != null)
+                                    .Select(a => new AsignacionProductiva
+                                    {
+                                        Id = Guid.NewGuid().ToString("N"),
+                                        ProcesoProyectoId = procesoId,
+                                        CargoId = a.CargoId,
+                                        PersonaId = a.PersonaId,
+                                        HorasCalculadas = a.HorasCalculadas,
+                                        HorasAsignadas = a.HorasAsignadas,
+                                        OrigenHoras = a.OrigenHoras,
+                                        DedicacionPorcentaje = a.DedicacionPorcentaje,
+                                        CostoCalculado = a.CostoCalculado,
+                                        Notas = a.Notas
+                                    })
+                                    .ToList(),
+                                Resultado = p.Resultado == null ? new ResultadoProcesoProyecto() : new ResultadoProcesoProyecto
+                                {
+                                    HorasCalculadas = p.Resultado.HorasCalculadas,
+                                    HorasAsignadas = p.Resultado.HorasAsignadas,
+                                    CostoCalculado = p.Resultado.CostoCalculado,
+                                    DuracionSemanas = p.Resultado.DuracionSemanas,
+                                    Diagnostico = p.Resultado.Diagnostico,
+                                    Warnings = new List<string>(p.Resultado.Warnings ?? new List<string>())
+                                }
+                            };
+                        })
+                        .ToList()
+                };
+                resultado.Add(copia);
+            }
+            return resultado;
+        }
+
+        private void QuitarSeleccionProyecto()
+        {
+            if (itemProyectoSeleccionado != null)
+            {
+                QuitarItemProyecto(itemProyectoSeleccionado);
+            }
+        }
+
+        private void QuitarItemProyecto(ItemProyecto item)
+        {
+            if (item == null)
+            {
+                return;
+            }
+
+            if (MessageBox.Show(this, "Quitar '" + item.Nombre + "' de este proyecto?", "Productos y servicios", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) != DialogResult.OK)
+            {
+                return;
+            }
+
+            foreach (GrupoProyecto grupo in proyectoCotizacionActual.Grupos)
+            {
+                if (grupo.Items.Remove(item))
+                {
+                    break;
+                }
+            }
+
+            itemProyectoSeleccionado = null;
+            nodoProyectoSeleccionado = null;
+            MarcarProyectoConCambiosPendientes();
+            RecalcularProyectoProductivoActual();
+        }
+
+        private void RestaurarItemDesdePlantilla(ItemProyecto item)
+        {
+            if (item == null)
+            {
+                return;
+            }
+
+            item.Overrides.Clear();
+            foreach (SubproductoProyecto sub in item.Subproductos ?? new List<SubproductoProyecto>())
+            {
+                sub.Overrides.Clear();
+            }
+            MarcarProyectoConCambiosPendientes();
+            RefrescarProyectoUI();
+        }
+
+        private void CompararItemConPlantilla(ItemProyecto item)
+        {
+            MessageBox.Show(this, "Comparacion disponible: overrides registrados = " + (item.Overrides == null ? 0 : item.Overrides.Count), "Comparar con plantilla", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        private void RegistrarIntencionNuevaPlantilla(ItemProyecto item)
+        {
+            ProyectoOverridesService.RegistrarOverrideProducto(item, "NuevaPlantilla", item.Nombre, AlcanceModificacion.NuevaPlantilla, "Guardar como nueva plantilla solicitado");
+            MarcarProyectoConCambiosPendientes();
+            MessageBox.Show(this, "Quedo registrada la intencion de guardar como nueva plantilla. La creacion real se hara desde Modo Configuracion.", "Nueva plantilla", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        private void EditarSeleccionProyecto()
+        {
+            object seleccionado = nodoProyectoSeleccionado ?? itemProyectoSeleccionado;
+            if (seleccionado is SubproductoProyecto subproducto)
+            {
+                AbrirEditorPipelineSubproductoProyecto(subproducto);
+                return;
+            }
+
+            if (seleccionado is ProcesoProyecto proceso)
+            {
+                AbrirInspectorProyecto(proceso);
+                return;
+            }
+
+            if (seleccionado is GrupoProyecto grupo)
+            {
+                AbrirInspectorProyecto(grupo);
+                return;
+            }
+
+            if (seleccionado is FilaProductivaProyecto fila)
+            {
+                AbrirInspectorProyecto(fila);
+                return;
+            }
+
+            EditarItemProyectoEnInterfazActual();
+        }
+
+        private void EditarItemProyectoEnInterfazActual()
+        {
+            ItemProyecto item = itemProyectoSeleccionado;
+            if (item == null)
+            {
+                MessageBox.Show(this, "Selecciona un producto o servicio.", "Pipeline de producto", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            TabPage tabOrigen = tabs?.SelectedTab;
+            cotizacionRaizAntesEdicionItem = cotizacion;
+            itemProyectoEnEdicionActual = item;
+            cotizacion = CotizacionItemProyectoAdapterService.CrearCotizacionDesdeItem(item, cotizacionRaizAntesEdicionItem);
+            cotizacion.ProyectoProductivo = null;
+            RefrescarTodo();
+
+            SincronizarProductoSeleccionadoParaPipeline(item.Nombre);
+            if (tabs != null && tabOrigen != null && tabs.TabPages.Contains(tabOrigen))
+            {
+                tabs.SelectedTab = tabOrigen;
+            }
+
+            BeginInvoke(new Action(() =>
+            {
+                SincronizarProductoSeleccionadoParaPipeline(item.Nombre);
+                if (tabs != null && tabOrigen != null && tabs.TabPages.Contains(tabOrigen))
+                {
+                    tabs.SelectedTab = tabOrigen;
+                }
+
+                BtnEditarPipelineProducto_Click(this, EventArgs.Empty);
+
+                if (tabs != null && tabOrigen != null && tabs.TabPages.Contains(tabOrigen))
+                {
+                    tabs.SelectedTab = tabOrigen;
+                }
+            }));
+        }
+
+        private void GuardarItemProyectoDesdeInterfazActual()
+        {
+            ItemProyecto item = itemProyectoEnEdicionActual ?? itemProyectoSeleccionado;
+            if (item == null)
+            {
+                return;
+            }
+
+            AplicarDatosDesdePantalla();
+            GuardarDesgloseProductivoDesdePantalla();
+            GuardarAsignacionesManoObraDesdeTabla(false);
+            ServicioCotizacion.RecalcularCotizacion(cotizacion);
+            SincronizarItemProyectoDesdeCotizacion(item, cotizacion);
+            CotizacionItemProyectoAdapterService.CapturarCotizacionEnItem(item, cotizacion);
+            ProyectoCotizacionJsonService.Normalizar(proyectoCotizacionActual);
+
+            if (cotizacionRaizAntesEdicionItem != null)
+            {
+                cotizacion = cotizacionRaizAntesEdicionItem;
+            }
+            cotizacion.ProyectoProductivo = proyectoCotizacionActual;
+            itemProyectoEnEdicionActual = null;
+            cotizacionRaizAntesEdicionItem = null;
+            RecalcularProyectoProductivoActual();
+            if (tabs != null && tabProyectoPrincipal != null)
+            {
+                tabs.SelectedTab = tabProyectoPrincipal;
+            }
+        }
+
+        private void SincronizarItemProyectoDesdeCotizacion(ItemProyecto item, Cotizacion cotizacionItem)
+        {
+            if (item == null || cotizacionItem == null)
+            {
+                return;
+            }
+            if (!string.IsNullOrWhiteSpace(cotizacionItem.NombreProyecto))
+            {
+                item.Nombre = cotizacionItem.NombreProyecto;
+            }
+            item.Descripcion = cotizacionItem.Descripcion ?? item.Descripcion;
+        }
+
+        private void RecalcularProyectoProductivoActual()
+        {
+            if (proyectoCotizacionActual == null)
+            {
+                return;
+            }
+
+            if (lblEstadoProyecto != null)
+            {
+                lblEstadoProyecto.Text = "Recalculando...";
+                lblEstadoProyecto.Refresh();
+            }
+
+            ProyectoProductivoExpandido expandido = ProyectoProductivoExpansionService.Expandir(proyectoCotizacionActual);
+            ProyectoConsolidado consolidado = ProyectoConsolidacionService.Consolidar(proyectoCotizacionActual, expandido);
+
+            if (cotizacion == null)
+            {
+                cotizacion = new Cotizacion();
+            }
+
+            cotizacion.ProyectoProductivo = proyectoCotizacionActual;
+            cotizacion.HorasProyectoProductivo = Convert.ToDouble(
+                consolidado.HorasProductivas +
+                consolidado.HorasRevision +
+                consolidado.HorasCorreccion +
+                consolidado.HorasSupervision +
+                consolidado.HorasDireccion +
+                consolidado.HorasGestion);
+            cotizacion.CostoProyectoProductivoCLP = Convert.ToDouble(consolidado.CostoTotal);
+            ServicioCotizacion.RecalcularCotizacion(cotizacion);
+            RefrescarProyectoUI();
+            CargarCostosEnPantalla();
+            RefrescarResumen();
+            RefrescarDatosDesdeProyectoProductivo();
+            RefrescarResultadosDetalle();
+
+            if (lblEstadoProyecto != null)
+            {
+                lblEstadoProyecto.Text = consolidado.Diagnosticos.Count == 0
+                    ? "Cotizacion actualizada"
+                    : "Cotizacion actualizada con datos faltantes: " + string.Join("; ", consolidado.Diagnosticos.Take(3));
+            }
+        }
+    }
+
+    internal static class ProyectoUiExtensions
+    {
+        public static void FechaModificacionSeguro(this GrupoProyecto grupo, ProyectoCotizacion proyecto)
+        {
+            if (proyecto != null)
+            {
+                proyecto.FechaModificacion = DateTime.Now;
+            }
+        }
+    }
+}

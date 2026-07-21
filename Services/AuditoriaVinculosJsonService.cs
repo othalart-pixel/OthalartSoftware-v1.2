@@ -116,6 +116,11 @@ namespace Cotizador_animacion_Othalart.Services
             {
                 foreach (Subproducto2D sub in producto.Subproductos.Where(s => s != null))
                 {
+                    if (UsaTiempoAsignado(sub))
+                    {
+                        continue;
+                    }
+
                     EcuacionProductivaDefinicion ecuacion = null;
                     if (!string.IsNullOrWhiteSpace(sub.EcuacionProductiva))
                     {
@@ -149,7 +154,7 @@ namespace Cotizador_animacion_Othalart.Services
             {
                 foreach (var cargo in EcuacionProductivaRuntimeService.ObtenerVectorCargos(ecuacion))
                 {
-                    if (!CargoRequiereRendimiento(cargo.Cargo, ecuacion.NombreVisible, ecuacion.SubEtapa, ecuacion.Etapa, ecuacion.Variables + ";" + ecuacion.Tokens))
+                    if (!CargoParticipanteRequiereRendimiento(cargo, ecuacion))
                     {
                         continue;
                     }
@@ -345,12 +350,21 @@ namespace Cotizador_animacion_Othalart.Services
                 }
             }
 
-            List<string> cargosExplicitos = SepararCargos(sub.CargosSugeridos);
-            List<string> cargosEcuacion = ecuacion == null
-                ? new List<string>()
-                : EcuacionProductivaRuntimeService.ObtenerVectorCargos(ecuacion).Select(c => c.Cargo).ToList();
+            List<EcuacionProductivaRuntimeService.CargoVector> cargosExplicitos = SepararCargos(sub.CargosSugeridos)
+                .Select(c => new EcuacionProductivaRuntimeService.CargoVector
+                {
+                    Cargo = c,
+                    Dedicacion = 1.0
+                })
+                .ToList();
 
-            List<string> cargosParaValidar = cargosEcuacion.Count > 0 ? cargosEcuacion : cargosExplicitos;
+            List<EcuacionProductivaRuntimeService.CargoVector> cargosEcuacion = ecuacion == null
+                ? new List<EcuacionProductivaRuntimeService.CargoVector>()
+                : EcuacionProductivaRuntimeService.ObtenerVectorCargos(ecuacion);
+
+            List<EcuacionProductivaRuntimeService.CargoVector> cargosParaValidar =
+                cargosEcuacion.Count > 0 ? cargosEcuacion : cargosExplicitos;
+
             if (cargosParaValidar.Count == 0)
             {
                 Agregar(resultado, "Advertencia", "productos2d.json + ecuaciones_productivas.json", producto, pieza, "Cargos",
@@ -358,25 +372,25 @@ namespace Cotizador_animacion_Othalart.Services
                     "Ecuaciones o Productos / Pipeline");
             }
 
-            foreach (string cargo in cargosParaValidar)
+            foreach (EcuacionProductivaRuntimeService.CargoVector cargo in cargosParaValidar)
             {
-                if (!CargoExiste(cargo, nombresCargos))
+                if (!CargoExiste(cargo.Cargo, nombresCargos))
                 {
                     Agregar(resultado, "Error", "cargos.json", producto, pieza, "Cargo",
-                        "Cargo no encontrado: " + cargo,
+                        "Cargo no encontrado: " + cargo.Cargo,
                         "Cargos");
                     continue;
                 }
 
-                if (!CargoRequiereRendimiento(cargo, pieza, sub.SubEtapaSugerida, sub.EtapaSugerida, sub.VariablesEcuacion))
+                if (!CargoParticipanteRequiereRendimiento(cargo, pieza, sub.SubEtapaSugerida, sub.EtapaSugerida, sub.VariablesEcuacion))
                 {
                     continue;
                 }
 
-                if (!TieneRendimientoCompatible(rendimientos, cargo, sub))
+                if (!TieneRendimientoCompatible(rendimientos, cargo.Cargo, sub))
                 {
                     Agregar(resultado, "Advertencia", "rendimientos_productivos.json", producto, pieza, "Rendimiento",
-                        "No se encontro rendimiento activo compatible para cargo/proceso: " + cargo,
+                        "No se encontro rendimiento activo compatible para cargo/proceso: " + cargo.Cargo,
                         "Rendimientos");
                 }
             }
@@ -439,7 +453,7 @@ namespace Cotizador_animacion_Othalart.Services
                             "Cargo participante no encontrado: " + cargo.Cargo,
                             "Ecuaciones / Cargos");
                     }
-                    else if (CargoRequiereRendimiento(cargo.Cargo, ecuacion.NombreVisible, ecuacion.SubEtapa, ecuacion.Etapa, ecuacion.Variables + ";" + ecuacion.Tokens) &&
+                    else if (CargoParticipanteRequiereRendimiento(cargo, ecuacion) &&
                         !TieneRendimientoCompatible(rendimientos, cargo.Cargo, ecuacion.SubEtapa, ecuacion.Etapa, ecuacion.Variables))
                     {
                         Agregar(resultado, "Advertencia", "ecuaciones_productivas.json + rendimientos_productivos.json", "", ecuacion.NombreVisible, "Rendimiento",
@@ -471,6 +485,59 @@ namespace Cotizador_animacion_Othalart.Services
                 etapa,
                 variables
             );
+        }
+
+        private static bool UsaTiempoAsignado(Subproducto2D sub)
+        {
+            return sub != null &&
+                ModosCalculoProductivo.EsTiempoAsignado(sub.ModoCalculoProductivo);
+        }
+
+        private static bool CargoParticipanteRequiereRendimiento(
+            EcuacionProductivaRuntimeService.CargoVector cargo,
+            EcuacionProductivaDefinicion ecuacion
+        )
+        {
+            if (cargo == null || ecuacion == null || string.IsNullOrWhiteSpace(cargo.Cargo))
+            {
+                return false;
+            }
+
+            // Una dedicacion menor a 100% representa apoyo/gestion sobre el tiempo base
+            // de otro cargo productivo. No debe crear rendimientos falsos para ese cargo.
+            if (cargo.Dedicacion > 0.0 && cargo.Dedicacion < 0.999)
+            {
+                return false;
+            }
+
+            return CargoRequiereRendimiento(
+                cargo.Cargo,
+                ecuacion.NombreVisible,
+                ecuacion.SubEtapa,
+                ecuacion.Etapa,
+                ecuacion.Variables + ";" + ecuacion.Tokens
+            );
+        }
+
+        private static bool CargoParticipanteRequiereRendimiento(
+            EcuacionProductivaRuntimeService.CargoVector cargo,
+            string pieza,
+            string proceso,
+            string etapa,
+            string variables
+        )
+        {
+            if (cargo == null || string.IsNullOrWhiteSpace(cargo.Cargo))
+            {
+                return false;
+            }
+
+            if (cargo.Dedicacion > 0.0 && cargo.Dedicacion < 0.999)
+            {
+                return false;
+            }
+
+            return CargoRequiereRendimiento(cargo.Cargo, pieza, proceso, etapa, variables);
         }
 
         private static bool EsRendimientoSugeridoPorAuditoria(RendimientoProductivo rendimiento)

@@ -21,6 +21,50 @@ namespace Cotizador_animacion_Othalart
         private string monedaClienteSeleccionadaRapida = "CLP";
         private bool modoOscuroActivo = false;
 
+        private enum ModoAplicacion
+        {
+            Inicio,
+            Proyecto,
+            Configuracion
+        }
+
+        private sealed class EstadoNavegacionPrincipal
+        {
+            public ModoAplicacion Modo { get; set; }
+            public TabPage Tab { get; set; }
+        }
+
+        private ModoAplicacion modoAplicacionActual = ModoAplicacion.Inicio;
+        private readonly List<EstadoNavegacionPrincipal> historialNavegacionPrincipal =
+            new List<EstadoNavegacionPrincipal>();
+        private EstadoNavegacionPrincipal estadoNavegacionActual;
+        private bool navegandoDesdeHistorial = false;
+        private Button btnVolverNavegacion = new Button();
+        private Label lblModoAplicacion = new Label();
+        private Label lblEstadoGuardadoGlobal = new Label();
+        private bool proyectoTieneCambiosPendientes = false;
+        private Button btnAlternarPanelLateral = new Button();
+        private Panel panelContenidoLateralDerecho = new Panel();
+        private Button btnPestanaPanelDerecho = new Button();
+        private ToolTip tooltipPanelDerecho = new ToolTip();
+        private bool panelLateralCatalogoVisible = true;
+        private const int AnchoPestanaPanelDerecho = 32;
+        private const int AnchoMinimoPanelDerechoAbierto = 180;
+        private const int AnchoInicialPanelDerechoAbierto = 420;
+        private int ultimoAnchoPanelDerechoAbierto = AnchoInicialPanelDerechoAbierto;
+        private bool anchoPanelDerechoDefinidoPorUsuario = false;
+        private bool moviendoSplitterPanelDerecho = false;
+        private bool ajustandoSplitterPanelDerechoProgramaticamente = false;
+        private enum EstadoPanelDerechoProyecto
+        {
+            Normal,
+            Oculto,
+            Expandido,
+            Contraido
+        }
+
+        private EstadoPanelDerechoProyecto estadoPanelDerechoProyecto = EstadoPanelDerechoProyecto.Oculto;
+
         private class SubEtapaPreviewRow
         {
             public EtapaProyecto EtapaPadre { get; set; }
@@ -70,6 +114,9 @@ namespace Cotizador_animacion_Othalart
         private List<CategoriaTrabajador> bibliotecaCargosGenerales =
             new List<CategoriaTrabajador>();
 
+        private List<CategoriaTrabajador> bibliotecaCargosProyectoInforme = null;
+        private List<PersonaEquipo> bibliotecaPersonalProyectoInforme = null;
+
         private const string NombreOpcionCargosGenerales = "General / todas las etapas";
 
         private class SelectorBibliotecaCargos
@@ -95,6 +142,8 @@ namespace Cotizador_animacion_Othalart
 
         private Panel panelResumenScroll = new Panel();
         private RichTextBox rtbResumen = new RichTextBox();
+        private TableLayoutPanel layoutPanelDerecho = new TableLayoutPanel();
+        private TableLayoutPanel layoutResumenDerecho = new TableLayoutPanel();
 
         private System.Windows.Forms.Timer timerResumenFeedback = new System.Windows.Forms.Timer();
         private int pasosFeedbackResumen = 0;
@@ -157,6 +206,8 @@ namespace Cotizador_animacion_Othalart
         private SplitContainer splitPrincipal = new SplitContainer();
         private TabControl tabs = new TabControl();
         private TabPage tabInicioPrincipal;
+        private TabPage tabCatalogoProductosServiciosPrincipal;
+        private TabPage tabProyectoPrincipal;
         private TabPage tabDatosPrincipal;
         private TabPage tabProductosPrincipal;
         private TabPage tabMonedaPrincipal;

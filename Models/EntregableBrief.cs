@@ -34,11 +34,17 @@
 
         public string CargosParticipantesJson { get; set; } = "";
 
+        public string EquationKey { get; set; } = "";
+
         public string EcuacionProductiva { get; set; } = "";
 
         public string VariablesEcuacion { get; set; } = "";
 
         public string ImpactoEcuacion { get; set; } = "";
+        public string ModoCalculoProductivo { get; set; } = "Rendimiento";
+        public double HorasAsignadasMin { get; set; } = 0.0;
+        public double HorasAsignadasStd { get; set; } = 0.0;
+        public double HorasAsignadasHolgura { get; set; } = 0.0;
 
         // =========================
         // SUPUESTOS PRELIMINARES DE PRODUCCIÓN

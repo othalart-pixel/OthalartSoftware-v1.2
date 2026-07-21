@@ -52,6 +52,12 @@ namespace Cotizador_animacion_Othalart.Models
         public DesgloseProductivoProyecto DesgloseProductivo { get; set; }
             = new DesgloseProductivoProyecto();
 
+        public ProyectoCotizacion ProyectoProductivo { get; set; } = null;
+
+        public double HorasProyectoProductivo { get; set; } = 0.0;
+
+        public double CostoProyectoProductivoCLP { get; set; } = 0.0;
+
         // =========================
         // PLAZO DECLARADO POR CLIENTE
         // =========================

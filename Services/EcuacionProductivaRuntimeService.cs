@@ -115,7 +115,7 @@ namespace Cotizador_animacion_Othalart.Services
                     new List<CargoParticipanteFormula>();
 
                 return participantes
-                    .Where(p => p != null && !string.IsNullOrWhiteSpace(p.Cargo))
+                    .Where(p => p != null && p.Activo && !string.IsNullOrWhiteSpace(p.Cargo))
                     .Select(p => new CargoVector
                     {
                         Cargo = p.Cargo.Trim(),
@@ -366,6 +366,58 @@ namespace Cotizador_animacion_Othalart.Services
                     diagnostico.Errores.Add(clave + ": nombre visible vacio.");
                 }
 
+                if (e.SchemaVersion < 2)
+                {
+                    diagnostico.Advertencias.Add(clave + ": esquema anterior; se migrara a proceso productivo versionado al guardar.");
+                }
+
+                if (string.IsNullOrWhiteSpace(e.IdProceso))
+                {
+                    diagnostico.Errores.Add(clave + ": proceso sin Id estable.");
+                }
+
+                if (e.TipoProceso == TipoProcesoProductivo.NoClasificado)
+                {
+                    diagnostico.Errores.Add(clave + ": proceso sin TipoProceso.");
+                }
+
+                if (e.MetodoCalculo == MetodoCalculoProceso.NoDefinido)
+                {
+                    diagnostico.Advertencias.Add(clave + ": proceso sin MetodoCalculo.");
+                }
+
+                if (e.AlcanceTemporal == AlcanceTemporalProceso.NoDefinido)
+                {
+                    diagnostico.Advertencias.Add(clave + ": proceso sin AlcanceTemporal.");
+                }
+
+                if (string.IsNullOrWhiteSpace(e.FormulaId))
+                {
+                    diagnostico.Advertencias.Add(clave + ": proceso sin FormulaId explicito.");
+                }
+
+                if ((e.TipoProceso == TipoProcesoProductivo.RevisionControl ||
+                     e.TipoProceso == TipoProcesoProductivo.CorreccionRetrabajo) &&
+                    string.IsNullOrWhiteSpace(e.DependenciasJson))
+                {
+                    diagnostico.Advertencias.Add(clave + ": revision/correccion sin proceso origen o dependencia explicita.");
+                }
+
+                if ((e.TipoProceso == TipoProcesoProductivo.Direccion ||
+                     e.TipoProceso == TipoProcesoProductivo.GestionCoordinacion ||
+                     e.TipoProceso == TipoProcesoProductivo.Supervision) &&
+                    e.AlcanceTemporal == AlcanceTemporalProceso.Item)
+                {
+                    diagnostico.Advertencias.Add(clave + ": proceso transversal con alcance Item; revisar para evitar duplicar horas por item.");
+                }
+
+                if ((e.AlcanceTemporal == AlcanceTemporalProceso.MultiplesEtapas ||
+                     e.AlcanceTemporal == AlcanceTemporalProceso.ProyectoCompleto) &&
+                    string.IsNullOrWhiteSpace(e.EtapasCubiertasJson))
+                {
+                    diagnostico.Advertencias.Add(clave + ": proceso transversal sin etapas cubiertas.");
+                }
+
                 if (!esBase && string.IsNullOrWhiteSpace(e.EcuacionBase))
                 {
                     diagnostico.Errores.Add(clave + ": proceso sin formula madre.");
@@ -393,14 +445,19 @@ namespace Cotizador_animacion_Othalart.Services
 
                 foreach (CargoVector cargo in ObtenerVectorCargos(e))
                 {
-                    if (cargo.Dedicacion < 0.0)
+                    if (cargo.Dedicacion < 0.0 || cargo.Dedicacion > 1.0)
                     {
-                        diagnostico.Errores.Add(clave + ": dedicacion invalida para " + cargo.Cargo + ".");
+                        diagnostico.Errores.Add(clave + ": dedicacion fuera de rango 0-100% para " + cargo.Cargo + ".");
                     }
 
-                    if (BuscarCargo(cargos, cargo.Cargo) == null)
+                    CategoriaTrabajador cargoBiblioteca = BuscarCargo(cargos, cargo.Cargo);
+                    if (cargoBiblioteca == null)
                     {
                         diagnostico.Advertencias.Add(clave + ": cargo no encontrado en cargos.json: " + cargo.Cargo);
+                    }
+                    else if (cargoBiblioteca.SueldoMensualCLPTipico <= 0.0)
+                    {
+                        diagnostico.Advertencias.Add(clave + ": cargo sin tarifa: " + cargo.Cargo);
                     }
                 }
             }
@@ -416,6 +473,11 @@ namespace Cotizador_animacion_Othalart.Services
                 {
                     diagnostico.Errores.Add(e.Clave + ": formula madre no existe o no es Base: " + e.EcuacionBase);
                 }
+            }
+
+            foreach (string ciclo in DetectarCiclosDependenciasProceso(lista))
+            {
+                diagnostico.Errores.Add("Dependencia circular entre procesos: " + ciclo + ".");
             }
 
             if (diagnostico.Errores.Count == 0)
@@ -524,8 +586,21 @@ namespace Cotizador_animacion_Othalart.Services
             EcuacionProductivaDefinicion copia = new EcuacionProductivaDefinicion
             {
                 Activa = ecuacion.Activa,
+                SchemaVersion = ecuacion.SchemaVersion,
                 Clave = ecuacion.Clave,
+                IdProceso = ecuacion.IdProceso,
                 NombreVisible = ecuacion.NombreVisible,
+                TipoProceso = ecuacion.TipoProceso,
+                MetodoCalculo = ecuacion.MetodoCalculo,
+                AlcanceTemporal = ecuacion.AlcanceTemporal,
+                EtapaId = ecuacion.EtapaId,
+                SubEtapaId = ecuacion.SubEtapaId,
+                FormulaId = ecuacion.FormulaId,
+                DependenciasJson = ecuacion.DependenciasJson,
+                PuedeEjecutarseEnParalelo = ecuacion.PuedeEjecutarseEnParalelo,
+                ReglaActivacionJson = ecuacion.ReglaActivacionJson,
+                EtapasCubiertasJson = ecuacion.EtapasCubiertasJson,
+                WarningsMigracionJson = ecuacion.WarningsMigracionJson,
                 TipoEcuacion = ecuacion.TipoEcuacion,
                 EcuacionBase = ecuacion.EcuacionBase,
                 Etapa = ecuacion.Etapa,
@@ -641,6 +716,89 @@ namespace Cotizador_animacion_Othalart.Services
         private static bool EsBase(EcuacionProductivaDefinicion ecuacion)
         {
             return string.Equals(ecuacion == null ? "" : ecuacion.TipoEcuacion, "Base", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static List<string> DetectarCiclosDependenciasProceso(
+            List<EcuacionProductivaDefinicion> ecuaciones
+        )
+        {
+            Dictionary<string, List<string>> grafo = (ecuaciones ?? new List<EcuacionProductivaDefinicion>())
+                .Where(e => e != null && !string.IsNullOrWhiteSpace(e.IdProceso))
+                .GroupBy(e => e.IdProceso, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(
+                    g => g.Key,
+                    g => LeerDependenciasProceso(g.First().DependenciasJson),
+                    StringComparer.OrdinalIgnoreCase
+                );
+
+            List<string> ciclos = new List<string>();
+            HashSet<string> visitados = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            HashSet<string> pila = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            List<string> ruta = new List<string>();
+
+            foreach (string nodo in grafo.Keys)
+            {
+                VisitarDependenciaProceso(nodo, grafo, visitados, pila, ruta, ciclos);
+            }
+
+            return ciclos.Distinct().ToList();
+        }
+
+        private static void VisitarDependenciaProceso(
+            string nodo,
+            Dictionary<string, List<string>> grafo,
+            HashSet<string> visitados,
+            HashSet<string> pila,
+            List<string> ruta,
+            List<string> ciclos
+        )
+        {
+            if (pila.Contains(nodo))
+            {
+                int inicio = ruta.FindIndex(r => string.Equals(r, nodo, StringComparison.OrdinalIgnoreCase));
+                ciclos.Add(string.Join(" -> ", ruta.Skip(Math.Max(0, inicio)).Concat(new[] { nodo })));
+                return;
+            }
+
+            if (visitados.Contains(nodo))
+            {
+                return;
+            }
+
+            visitados.Add(nodo);
+            pila.Add(nodo);
+            ruta.Add(nodo);
+
+            if (grafo.TryGetValue(nodo, out List<string> dependencias))
+            {
+                foreach (string dependencia in dependencias.Where(d => grafo.ContainsKey(d)))
+                {
+                    VisitarDependenciaProceso(dependencia, grafo, visitados, pila, ruta, ciclos);
+                }
+            }
+
+            pila.Remove(nodo);
+            if (ruta.Count > 0)
+            {
+                ruta.RemoveAt(ruta.Count - 1);
+            }
+        }
+
+        private static List<string> LeerDependenciasProceso(string json)
+        {
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                return new List<string>();
+            }
+
+            try
+            {
+                return JsonSerializer.Deserialize<List<string>>(json) ?? new List<string>();
+            }
+            catch
+            {
+                return new List<string>();
+            }
         }
 
         private static string Normalizar(string texto)

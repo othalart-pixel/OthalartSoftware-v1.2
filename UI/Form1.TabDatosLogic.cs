@@ -568,9 +568,16 @@ namespace Cotizador_animacion_Othalart
                 );
 
                 string cargosSugeridos = subproducto == null ? "" : subproducto.CargosSugeridos;
+                string equationKey = subproducto == null ? "" : subproducto.EquationKey;
                 string ecuacionProductiva = subproducto == null ? "" : subproducto.EcuacionProductiva;
                 string variablesEcuacion = subproducto == null ? "" : subproducto.VariablesEcuacion;
                 string impactoEcuacion = subproducto == null ? "" : subproducto.ImpactoEcuacion;
+                string modoCalculoProductivo = subproducto == null
+                    ? "Rendimiento"
+                    : subproducto.ModoCalculoProductivo;
+                double horasAsignadasMin = subproducto == null ? 0.0 : subproducto.HorasAsignadasMin;
+                double horasAsignadasStd = subproducto == null ? 0.0 : subproducto.HorasAsignadasStd;
+                double horasAsignadasHolgura = subproducto == null ? 0.0 : subproducto.HorasAsignadasHolgura;
 
                 string dependeDeOriginal = subproducto == null ? "" : subproducto.DependeDe;
                 string dependeDeExplicito = FiltrarDependenciasPorTablaFinal(
@@ -592,9 +599,14 @@ namespace Cotizador_animacion_Othalart
                     SubEtapaSugerida = subEtapaSugerida,
                     DependeDe = dependeDeExplicito,
                     CargosSugeridos = cargosSugeridos,
+                    EquationKey = equationKey,
                     EcuacionProductiva = ecuacionProductiva,
                     VariablesEcuacion = variablesEcuacion,
                     ImpactoEcuacion = impactoEcuacion,
+                    ModoCalculoProductivo = modoCalculoProductivo,
+                    HorasAsignadasMin = horasAsignadasMin,
+                    HorasAsignadasStd = horasAsignadasStd,
+                    HorasAsignadasHolgura = horasAsignadasHolgura,
                     Nota = nota
                 });
 
@@ -623,9 +635,14 @@ namespace Cotizador_animacion_Othalart
                     SubEtapaSugerida = subEtapaSugerida,
                     DependeDe = dependeDeExplicito,
                     CargosSugeridos = cargosSugeridos,
+                    EquationKey = equationKey,
                     EcuacionProductiva = ecuacionProductiva,
                     VariablesEcuacion = variablesEcuacion,
                     ImpactoEcuacion = impactoEcuacion,
+                    ModoCalculoProductivo = modoCalculoProductivo,
+                    HorasAsignadasMin = horasAsignadasMin,
+                    HorasAsignadasStd = horasAsignadasStd,
+                    HorasAsignadasHolgura = horasAsignadasHolgura,
                     Nota = nota
                 });
             }
@@ -1184,17 +1201,24 @@ namespace Cotizador_animacion_Othalart
                 ? "sin destino definido"
                 : brief.DestinoUso;
 
-            string pieza = string.IsNullOrWhiteSpace(brief.TipoPiezaPrincipal)
-                ? "sin productos 2D definidos"
-                : brief.TipoPiezaPrincipal;
+            List<ItemProyecto> productosProyecto = ObtenerItemsProyectoParaDatos();
+            ProyectoConsolidado consolidadoProyecto = ObtenerConsolidadoProyectoActualParaDatos();
+            int cantidadProductosProyecto = productosProyecto.Count;
+            int cantidadSubproductosProyecto = productosProyecto.Sum(i => i.Subproductos == null ? 0 : i.Subproductos.Count(s => s != null && s.Activo));
+            decimal cantidadTotalProyecto = productosProyecto.Sum(i => i.Cantidad);
+            decimal horasProyecto = consolidadoProyecto == null
+                ? 0m
+                : consolidadoProyecto.HorasProductivas +
+                  consolidadoProyecto.HorasRevision +
+                  consolidadoProyecto.HorasCorreccion +
+                  consolidadoProyecto.HorasSupervision +
+                  consolidadoProyecto.HorasDireccion +
+                  consolidadoProyecto.HorasGestion;
+            decimal costoProyecto = consolidadoProyecto == null ? 0m : consolidadoProyecto.CostoTotal;
 
-            int cantidadEntregables = brief.EntregablesSeleccionados == null
-                ? 0
-                : brief.EntregablesSeleccionados.Count;
-
-            int cantidadTotal = brief.EntregablesSeleccionados == null
-                ? 0
-                : brief.EntregablesSeleccionados.Sum(e => e.Cantidad);
+            string textoProductosProyecto = cantidadProductosProyecto == 0
+                ? "Sin productos o servicios agregados"
+                : $"Productos: {cantidadProductosProyecto} | Subproductos: {cantidadSubproductosProyecto} | Cantidad total: {cantidadTotalProyecto:0.##} | Tiempo productivo: {horasProyecto:0.##} h | Costo estimado: {FormatearValorVisual((double)costoProyecto)}";
 
             decimal presupuestoCliente = ParsearDecimalFlexible(txtPresupuestoCliente.Text);
             string monedaCliente = cmbMoneda.SelectedItem?.ToString() ?? ObtenerMonedaInternaParaInforme();
@@ -1212,7 +1236,7 @@ namespace Cotizador_animacion_Othalart
             lblSiguientePasoDatos.Text =
     $"Moneda para informe interno: {monedaVisual}\n" +
     $"Industria: {industria} | Destino: {destino}\n" +
-    $"Productos: {pieza} | Tipos seleccionados: {cantidadEntregables} | Cantidad total: {cantidadTotal}\n" +
+    $"{textoProductosProyecto}\n" +
     $"{textoPlazo}\n" +
     "Siguiente paso: avanzar a Etapas para transformar el brief en subprocesos recomendados.";
         }
@@ -1435,16 +1459,19 @@ namespace Cotizador_animacion_Othalart
                 return;
             }
 
-            if (!string.IsNullOrWhiteSpace(valor) && combo.Items.Contains(valor))
+            if (string.IsNullOrWhiteSpace(valor))
+            {
+                combo.SelectedIndex = 0;
+                return;
+            }
+
+            if (combo.Items.Contains(valor))
             {
                 combo.SelectedItem = valor;
                 return;
             }
 
-            if (combo.SelectedIndex < 0)
-            {
-                combo.SelectedIndex = 0;
-            }
+            combo.SelectedIndex = 0;
         }
 
         private decimal ParsearDecimalFlexible(string texto)

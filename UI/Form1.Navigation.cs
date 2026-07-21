@@ -6,6 +6,117 @@ namespace Cotizador_animacion_Othalart
 {
     public partial class Form1
     {
+        private EstadoNavegacionPrincipal ObtenerEstadoNavegacionActual()
+        {
+            if (estadoNavegacionActual != null)
+            {
+                return new EstadoNavegacionPrincipal
+                {
+                    Modo = estadoNavegacionActual.Modo,
+                    Tab = estadoNavegacionActual.Tab
+                };
+            }
+
+            if (tabs == null || tabs.SelectedTab == null)
+            {
+                return null;
+            }
+
+            return new EstadoNavegacionPrincipal
+            {
+                Modo = modoAplicacionActual,
+                Tab = tabs.SelectedTab
+            };
+        }
+
+        private void CompletarCambioNavegacion(
+            EstadoNavegacionPrincipal origen,
+            TabPage destino,
+            ModoAplicacion modoDestino,
+            bool registrarHistorial)
+        {
+            if (destino == null)
+            {
+                ActualizarBotonVolverNavegacion();
+                return;
+            }
+
+            bool cambioReal = origen != null &&
+                origen.Tab != null &&
+                (origen.Tab != destino || origen.Modo != modoDestino);
+
+            if (registrarHistorial && !navegandoDesdeHistorial && cambioReal)
+            {
+                EstadoNavegacionPrincipal ultimo = historialNavegacionPrincipal.Count == 0
+                    ? null
+                    : historialNavegacionPrincipal[historialNavegacionPrincipal.Count - 1];
+
+                if (ultimo == null || ultimo.Tab != origen.Tab || ultimo.Modo != origen.Modo)
+                {
+                    historialNavegacionPrincipal.Add(origen);
+                    if (historialNavegacionPrincipal.Count > 50)
+                    {
+                        historialNavegacionPrincipal.RemoveAt(0);
+                    }
+                }
+            }
+
+            estadoNavegacionActual = new EstadoNavegacionPrincipal
+            {
+                Modo = modoDestino,
+                Tab = destino
+            };
+            ActualizarBotonVolverNavegacion();
+        }
+
+        private void ActualizarBotonVolverNavegacion()
+        {
+            if (btnVolverNavegacion == null)
+            {
+                return;
+            }
+
+            btnVolverNavegacion.Enabled = historialNavegacionPrincipal.Count > 0;
+            btnVolverNavegacion.Text = "← Volver";
+        }
+
+        private void BtnVolverNavegacion_Click(object sender, EventArgs e)
+        {
+            while (historialNavegacionPrincipal.Count > 0)
+            {
+                int indice = historialNavegacionPrincipal.Count - 1;
+                EstadoNavegacionPrincipal destino = historialNavegacionPrincipal[indice];
+                historialNavegacionPrincipal.RemoveAt(indice);
+
+                if (destino == null || destino.Tab == null)
+                {
+                    continue;
+                }
+
+                navegandoDesdeHistorial = true;
+                try
+                {
+                    AplicarModoAplicacion(destino.Modo, false);
+                    if (!tabs.TabPages.Contains(destino.Tab))
+                    {
+                        tabs.TabPages.Add(destino.Tab);
+                    }
+
+                    tabs.SelectedTab = destino.Tab;
+                    CompletarCambioNavegacion(null, destino.Tab, destino.Modo, false);
+                }
+                finally
+                {
+                    navegandoDesdeHistorial = false;
+                }
+
+                ActualizarVisibilidadPanelDerecho();
+                return;
+            }
+
+            ActualizarBotonVolverNavegacion();
+        }
+
         private bool EsTabBloqueado(TabPage tab)
         {
             if (tab == null)
@@ -161,17 +272,116 @@ namespace Cotizador_animacion_Othalart
                 return;
             }
 
-            bool ocultarDerecha = EsTabBibliotecaOEditor(tabs.SelectedTab);
+            bool esCatalogo = tabs.SelectedTab == tabCatalogoProductosServiciosPrincipal;
+            bool esProyecto = tabs.SelectedTab == tabProyectoPrincipal;
+            bool tabSinPanelDerecho = EsTabBibliotecaOEditor(tabs.SelectedTab);
+            bool cerrarPanelLateral = esCatalogo
+                ? !panelLateralCatalogoVisible
+                : esProyecto
+                    ? estadoPanelDerechoProyecto == EstadoPanelDerechoProyecto.Oculto
+                    : !panelLateralCatalogoVisible;
+            bool ocultarDerechaCompleta = tabSinPanelDerecho;
 
-            if (splitPrincipal.Panel2Collapsed != ocultarDerecha)
+            if (panelContenidoLateralDerecho != null && panelContenidoLateralDerecho.Visible && cerrarPanelLateral)
             {
-                splitPrincipal.Panel2Collapsed = ocultarDerecha;
+                GuardarAnchoPanelDerechoAbierto(false);
             }
 
-            if (!ocultarDerecha)
+            ActualizarBotonPanelLateralCatalogo(!tabSinPanelDerecho, !cerrarPanelLateral);
+            ActualizarLayoutPanelDerechoCatalogo(esCatalogo, esProyecto);
+
+            if (splitPrincipal.Panel1Collapsed)
+            {
+                splitPrincipal.Panel1Collapsed = false;
+            }
+
+            if (panelContenidoLateralDerecho != null)
+            {
+                panelContenidoLateralDerecho.Visible = !tabSinPanelDerecho && !cerrarPanelLateral;
+            }
+
+            if (btnPestanaPanelDerecho != null)
+            {
+                btnPestanaPanelDerecho.Visible = !tabSinPanelDerecho;
+            }
+
+            if (splitPrincipal.Panel2Collapsed != ocultarDerechaCompleta)
+            {
+                splitPrincipal.Panel2Collapsed = ocultarDerechaCompleta;
+            }
+
+            if (!ocultarDerechaCompleta)
             {
                 AjustarAnchoPanelDerecho();
+                if (panelGantt != null)
+                {
+                    panelGantt.Invalidate();
+                }
             }
+        }
+
+        private void ActualizarLayoutPanelDerechoCatalogo(bool esCatalogo, bool esProyecto)
+        {
+            if (layoutPanelDerecho == null || layoutPanelDerecho.RowStyles.Count < 2)
+            {
+                return;
+            }
+
+            if (esCatalogo)
+            {
+                layoutPanelDerecho.RowStyles[0].SizeType = SizeType.Percent;
+                layoutPanelDerecho.RowStyles[0].Height = 100;
+                layoutPanelDerecho.RowStyles[1].SizeType = SizeType.Absolute;
+                layoutPanelDerecho.RowStyles[1].Height = 44;
+                if (panelResumenScroll != null)
+                {
+                    panelResumenScroll.Visible = false;
+                }
+            }
+            else
+            {
+                layoutPanelDerecho.RowStyles[0].SizeType = SizeType.Percent;
+                layoutPanelDerecho.RowStyles[0].Height = 42;
+                layoutPanelDerecho.RowStyles[1].SizeType = SizeType.Percent;
+                layoutPanelDerecho.RowStyles[1].Height = 58;
+                if (panelResumenScroll != null)
+                {
+                    panelResumenScroll.Visible = true;
+                }
+            }
+        }
+
+        private void ActualizarBotonPanelLateralCatalogo(bool esCatalogo, bool visible)
+        {
+            if (btnAlternarPanelLateral != null)
+            {
+                btnAlternarPanelLateral.Visible = false;
+            }
+
+            if (btnPestanaPanelDerecho == null)
+            {
+                return;
+            }
+
+            btnPestanaPanelDerecho.Text = visible ? ">" : "<";
+            btnPestanaPanelDerecho.BackColor = modoOscuroActivo
+                ? System.Drawing.Color.FromArgb(45, 45, 48)
+                : System.Drawing.Color.FromArgb(245, 247, 250);
+            btnPestanaPanelDerecho.ForeColor = modoOscuroActivo
+                ? System.Drawing.Color.FromArgb(230, 230, 230)
+                : System.Drawing.Color.FromArgb(55, 65, 81);
+            tooltipPanelDerecho.SetToolTip(
+                btnPestanaPanelDerecho,
+                visible ? "Ocultar panel lateral" : "Mostrar panel lateral"
+            );
+        }
+
+        private void CambiarEstadoPanelDerechoProyecto(EstadoPanelDerechoProyecto estado)
+        {
+            estadoPanelDerechoProyecto = estado == EstadoPanelDerechoProyecto.Oculto
+                ? EstadoPanelDerechoProyecto.Oculto
+                : EstadoPanelDerechoProyecto.Normal;
+            ActualizarVisibilidadPanelDerecho();
         }
 
         private void Tabs_SelectedIndexChanged(object sender, EventArgs e)
@@ -186,7 +396,13 @@ namespace Cotizador_animacion_Othalart
                 return;
             }
 
+            EstadoNavegacionPrincipal origen = ObtenerEstadoNavegacionActual();
             string nombreTab = tabs.SelectedTab.Text;
+            if (tabs.SelectedTab == tabInicioPrincipal)
+            {
+                RefrescarTabInicio();
+            }
+
             ActualizarVisibilidadPanelDerecho();
 
             bool requiereEtapa =
@@ -207,6 +423,12 @@ namespace Cotizador_animacion_Othalart
                 tabs.SelectedIndex = 1;
                 cambiandoTabInternamente = false;
             }
+
+            CompletarCambioNavegacion(
+                origen,
+                tabs.SelectedTab,
+                modoAplicacionActual,
+                !navegandoDesdeHistorial);
         }
     }
 }

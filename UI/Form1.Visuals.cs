@@ -4,6 +4,7 @@ using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
 using Cotizador_animacion_Othalart.Models;
+using Cotizador_animacion_Othalart.Services;
 
 namespace Cotizador_animacion_Othalart
 {
@@ -582,6 +583,14 @@ namespace Cotizador_animacion_Othalart
             using Font subFontBold = new Font("Segoe UI", 8, FontStyle.Bold);
             using Brush textBrush = new SolidBrush(textoGantt);
 
+            if (tabs != null &&
+                tabs.SelectedTab == tabCatalogoProductosServiciosPrincipal &&
+                productoCatalogoVistaPrevia != null)
+            {
+                DibujarVistaPreviaPipelineCatalogo(g, productoCatalogoVistaPrevia, textoGantt);
+                return;
+            }
+
             int marginLeft = 125;
             int marginTop = 45;
             int rowHeight = 42;
@@ -789,6 +798,84 @@ namespace Cotizador_animacion_Othalart
                 );
             }
         }
+
+        private void DibujarVistaPreviaPipelineCatalogo(
+            Graphics g,
+            Producto2DDefinicion producto,
+            Color textoGantt
+        )
+        {
+            CatalogoProductoPreview preview = previewCatalogoActual ??
+                CatalogoProductoPreviewService.Calcular(producto, cotizacion);
+
+            using Font titleFont = new Font("Segoe UI", 11, FontStyle.Bold);
+            using Font subtitleFont = new Font("Segoe UI", 8.5f, FontStyle.Regular);
+            using Font font = new Font("Segoe UI", 9.0f, FontStyle.Bold);
+            using Font smallFont = new Font("Segoe UI", 8.0f, FontStyle.Regular);
+            using Brush textBrush = new SolidBrush(textoGantt);
+            using Brush secondaryBrush = new SolidBrush(modoOscuroActivo ? Color.FromArgb(190, 190, 190) : Color.FromArgb(92, 92, 92));
+
+            int x = 15;
+            int y = 15;
+            int ancho = Math.Max(80, panelGantt.ClientSize.Width - 30);
+
+            g.DrawString("Vista previa productiva", titleFont, textBrush, x, y);
+            y += 24;
+            g.DrawString(
+                "Los plazos se calcularan al crear o cargar un proyecto.",
+                subtitleFont,
+                secondaryBrush,
+                new RectangleF(x, y, ancho, 34)
+            );
+            y += 44;
+
+            foreach (CatalogoEtapaPreview etapa in preview.Etapas)
+            {
+                Color color = ObtenerColorBarraEtapa(etapa.Etapa);
+                Color borde = ObtenerColorBordeEtapa(etapa.Etapa);
+                Color fondo = modoOscuroActivo
+                    ? Color.FromArgb(45, 45, 48)
+                    : MezclarConBlanco(color, 0.90);
+
+                Rectangle rect = new Rectangle(x, y, ancho, 58);
+                using Brush fondoBrush = new SolidBrush(fondo);
+                using Pen pen = new Pen(borde, 1.2f);
+                g.FillRectangle(fondoBrush, rect);
+                g.DrawRectangle(pen, rect);
+
+                using Brush colorBrush = new SolidBrush(color);
+                g.FillRectangle(colorBrush, x, y, 5, 58);
+
+                string texto = etapa.Etapa + " - " + etapa.CantidadProcesos + " procesos";
+                g.DrawString(texto, font, textBrush, x + 14, y + 8);
+                string detalle = etapa.CantidadProcesos == 0
+                    ? "Sin procesos configurados"
+                    : etapa.Horas.ToString("0.##") + " h | " +
+                      MonedaService.FormatearMoneda(cotizacion, etapa.CostoTotalCLP) +
+                      " | " + etapa.Estado;
+                g.DrawString(detalle, smallFont, secondaryBrush, x + 14, y + 31);
+
+                y += 66;
+            }
+
+            if (preview.Etapas.All(e => e.CantidadProcesos == 0))
+            {
+                g.DrawString(
+                    "No existen procesos configurados para este producto.",
+                    smallFont,
+                    secondaryBrush,
+                    new RectangleF(x, y, ancho, 40)
+                );
+                y += 44;
+            }
+
+            int altoContenido = y + 20;
+            if (panelGantt.AutoScrollMinSize.Height != altoContenido)
+            {
+                panelGantt.AutoScrollMinSize = new Size(panelGantt.ClientSize.Width, altoContenido);
+            }
+        }
+
         private int DibujarSubEtapasGantt(
             Graphics g,
             EtapaProyecto etapa,

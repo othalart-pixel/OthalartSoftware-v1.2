@@ -1,16 +1,20 @@
-﻿using Cotizador_animacion_Othalart.Data;
+using Cotizador_animacion_Othalart.Data;
 using Cotizador_animacion_Othalart.Models;
 using System.Drawing;
 using System.Windows.Forms;
 using System.Collections.Generic;
 using System.Linq;
 using System;
+using Cotizador_animacion_Othalart.Services;
 
 
 namespace Cotizador_animacion_Othalart
 {
     public partial class Form1
     {
+        private bool inspectorPipelineCargando = false;
+        private bool arbolPipelineRefrescando = false;
+        private string claveNodoPipelineActivo = "";
         // =========================================================
         // PLAZOS RÁPIDOS
         // =========================================================
@@ -171,10 +175,6 @@ namespace Cotizador_animacion_Othalart
             DatosConfigurarComboProductosServicios();
             DatosConfigurarCombosBriefSegmentado();
 
-            Control cardEntregables = ConstruirCardDatosDesdeGroupBox(
-                ConstruirGrupoEntregablesIndustria(),
-                "Piezas 2D solicitadas"
-            );
             Control cardInsumosCliente = ConstruirCardDatosDesdeGroupBox(
                 ConstruirGrupoInsumosClienteSegmentado(),
                 "Insumos que entrega el cliente"
@@ -220,7 +220,7 @@ namespace Cotizador_animacion_Othalart
             btnAplicarDatos.Click += BtnAplicarDatos_Click;
 
             Label ayuda = new Label();
-            ayuda.Text = "Los cambios se guardan cuando presionas este botón.";
+            ayuda.Text = "Este botón aplica los cambios realizados en los datos generales y los insumos del cliente.";
             ayuda.ForeColor = Color.DimGray;
             ayuda.Font = new Font("Segoe UI", 9);
             ayuda.AutoSize = true;
@@ -244,9 +244,8 @@ namespace Cotizador_animacion_Othalart
             columnaPrincipal.Controls.Add(ConstruirCardDatosComerciales(), 0, 2);
             columnaPrincipal.Controls.Add(ConstruirCardDatosCliente(), 0, 3);
             columnaPrincipal.Controls.Add(ConstruirCardDatosProyecto(), 0, 4);
-            columnaPrincipal.Controls.Add(ConstruirCardContextoProyecto(), 0, 5);
-            columnaPrincipal.Controls.Add(cardEntregables, 0, 6);
-            columnaPrincipal.Controls.Add(cardInsumosCliente, 0, 7);
+            columnaPrincipal.Controls.Add(ConstruirCardAlcanceProyecto(), 0, 5);
+            columnaPrincipal.Controls.Add(cardInsumosCliente, 0, 6);
             columnaPrincipal.Controls.Add(bloqueAplicar, 0, 8);
             columnaPrincipal.Controls.Add(panelSiguientePasoDatos, 0, 9);
 
@@ -256,16 +255,6 @@ namespace Cotizador_animacion_Othalart
             tab.Controls.Add(scroll);
 
             ConfigurarEventosResumenDatos();
-            if (cmbProductoServicio.Items.Count > 0)
-            {
-                if (cmbProductoServicio.SelectedIndex < 0)
-                {
-                    cmbProductoServicio.SelectedIndex = 0;
-                }
-
-                RefrescarOpcionesSegunProducto();
-            }
-
             RefrescarResumen();
         }
 
@@ -363,6 +352,265 @@ namespace Cotizador_animacion_Othalart
 
             AgregarContenidoACard(card, formulario);
             return card;
+        }
+
+        private Panel ConstruirCardAlcanceProyecto()
+        {
+            Panel card = CrearCardDatos("Alcance del proyecto");
+
+            TableLayoutPanel layout = new TableLayoutPanel();
+            layout.Dock = DockStyle.Top;
+            layout.AutoSize = true;
+            layout.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            layout.ColumnCount = 1;
+            layout.RowCount = 4;
+            layout.Margin = new Padding(0);
+
+            Label texto = new Label();
+            texto.Text =
+                "Los productos, servicios, subproductos y cantidades de esta cotización se gestionan en la pestaña \"Productos y servicios\". " +
+                "Datos ya no selecciona un producto único ni controla el cálculo productivo.";
+            texto.AutoSize = true;
+            texto.MaximumSize = new Size(860, 0);
+            texto.Font = new Font("Segoe UI", 9.5f);
+            texto.ForeColor = Color.FromArgb(70, 70, 70);
+            texto.Margin = new Padding(0, 0, 0, 12);
+
+            FlowLayoutPanel acciones = new FlowLayoutPanel();
+            acciones.AutoSize = true;
+            acciones.FlowDirection = FlowDirection.LeftToRight;
+            acciones.WrapContents = true;
+            acciones.Margin = new Padding(0, 0, 0, 12);
+
+            Button agregar = CrearBotonAccionAlcanceDatos("Agregar producto o servicio", 210);
+            agregar.BackColor = Color.FromArgb(83, 192, 166);
+            agregar.ForeColor = Color.White;
+            agregar.Click += (s, e) => AgregarProductoServicioDesdeBiblioteca();
+
+            Button abrir = CrearBotonAccionAlcanceDatos("Ir a Productos y servicios", 190);
+            abrir.Click += (s, e) => IrAProductosServiciosDesdeDatos();
+
+            acciones.Controls.Add(agregar);
+            acciones.Controls.Add(abrir);
+
+            layout.Controls.Add(texto, 0, 0);
+            layout.Controls.Add(acciones, 0, 1);
+            layout.Controls.Add(CrearResumenProductosProyectoEnDatos(), 0, 2);
+
+            AgregarContenidoACard(card, layout);
+            return card;
+        }
+
+        private Button CrearBotonAccionAlcanceDatos(string texto, int ancho)
+        {
+            Button boton = new Button();
+            boton.Text = texto;
+            boton.Width = ancho;
+            boton.Height = 34;
+            boton.Font = new Font("Segoe UI", 9.2f, FontStyle.Bold);
+            boton.FlatStyle = FlatStyle.Flat;
+            boton.BackColor = Color.White;
+            boton.Margin = new Padding(0, 0, 8, 0);
+            boton.UseVisualStyleBackColor = false;
+            return boton;
+        }
+
+        private Control CrearResumenProductosProyectoEnDatos()
+        {
+            SincronizarProyectoProductivoActualDesdeCotizacion();
+
+            FlowLayoutPanel lista = new FlowLayoutPanel();
+            lista.Dock = DockStyle.Top;
+            lista.AutoSize = true;
+            lista.FlowDirection = FlowDirection.TopDown;
+            lista.WrapContents = false;
+            lista.Margin = new Padding(0);
+
+            List<ItemProyecto> items = ObtenerItemsProyectoParaDatos();
+            if (items.Count == 0)
+            {
+                Label vacio = new Label();
+                vacio.Text = "No hay productos ni servicios agregados al proyecto.";
+                vacio.AutoSize = true;
+                vacio.Font = new Font("Segoe UI", 10f, FontStyle.Regular);
+                vacio.ForeColor = Color.FromArgb(90, 90, 90);
+                vacio.Margin = new Padding(0, 0, 0, 8);
+                lista.Controls.Add(vacio);
+                return lista;
+            }
+
+            ProyectoConsolidado consolidado = ObtenerConsolidadoProyectoActualParaDatos();
+            foreach (ItemProyecto item in items)
+            {
+                lista.Controls.Add(CrearFilaProductoProyectoEnDatos(item, consolidado));
+            }
+
+            return lista;
+        }
+
+        private Control CrearFilaProductoProyectoEnDatos(ItemProyecto item, ProyectoConsolidado consolidado)
+        {
+            Panel fila = new Panel();
+            fila.Width = 900;
+            fila.Height = 78;
+            fila.Margin = new Padding(0, 0, 0, 8);
+            fila.Padding = new Padding(12, 8, 12, 8);
+            fila.BackColor = Color.White;
+            fila.BorderStyle = BorderStyle.FixedSingle;
+
+            ResumenConsolidado resumen = consolidado == null
+                ? null
+                : consolidado.PorProducto.FirstOrDefault(p => string.Equals(p.Id, item.Id, StringComparison.OrdinalIgnoreCase));
+
+            int subproductos = item.Subproductos == null ? 0 : item.Subproductos.Count(s => s != null && s.Activo);
+            decimal horas = resumen == null ? 0m : resumen.Horas;
+            decimal costo = resumen == null ? 0m : resumen.Costo;
+            string cantidad = FormatearCantidadProyectoDatos(item.Cantidad, item.Unidad);
+
+            Label titulo = new Label();
+            titulo.Text = string.IsNullOrWhiteSpace(item.Nombre) ? "Producto o servicio sin nombre" : item.Nombre;
+            titulo.Left = 10;
+            titulo.Top = 8;
+            titulo.Width = 500;
+            titulo.Height = 22;
+            titulo.Font = new Font("Segoe UI", 10.5f, FontStyle.Bold);
+
+            Label detalle = new Label();
+            detalle.Text = cantidad + " | " +
+                subproductos.ToString("0") + " subproductos | " +
+                horas.ToString("0.##") + " h | " +
+                FormatearValorVisual((double)costo);
+            detalle.Left = 10;
+            detalle.Top = 34;
+            detalle.Width = 570;
+            detalle.Height = 22;
+            detalle.Font = new Font("Segoe UI", 9f);
+            detalle.ForeColor = Color.FromArgb(80, 80, 80);
+
+            Button editar = CrearBotonAccionAlcanceDatos("Editar", 78);
+            editar.Left = 610;
+            editar.Top = 20;
+            editar.Click += (s, e) => EditarProductoProyectoDesdeDatos(item);
+
+            Button pipeline = CrearBotonAccionAlcanceDatos("Pipeline", 88);
+            pipeline.Left = 696;
+            pipeline.Top = 20;
+            pipeline.Click += (s, e) => AbrirPipelineProductoProyectoDesdeDatos(item);
+
+            Button quitar = CrearBotonAccionAlcanceDatos("Quitar", 78);
+            quitar.Left = 792;
+            quitar.Top = 20;
+            quitar.Click += (s, e) => QuitarItemProyecto(item);
+
+            fila.Controls.Add(titulo);
+            fila.Controls.Add(detalle);
+            fila.Controls.Add(editar);
+            fila.Controls.Add(pipeline);
+            fila.Controls.Add(quitar);
+            return fila;
+        }
+
+        private void SincronizarProyectoProductivoActualDesdeCotizacion()
+        {
+            if (cotizacion == null || cotizacion.ProyectoProductivo == null)
+            {
+                return;
+            }
+
+            bool proyectoActualSinItems = proyectoCotizacionActual == null ||
+                proyectoCotizacionActual.Grupos == null ||
+                !proyectoCotizacionActual.Grupos.Any(g =>
+                    g != null &&
+                    g.Items != null &&
+                    g.Items.Any(i => i != null && i.Activo));
+
+            bool cotizacionConItems = cotizacion.ProyectoProductivo.Grupos != null &&
+                cotizacion.ProyectoProductivo.Grupos.Any(g =>
+                    g != null &&
+                    g.Items != null &&
+                    g.Items.Any(i => i != null && i.Activo));
+
+            if (proyectoActualSinItems && cotizacionConItems)
+            {
+                proyectoCotizacionActual = cotizacion.ProyectoProductivo;
+            }
+        }
+
+        private List<ItemProyecto> ObtenerItemsProyectoParaDatos()
+        {
+            return (proyectoCotizacionActual == null || proyectoCotizacionActual.Grupos == null)
+                ? new List<ItemProyecto>()
+                : proyectoCotizacionActual.Grupos
+                    .Where(g => g != null && g.Activo)
+                    .SelectMany(g => g.Items ?? new List<ItemProyecto>())
+                    .Where(i => i != null && i.Activo)
+                    .OrderBy(i => i.Orden)
+                    .ToList();
+        }
+
+        private ProyectoConsolidado ObtenerConsolidadoProyectoActualParaDatos()
+        {
+            if (proyectoCotizacionActual == null)
+            {
+                return null;
+            }
+
+            ProyectoProductivoExpandido expandido = ProyectoProductivoExpansionService.Expandir(proyectoCotizacionActual);
+            return ProyectoConsolidacionService.Consolidar(proyectoCotizacionActual, expandido);
+        }
+
+        private string FormatearCantidadProyectoDatos(decimal cantidad, string unidad)
+        {
+            string texto = cantidad.ToString("0.##");
+            return string.IsNullOrWhiteSpace(unidad) ? texto : texto + " " + unidad;
+        }
+
+        private void IrAProductosServiciosDesdeDatos()
+        {
+            if (tabs != null && tabProyectoPrincipal != null)
+            {
+                if (!tabs.TabPages.Contains(tabProyectoPrincipal))
+                {
+                    AplicarModoAplicacion(ModoAplicacion.Proyecto);
+                }
+                tabs.SelectedTab = tabProyectoPrincipal;
+            }
+        }
+
+        private void EditarProductoProyectoDesdeDatos(ItemProyecto item)
+        {
+            if (item == null)
+            {
+                return;
+            }
+
+            itemProyectoSeleccionado = item;
+            nodoProyectoSeleccionado = item;
+            IrAProductosServiciosDesdeDatos();
+            AbrirInspectorProyecto(item);
+        }
+
+        private void AbrirPipelineProductoProyectoDesdeDatos(ItemProyecto item)
+        {
+            if (item == null)
+            {
+                return;
+            }
+
+            itemProyectoSeleccionado = item;
+            nodoProyectoSeleccionado = item;
+            EditarItemProyectoEnInterfazActual();
+        }
+
+        private void RefrescarDatosDesdeProyectoProductivo()
+        {
+            RefrescarResumen();
+            if (tabs != null &&
+                tabDatosPrincipal != null &&
+                tabs.SelectedTab == tabDatosPrincipal)
+            {
+                ConstruirTabDatos(tabDatosPrincipal);
+            }
         }
 
         private Panel ConstruirCardContextoProyecto()
@@ -2225,8 +2473,8 @@ namespace Cotizador_animacion_Othalart
                 tabsPipeline.Dock = DockStyle.Fill;
                 tabsPipeline.Margin = new Padding(0);
 
-                TabPage tabEtapas = new TabPage("Pipeline");
-                TabPage tabSubproductos = new TabPage("Subproductos / piezas");
+                TabPage tabEtapas = new TabPage("Editor jerarquico");
+                TabPage tabSubproductos = new TabPage("Detalle tecnico");
                 TabPage tabCargosAsociados = new TabPage("Cargos asociados");
                 TabPage tabRevision = new TabPage("Revisión");
                 tabEtapas.BackColor = Color.FromArgb(245, 246, 248);
@@ -2237,7 +2485,7 @@ namespace Cotizador_animacion_Othalart
                 DataGridView gridSubproductos = CrearGrillaSubproductosProducto(producto);
 
                 tabEtapas.Controls.Add(
-                    CrearVistaPipelineBloquesProducto(producto)
+                    CrearEditorJerarquicoPipelineProducto(producto, gridSubproductos)
                 );
                 tabSubproductos.Controls.Add(
                     CrearPanelEditorPipelineGrid(gridSubproductos, "subproducto")
@@ -2509,8 +2757,8 @@ namespace Cotizador_animacion_Othalart
             FlowLayoutPanel flujo = new FlowLayoutPanel();
             flujo.Dock = DockStyle.Top;
             flujo.AutoSize = true;
-            flujo.FlowDirection = FlowDirection.LeftToRight;
-            flujo.WrapContents = true;
+            flujo.FlowDirection = FlowDirection.TopDown;
+            flujo.WrapContents = false;
 
             List<ProductoEtapaDefinicion> etapas = ObtenerEtapasSecuencialesProducto(producto);
 
@@ -2522,11 +2770,11 @@ namespace Cotizador_animacion_Othalart
                 if (i < etapas.Count - 1)
                 {
                     Label flecha = new Label();
-                    flecha.Text = "->";
+                    flecha.Text = "?";
                     flecha.AutoSize = true;
                     flecha.Font = new Font("Segoe UI", 16.0f, FontStyle.Bold);
                     flecha.ForeColor = Color.FromArgb(95, 95, 95);
-                    flecha.Margin = new Padding(6, 34, 6, 0);
+                    flecha.Margin = new Padding(82, 0, 0, 6);
                     flujo.Controls.Add(flecha);
                 }
             }
@@ -2544,11 +2792,11 @@ namespace Cotizador_animacion_Othalart
             Color colorBase = ObtenerColorBaseEtapa(etapa.ClaveEtapa);
 
             Panel bloque = new Panel();
-            bloque.Width = 185;
+            bloque.Width = 320;
             bloque.Height = 94;
             bloque.BackColor = MezclarConBlanco(colorBase, 0.82);
             bloque.BorderStyle = BorderStyle.FixedSingle;
-            bloque.Margin = new Padding(0, 0, 0, 12);
+            bloque.Margin = new Padding(0, 0, 0, 6);
             bloque.Padding = new Padding(10);
 
             Label nombre = new Label();
@@ -2769,9 +3017,9 @@ namespace Cotizador_animacion_Othalart
         {
             FlowLayoutPanel fila = new FlowLayoutPanel();
             fila.AutoSize = true;
-            fila.FlowDirection = FlowDirection.LeftToRight;
+            fila.FlowDirection = FlowDirection.TopDown;
             fila.WrapContents = false;
-            fila.Margin = new Padding(0, 0, 0, 8);
+            fila.Margin = new Padding(0, 0, 0, 14);
 
             List<Subproducto2D> nivelActual = new List<Subproducto2D> { raiz };
             HashSet<string> visitadosFila = new HashSet<string>();
@@ -2791,14 +3039,14 @@ namespace Cotizador_animacion_Othalart
 
                 if (!primerNivel)
                 {
-                    fila.Controls.Add(CrearFlechaRevisionPipeline());
+                    fila.Controls.Add(CrearFlechaRevisionPipelineVertical());
                 }
 
-                FlowLayoutPanel columna = new FlowLayoutPanel();
-                columna.AutoSize = true;
-                columna.FlowDirection = FlowDirection.TopDown;
-                columna.WrapContents = false;
-                columna.Margin = new Padding(0, 0, 12, 0);
+                FlowLayoutPanel nivel = new FlowLayoutPanel();
+                nivel.AutoSize = true;
+                nivel.FlowDirection = FlowDirection.LeftToRight;
+                nivel.WrapContents = true;
+                nivel.Margin = new Padding(0, 0, 0, 6);
 
                 List<Subproducto2D> siguienteNivel = new List<Subproducto2D>();
 
@@ -2823,7 +3071,7 @@ namespace Cotizador_animacion_Othalart
                             ? "Después de: " + string.Join("; ", dependencias)
                             : "Puede iniciar";
 
-                    columna.Controls.Add(CrearTarjetaRevisionPipeline(
+                    nivel.Controls.Add(CrearTarjetaRevisionPipeline(
                         pieza.Nombre,
                         detalle,
                         serial,
@@ -2843,7 +3091,7 @@ namespace Cotizador_animacion_Othalart
                     }
                 }
 
-                fila.Controls.Add(columna);
+                fila.Controls.Add(nivel);
                 nivelActual = siguienteNivel
                     .GroupBy(p => NormalizarTextoDatosVisual(p.Nombre))
                     .Select(g => g.First())
@@ -3124,6 +3372,17 @@ namespace Cotizador_animacion_Othalart
             return flecha;
         }
 
+        private Control CrearFlechaRevisionPipelineVertical()
+        {
+            Label flecha = new Label();
+            flecha.Text = "?";
+            flecha.AutoSize = true;
+            flecha.Font = new Font("Segoe UI", 16.0f, FontStyle.Bold);
+            flecha.ForeColor = Color.FromArgb(85, 85, 85);
+            flecha.Margin = new Padding(82, 0, 0, 4);
+            return flecha;
+        }
+
         private int CalcularNivelSeriePipeline(
             Subproducto2D pieza,
             Dictionary<string, Subproducto2D> mapaPorNombre,
@@ -3264,6 +3523,18 @@ namespace Cotizador_animacion_Othalart
             btnQuitar.Height = 28;
             btnQuitar.Click += (s, e) => QuitarFilaPipelineGrid(grid);
 
+            Button btnSubir = new Button();
+            btnSubir.Text = "\u2191 Subir";
+            btnSubir.Width = 82;
+            btnSubir.Height = 28;
+            btnSubir.Click += (s, e) => MoverFilaPipelineSeleccionada(grid, -1);
+
+            Button btnBajar = new Button();
+            btnBajar.Text = "\u2193 Bajar";
+            btnBajar.Width = 82;
+            btnBajar.Height = 28;
+            btnBajar.Click += (s, e) => MoverFilaPipelineSeleccionada(grid, 1);
+
             Button btnEcuaciones = new Button();
             btnEcuaciones.Text = "Editar ecuaciones";
             btnEcuaciones.Width = 145;
@@ -3274,6 +3545,8 @@ namespace Cotizador_animacion_Othalart
             acciones.Controls.Add(btnAgregar);
             acciones.Controls.Add(btnAgregarBiblioteca);
             acciones.Controls.Add(btnQuitar);
+            acciones.Controls.Add(btnSubir);
+            acciones.Controls.Add(btnBajar);
             acciones.Controls.Add(btnEcuaciones);
 
             panel.Controls.Add(acciones, 0, 0);
@@ -3394,6 +3667,10 @@ namespace Cotizador_animacion_Othalart
             }
             else
             {
+                row.Tag = new Subproducto2D
+                {
+                    RequeridoPorDefecto = true
+                };
                 row.Cells["RequeridoPorDefecto"].Value = true;
                 row.Cells["Orden"].Value = orden;
                 row.Cells["Categoria"].Value = "Producción";
@@ -3681,6 +3958,7 @@ namespace Cotizador_animacion_Othalart
 
             int rowIndex = grid.Rows.Add();
             DataGridViewRow nueva = grid.Rows[rowIndex];
+            nueva.Tag = ClonarSubproductoPipeline(subproducto);
             int orden = CalcularSiguienteOrdenPipeline(grid);
             string subEtapa = ResolverSubEtapaPipeline(
                 subproducto.EtapaSugerida,
@@ -3726,7 +4004,9 @@ namespace Cotizador_animacion_Othalart
 
             return new Subproducto2D
             {
+                Id = origen.Id,
                 Nombre = origen.Nombre,
+                Descripcion = origen.Descripcion,
                 Categoria = origen.Categoria,
                 Orden = origen.Orden,
                 RequeridoPorDefecto = origen.RequeridoPorDefecto,
@@ -3735,7 +4015,19 @@ namespace Cotizador_animacion_Othalart
                 SubEtapaSugerida = origen.SubEtapaSugerida,
                 DependeDe = origen.DependeDe,
                 CargosSugeridos = origen.CargosSugeridos,
+                EquationKey = origen.EquationKey,
                 EcuacionProductiva = origen.EcuacionProductiva,
+                ModoCalculoProductivo = origen.ModoCalculoProductivo,
+                Cantidad = origen.Cantidad,
+                Unidad = origen.Unidad,
+                TipoComportamientoCalculo = origen.TipoComportamientoCalculo,
+                Procesos = (origen.Procesos ?? new List<ProcesoProductivo2D>())
+                    .Where(p => p != null)
+                    .Select(ClonarProcesoPipeline)
+                    .ToList(),
+                HorasAsignadasMin = origen.HorasAsignadasMin,
+                HorasAsignadasStd = origen.HorasAsignadasStd,
+                HorasAsignadasHolgura = origen.HorasAsignadasHolgura,
                 VariablesEcuacion = origen.VariablesEcuacion,
                 ImpactoEcuacion = origen.ImpactoEcuacion,
                 Resolucion = origen.Resolucion,
@@ -3743,6 +4035,185 @@ namespace Cotizador_animacion_Othalart
             };
         }
 
+        private ProcesoProductivo2D ClonarProcesoPipeline(ProcesoProductivo2D origen)
+        {
+            if (origen == null)
+            {
+                return new ProcesoProductivo2D();
+            }
+
+            return new ProcesoProductivo2D
+            {
+                Id = origen.Id,
+                ParentSubproductId = origen.ParentSubproductId,
+                Orden = origen.Orden,
+                Nombre = origen.Nombre,
+                Descripcion = origen.Descripcion,
+                Activo = origen.Activo,
+                EtapaProductiva = origen.EtapaProductiva,
+                SubEtapa = origen.SubEtapa,
+                EquationKey = origen.EquationKey,
+                EcuacionProductiva = origen.EcuacionProductiva,
+                ModoCalculoProductivo = origen.ModoCalculoProductivo,
+                Cantidad = origen.Cantidad,
+                Unidad = origen.Unidad,
+                HorasAsignadasStd = origen.HorasAsignadasStd,
+                CargosSugeridos = origen.CargosSugeridos,
+                VariablesEcuacion = origen.VariablesEcuacion,
+                ImpactoEcuacion = origen.ImpactoEcuacion,
+                DependencyId = origen.DependencyId,
+                AssociatedRoles = origen.AssociatedRoles,
+                Nota = origen.Nota
+            };
+        }
+
+        private Subproducto2D ObtenerSubproductoModeloFilaPipeline(DataGridViewRow row)
+        {
+            if (row == null || row.IsNewRow)
+            {
+                return null;
+            }
+
+            Subproducto2D subproducto = row.Tag as Subproducto2D;
+            if (subproducto == null)
+            {
+                subproducto = new Subproducto2D();
+                row.Tag = subproducto;
+            }
+
+            SincronizarSubproductoModeloDesdeFilaPipeline(row, subproducto);
+            AsegurarProcesosSubproductoPipeline(subproducto, row);
+            return subproducto;
+        }
+
+        private void SincronizarSubproductoModeloDesdeFilaPipeline(DataGridViewRow row, Subproducto2D subproducto)
+        {
+            if (row == null || subproducto == null || row.DataGridView == null)
+            {
+                return;
+            }
+
+            subproducto.Id = AsegurarIdPipeline(subproducto.Id, "sub");
+            subproducto.Nombre = ObtenerValorCeldaSiExistePipeline(row, "Nombre", subproducto.Nombre);
+            subproducto.Categoria = ObtenerValorCeldaSiExistePipeline(row, "Categoria", subproducto.Categoria);
+            subproducto.Orden = ParsearEnteroPipeline(ObtenerValorCeldaSiExistePipeline(row, "Orden", subproducto.Orden.ToString()), subproducto.Orden);
+            subproducto.RequeridoPorDefecto = ConvertirCeldaBoolEntregable(row.Cells["RequeridoPorDefecto"].Value);
+            subproducto.PuedeEntregarCliente = ConvertirCeldaBoolEntregable(row.Cells["PuedeEntregarCliente"].Value);
+            subproducto.EtapaSugerida = ObtenerValorCeldaSiExistePipeline(row, "EtapaSugerida", subproducto.EtapaSugerida);
+            subproducto.SubEtapaSugerida = ObtenerValorCeldaSiExistePipeline(row, "SubEtapaSugerida", subproducto.SubEtapaSugerida);
+            subproducto.DependeDe = ObtenerValorCeldaSiExistePipeline(row, "DependeDe", subproducto.DependeDe);
+            subproducto.CargosSugeridos = ObtenerValorCeldaSiExistePipeline(row, "CargosSugeridos", subproducto.CargosSugeridos);
+            subproducto.EquationKey = ObtenerValorCeldaSiExistePipeline(row, "EquationKey", subproducto.EquationKey);
+            subproducto.EcuacionProductiva = ObtenerValorCeldaSiExistePipeline(row, "EcuacionProductiva", subproducto.EcuacionProductiva);
+            subproducto.ModoCalculoProductivo = ModosCalculoProductivo.Normalizar(ObtenerValorCeldaSiExistePipeline(row, "ModoCalculoProductivo", subproducto.ModoCalculoProductivo));
+            subproducto.HorasAsignadasStd = ParsearDoublePipeline(ObtenerValorCeldaSiExistePipeline(row, "HorasAsignadasStd", subproducto.HorasAsignadasStd.ToString()));
+            subproducto.VariablesEcuacion = ObtenerValorCeldaSiExistePipeline(row, "VariablesEcuacion", subproducto.VariablesEcuacion);
+            subproducto.ImpactoEcuacion = ObtenerValorCeldaSiExistePipeline(row, "ImpactoEcuacion", subproducto.ImpactoEcuacion);
+            subproducto.Resolucion = ObtenerValorCeldaSiExistePipeline(row, "Resolucion", subproducto.Resolucion);
+        }
+
+        private string ObtenerValorCeldaSiExistePipeline(DataGridViewRow row, string columna, string fallback)
+        {
+            if (row == null || row.DataGridView == null || !row.DataGridView.Columns.Contains(columna))
+            {
+                return fallback ?? "";
+            }
+
+            return Convert.ToString(row.Cells[columna].Value) ?? fallback ?? "";
+        }
+
+        private string AsegurarIdPipeline(string id, string prefijo)
+        {
+            if (!string.IsNullOrWhiteSpace(id))
+            {
+                return id;
+            }
+
+            return prefijo + "_" + Guid.NewGuid().ToString("N").Substring(0, 10);
+        }
+
+        private void AsegurarProcesosSubproductoPipeline(Subproducto2D subproducto, DataGridViewRow row)
+        {
+            if (subproducto == null)
+            {
+                return;
+            }
+
+            subproducto.Id = AsegurarIdPipeline(subproducto.Id, "sub");
+            if (subproducto.Procesos != null && subproducto.Procesos.Count > 0)
+            {
+                foreach (ProcesoProductivo2D proceso in subproducto.Procesos.Where(p => p != null))
+                {
+                    proceso.Id = AsegurarIdPipeline(proceso.Id, "proc");
+                    proceso.ParentSubproductId = subproducto.Id;
+                    if (string.IsNullOrWhiteSpace(proceso.EtapaProductiva)) proceso.EtapaProductiva = subproducto.EtapaSugerida;
+                    if (string.IsNullOrWhiteSpace(proceso.SubEtapa)) proceso.SubEtapa = subproducto.SubEtapaSugerida;
+                    if (string.IsNullOrWhiteSpace(proceso.Unidad)) proceso.Unidad = subproducto.Unidad;
+                }
+                return;
+            }
+
+            subproducto.Procesos = new List<ProcesoProductivo2D>();
+            int orden = 10;
+            foreach (EcuacionProductivaDefinicion ecuacion in ObtenerProcesosVisualesPipeline(row))
+            {
+                subproducto.Procesos.Add(CrearProcesoDesdeEcuacionPipeline(subproducto, ecuacion, orden));
+                orden += 10;
+            }
+
+            if (subproducto.Procesos.Count == 0 && !string.IsNullOrWhiteSpace(subproducto.Nombre))
+            {
+                subproducto.Procesos.Add(CrearProcesoDesdeSubproductoPipeline(subproducto, orden));
+            }
+        }
+
+        private ProcesoProductivo2D CrearProcesoDesdeEcuacionPipeline(Subproducto2D subproducto, EcuacionProductivaDefinicion ecuacion, int orden)
+        {
+            return new ProcesoProductivo2D
+            {
+                Id = AsegurarIdPipeline("", "proc"),
+                ParentSubproductId = subproducto.Id,
+                Orden = orden,
+                Nombre = string.IsNullOrWhiteSpace(ecuacion?.NombreVisible) ? subproducto.Nombre : ecuacion.NombreVisible,
+                Activo = true,
+                EtapaProductiva = string.IsNullOrWhiteSpace(ecuacion?.Etapa) ? subproducto.EtapaSugerida : ecuacion.Etapa,
+                SubEtapa = string.IsNullOrWhiteSpace(ecuacion?.SubEtapa) ? subproducto.SubEtapaSugerida : ecuacion.SubEtapa,
+                EquationKey = ecuacion?.Clave ?? subproducto.EquationKey,
+                EcuacionProductiva = ecuacion == null ? subproducto.EcuacionProductiva : ObtenerTextoEcuacionPipeline(ecuacion),
+                ModoCalculoProductivo = ecuacion == null ? subproducto.ModoCalculoProductivo : ecuacion.MetodoCalculo.ToString(),
+                Cantidad = 1.0,
+                Unidad = string.IsNullOrWhiteSpace(subproducto.Unidad) ? "unidad" : subproducto.Unidad,
+                HorasAsignadasStd = subproducto.HorasAsignadasStd,
+                CargosSugeridos = string.IsNullOrWhiteSpace(ecuacion?.CargosPermitidos) ? subproducto.CargosSugeridos : ecuacion.CargosPermitidos,
+                VariablesEcuacion = string.IsNullOrWhiteSpace(ecuacion?.Variables) ? subproducto.VariablesEcuacion : ecuacion.Variables,
+                ImpactoEcuacion = string.IsNullOrWhiteSpace(ecuacion?.Impacto) ? subproducto.ImpactoEcuacion : ecuacion.Impacto,
+                DependencyId = subproducto.DependeDe
+            };
+        }
+
+        private ProcesoProductivo2D CrearProcesoDesdeSubproductoPipeline(Subproducto2D subproducto, int orden)
+        {
+            return new ProcesoProductivo2D
+            {
+                Id = AsegurarIdPipeline("", "proc"),
+                ParentSubproductId = subproducto.Id,
+                Orden = orden,
+                Nombre = string.IsNullOrWhiteSpace(subproducto.SubEtapaSugerida) ? subproducto.Nombre : subproducto.SubEtapaSugerida,
+                Activo = true,
+                EtapaProductiva = subproducto.EtapaSugerida,
+                SubEtapa = subproducto.SubEtapaSugerida,
+                EquationKey = subproducto.EquationKey,
+                EcuacionProductiva = subproducto.EcuacionProductiva,
+                ModoCalculoProductivo = subproducto.ModoCalculoProductivo,
+                Cantidad = 1.0,
+                Unidad = string.IsNullOrWhiteSpace(subproducto.Unidad) ? "unidad" : subproducto.Unidad,
+                HorasAsignadasStd = subproducto.HorasAsignadasStd,
+                CargosSugeridos = subproducto.CargosSugeridos,
+                VariablesEcuacion = subproducto.VariablesEcuacion,
+                ImpactoEcuacion = subproducto.ImpactoEcuacion,
+                DependencyId = subproducto.DependeDe
+            };
+        }
         private class SubproductoBibliotecaPipeline
         {
             public string ServicioOrigen { get; set; } = "";
@@ -3757,6 +4228,154 @@ namespace Cotizador_animacion_Othalart
             }
 
             grid.Rows.Remove(grid.CurrentRow);
+            NormalizarOrdenFilasPipeline(grid);
+        }
+
+        private void MoverFilaPipelineSeleccionada(DataGridView grid, int desplazamiento)
+        {
+            if (grid == null || grid.CurrentRow == null || grid.CurrentRow.IsNewRow)
+            {
+                return;
+            }
+
+            MoverFilaPipelineGrid(
+                grid,
+                grid.CurrentRow.Index,
+                grid.CurrentRow.Index + desplazamiento
+            );
+        }
+
+        private bool MoverFilaPipelineGrid(DataGridView grid, int indiceOrigen, int indiceDestino)
+        {
+            if (grid == null ||
+                indiceOrigen < 0 ||
+                indiceOrigen >= grid.Rows.Count ||
+                indiceDestino < 0 ||
+                indiceDestino >= grid.Rows.Count ||
+                indiceOrigen == indiceDestino ||
+                grid.Rows[indiceOrigen].IsNewRow ||
+                grid.Rows[indiceDestino].IsNewRow)
+            {
+                return false;
+            }
+
+            ConfirmarEdicionGrillaPipeline(grid);
+
+            DataGridViewRow fila = grid.Rows[indiceOrigen];
+            grid.Rows.RemoveAt(indiceOrigen);
+            grid.Rows.Insert(indiceDestino, fila);
+
+            NormalizarOrdenFilasPipeline(grid);
+
+            string columnaSeleccion = grid.Columns.Contains("Nombre") ? "Nombre" : grid.Columns[0].Name;
+            grid.CurrentCell = fila.Cells[columnaSeleccion];
+            fila.Selected = true;
+            grid.FirstDisplayedScrollingRowIndex = Math.Max(0, fila.Index);
+            return true;
+        }
+
+        private void NormalizarOrdenFilasPipeline(DataGridView grid)
+        {
+            if (grid == null || !grid.Columns.Contains("Orden"))
+            {
+                return;
+            }
+
+            int orden = 10;
+
+            foreach (DataGridViewRow row in grid.Rows)
+            {
+                if (row == null || row.IsNewRow)
+                {
+                    continue;
+                }
+
+                row.Cells["Orden"].Value = orden;
+                orden += 10;
+            }
+        }
+
+        private void ConfigurarArrastreFilasPipeline(DataGridView grid)
+        {
+            if (grid == null || !grid.Columns.Contains("Mover"))
+            {
+                return;
+            }
+
+            int filaOrigen = -1;
+            Point puntoInicio = Point.Empty;
+            Rectangle zonaArrastre = Rectangle.Empty;
+
+            grid.AllowDrop = true;
+
+            grid.MouseDown += (s, e) =>
+            {
+                DataGridView.HitTestInfo hit = grid.HitTest(e.X, e.Y);
+
+                if (e.Button != MouseButtons.Left ||
+                    hit.RowIndex < 0 ||
+                    hit.ColumnIndex != grid.Columns["Mover"].Index)
+                {
+                    filaOrigen = -1;
+                    zonaArrastre = Rectangle.Empty;
+                    return;
+                }
+
+                filaOrigen = hit.RowIndex;
+                puntoInicio = new Point(e.X, e.Y);
+                Size tamano = SystemInformation.DragSize;
+                zonaArrastre = new Rectangle(
+                    puntoInicio.X - tamano.Width / 2,
+                    puntoInicio.Y - tamano.Height / 2,
+                    tamano.Width,
+                    tamano.Height
+                );
+
+                grid.CurrentCell = grid.Rows[filaOrigen].Cells["Mover"];
+            };
+
+            grid.MouseMove += (s, e) =>
+            {
+                if (e.Button != MouseButtons.Left ||
+                    filaOrigen < 0 ||
+                    zonaArrastre.Contains(e.Location))
+                {
+                    return;
+                }
+
+                grid.DoDragDrop(filaOrigen, DragDropEffects.Move);
+            };
+
+            grid.DragOver += (s, e) =>
+            {
+                Point punto = grid.PointToClient(new Point(e.X, e.Y));
+                DataGridView.HitTestInfo hit = grid.HitTest(punto.X, punto.Y);
+                e.Effect = e.Data.GetDataPresent(typeof(int)) && hit.RowIndex >= 0
+                    ? DragDropEffects.Move
+                    : DragDropEffects.None;
+            };
+
+            grid.DragDrop += (s, e) =>
+            {
+                if (!e.Data.GetDataPresent(typeof(int)))
+                {
+                    return;
+                }
+
+                Point punto = grid.PointToClient(new Point(e.X, e.Y));
+                DataGridView.HitTestInfo hit = grid.HitTest(punto.X, punto.Y);
+
+                if (hit.RowIndex < 0)
+                {
+                    return;
+                }
+
+                int origen = (int)e.Data.GetData(typeof(int));
+                int destino = hit.RowIndex;
+                MoverFilaPipelineGrid(grid, origen, destino);
+                filaOrigen = -1;
+                zonaArrastre = Rectangle.Empty;
+            };
         }
 
         private int CalcularSiguienteOrdenPipeline(DataGridView grid)
@@ -4087,6 +4706,1535 @@ namespace Cotizador_animacion_Othalart
             return panel;
         }
 
+        private sealed class NodoPipelineProductoEditor
+        {
+            public string Tipo { get; set; } = "";
+            public int Nivel { get; set; } = 0;
+            public string Nombre { get; set; } = "";
+            public Producto2DDefinicion Producto { get; set; }
+            public DataGridViewRow FilaSubproducto { get; set; }
+            public EcuacionProductivaDefinicion Ecuacion { get; set; }
+            public ProcesoProductivo2D Proceso { get; set; }
+        }
+
+        private Control CrearEditorJerarquicoPipelineProducto(
+            Producto2DDefinicion producto,
+            DataGridView gridSubproductos
+        )
+        {
+            TableLayoutPanel root = new TableLayoutPanel();
+            root.Dock = DockStyle.Fill;
+            root.ColumnCount = 1;
+            root.RowCount = 2;
+            root.BackColor = Color.White;
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+
+            SplitContainer split = new SplitContainer();
+            split.Dock = DockStyle.Fill;
+            split.SplitterWidth = 6;
+            split.FixedPanel = FixedPanel.Panel2;
+            split.Panel1MinSize = 0;
+            split.Panel2MinSize = 0;
+            split.HandleCreated += (s, e) => AjustarSplitterEditorJerarquicoPipeline(split);
+            split.SizeChanged += (s, e) => AjustarSplitterEditorJerarquicoPipeline(split);
+
+            DataGridView arbol = CrearGridJerarquicoPipelineProducto();
+            Panel inspector = new Panel
+            {
+                Dock = DockStyle.Fill,
+                AutoScroll = true,
+                BackColor = Color.FromArgb(250, 250, 250),
+                Padding = new Padding(12)
+            };
+
+            FlowLayoutPanel acciones = CrearBarraAccionesEditorPipeline(
+                producto,
+                gridSubproductos,
+                arbol,
+                inspector
+            );
+
+            arbol.SelectionChanged += (s, e) =>
+            {
+                if (arbolPipelineRefrescando)
+                {
+                    return;
+                }
+
+                NodoPipelineProductoEditor nodo = arbol.CurrentRow?.Tag as NodoPipelineProductoEditor;
+                claveNodoPipelineActivo = ObtenerClaveNodoPipeline(nodo);
+                ConstruirInspectorPipelineProducto(nodo, producto, gridSubproductos, arbol, inspector);
+            };
+            arbol.CellDoubleClick += (s, e) =>
+            {
+                if (e.RowIndex >= 0)
+                {
+                    NodoPipelineProductoEditor nodo = arbol.Rows[e.RowIndex].Tag as NodoPipelineProductoEditor;
+                    claveNodoPipelineActivo = ObtenerClaveNodoPipeline(nodo);
+                    ConstruirInspectorPipelineProducto(nodo, producto, gridSubproductos, arbol, inspector);
+                }
+            };
+
+            split.Panel1.Controls.Add(arbol);
+            split.Panel2.Controls.Add(inspector);
+            root.Controls.Add(acciones, 0, 0);
+            root.Controls.Add(split, 0, 1);
+
+            RefrescarArbolPipelineProducto(producto, gridSubproductos, arbol);
+            if (arbol.Rows.Count > 0)
+            {
+                arbol.Rows[0].Selected = true;
+                arbol.CurrentCell = arbol.Rows[0].Cells["Elemento"];
+            }
+
+            return root;
+        }
+
+        private void AjustarSplitterEditorJerarquicoPipeline(SplitContainer split)
+        {
+            if (split == null || split.IsDisposed || split.ClientSize.Width <= split.SplitterWidth + 160)
+            {
+                return;
+            }
+
+            int anchoDisponible = split.ClientSize.Width - split.SplitterWidth;
+            int panelInspector = Math.Min(360, Math.Max(220, anchoDisponible / 3));
+            int deseado = Math.Max(120, anchoDisponible - panelInspector);
+            int maximo = Math.Max(120, anchoDisponible - 120);
+            deseado = Math.Min(deseado, maximo);
+
+            try
+            {
+                split.Panel1MinSize = 0;
+                split.Panel2MinSize = 0;
+
+                if (split.SplitterDistance != deseado)
+                {
+                    split.SplitterDistance = deseado;
+                }
+
+                split.Panel1MinSize = Math.Min(120, deseado);
+                split.Panel2MinSize = Math.Min(120, Math.Max(0, anchoDisponible - deseado));
+            }
+            catch (InvalidOperationException)
+            {
+                // WinForms puede disparar SizeChanged durante la creacion del handle,
+                // cuando el SplitContainer todavia no tiene un ancho estable.
+            }
+        }
+        private DataGridView CrearGridJerarquicoPipelineProducto()
+        {
+            DataGridView grid = new DataGridView();
+            grid.Dock = DockStyle.Fill;
+            grid.AllowUserToAddRows = false;
+            grid.AllowUserToDeleteRows = false;
+            grid.RowHeadersVisible = false;
+            grid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+            grid.MultiSelect = false;
+            grid.ReadOnly = true;
+            grid.BackgroundColor = Color.White;
+            grid.BorderStyle = BorderStyle.FixedSingle;
+            grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
+            grid.EnableHeadersVisualStyles = false;
+            grid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(238, 240, 244);
+            grid.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
+            grid.Columns.Add("Nivel", "Nivel");
+            grid.Columns.Add("Elemento", "Elemento");
+            grid.Columns.Add("Tipo", "Tipo");
+            grid.Columns.Add("Cantidad", "Cantidad base");
+            grid.Columns.Add("Unidad", "Unidad");
+            grid.Columns.Add("Modo", "Modo calculo");
+            grid.Columns.Add("Horas", "Horas calculadas");
+            grid.Columns.Add("Costo", "Costo estimado");
+            grid.Columns.Add("Dependencia", "Dependencia");
+            grid.Columns.Add("Estado", "Estado");
+            grid.Columns["Nivel"].Width = 55;
+            grid.Columns["Elemento"].Width = 280;
+            grid.Columns["Tipo"].Width = 105;
+            grid.Columns["Cantidad"].Width = 95;
+            grid.Columns["Unidad"].Width = 95;
+            grid.Columns["Modo"].Width = 120;
+            grid.Columns["Horas"].Width = 110;
+            grid.Columns["Costo"].Width = 110;
+            grid.Columns["Dependencia"].Width = 170;
+            grid.Columns["Estado"].Width = 145;
+            return grid;
+        }
+
+        private FlowLayoutPanel CrearBarraAccionesEditorPipeline(
+            Producto2DDefinicion producto,
+            DataGridView gridSubproductos,
+            DataGridView arbol,
+            Panel inspector
+        )
+        {
+            FlowLayoutPanel acciones = new FlowLayoutPanel();
+            acciones.Dock = DockStyle.Top;
+            acciones.AutoSize = true;
+            acciones.WrapContents = true;
+            acciones.Padding = new Padding(0, 0, 0, 8);
+            acciones.BackColor = Color.White;
+
+            acciones.Controls.Add(CrearBotonAccionPipelineJerarquico("Agregar subproducto al pipeline", () =>
+            {
+                int rowIndex = gridSubproductos.Rows.Add();
+                DataGridViewRow row = gridSubproductos.Rows[rowIndex];
+                row.Cells["RequeridoPorDefecto"].Value = true;
+                row.Cells["Orden"].Value = ObtenerSiguienteOrdenPipeline(gridSubproductos);
+                row.Cells["Nombre"].Value = "Nuevo subproducto";
+                row.Cells["Categoria"].Value = "";
+                row.Cells["EtapaSugerida"].Value = ObtenerOpcionesEtapasPipeline().FirstOrDefault() ?? "";
+                row.Cells["SubEtapaSugerida"].Value = "";
+                row.Cells["ModoCalculoProductivo"].Value = ModosCalculoProductivo.Rendimiento;
+                row.Cells["HorasAsignadasMin"].Value = "0";
+                row.Cells["HorasAsignadasStd"].Value = "0";
+                row.Cells["HorasAsignadasHolgura"].Value = "0";
+                row.Cells["DependeDe"].Value = "";
+                row.Cells["CargosSugeridos"].Value = "";
+                row.Cells["PuedeEntregarCliente"].Value = true;
+                row.Cells["Resolucion"].Value = "Interno";
+                RefrescarArbolPipelineProducto(producto, gridSubproductos, arbol);
+            }));
+
+            acciones.Controls.Add(CrearBotonAccionPipelineJerarquico("Agregar proceso al subproducto", () =>
+            {
+                NodoPipelineProductoEditor nodo = arbol.CurrentRow?.Tag as NodoPipelineProductoEditor;
+                DataGridViewRow filaPadre = nodo?.FilaSubproducto;
+                if (filaPadre == null)
+                {
+                    MessageBox.Show(this, "Selecciona un subproducto para agregarle un proceso.", "Pipeline de producto", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+
+                Subproducto2D subproducto = ObtenerSubproductoModeloFilaPipeline(filaPadre);
+                if (subproducto == null)
+                {
+                    return;
+                }
+
+                string etapa = string.IsNullOrWhiteSpace(subproducto.EtapaSugerida)
+                    ? ObtenerOpcionesEtapasPipeline().FirstOrDefault() ?? "Produccion"
+                    : subproducto.EtapaSugerida;
+                List<string> subetapas = ObtenerOpcionesSubEtapasPipeline(etapa);
+                ProcesoProductivo2D proceso = new ProcesoProductivo2D
+                {
+                    Id = AsegurarIdPipeline("", "proc"),
+                    ParentSubproductId = subproducto.Id,
+                    Orden = (subproducto.Procesos ?? new List<ProcesoProductivo2D>()).Count == 0
+                        ? 10
+                        : subproducto.Procesos.Where(p => p != null).Max(p => p.Orden) + 10,
+                    Nombre = "Nuevo proceso",
+                    Activo = true,
+                    EtapaProductiva = etapa,
+                    SubEtapa = subetapas.FirstOrDefault() ?? "",
+                    ModoCalculoProductivo = ModosCalculoProductivo.Rendimiento,
+                    Cantidad = 1.0,
+                    Unidad = string.IsNullOrWhiteSpace(subproducto.Unidad) ? ObtenerUnidadComercialPipeline(producto) : subproducto.Unidad
+                };
+                subproducto.Procesos = subproducto.Procesos ?? new List<ProcesoProductivo2D>();
+                subproducto.Procesos.Add(proceso);
+                claveNodoPipelineActivo = "Proceso|" + Convert.ToString(filaPadre.Cells["Orden"].Value) + "|" + subproducto.Nombre + "|" + proceso.Id;
+                RefrescarArbolPipelineProducto(producto, gridSubproductos, arbol);
+                ConstruirInspectorPipelineProducto(arbol.CurrentRow?.Tag as NodoPipelineProductoEditor, producto, gridSubproductos, arbol, inspector);
+            }));
+            acciones.Controls.Add(CrearBotonAccionPipelineJerarquico("Duplicar", () =>
+            {
+                NodoPipelineProductoEditor nodo = arbol.CurrentRow?.Tag as NodoPipelineProductoEditor;
+                if (nodo?.FilaSubproducto == null)
+                {
+                    return;
+                }
+                DataGridViewRow origen = nodo.FilaSubproducto;
+                int destinoIndex = gridSubproductos.Rows.Add();
+                DataGridViewRow destino = gridSubproductos.Rows[destinoIndex];
+                foreach (DataGridViewColumn col in gridSubproductos.Columns)
+                {
+                    if (!destino.Cells.Contains(destino.Cells[col.Name]) || col is DataGridViewButtonColumn)
+                    {
+                        continue;
+                    }
+                    destino.Cells[col.Name].Value = origen.Cells[col.Name].Value;
+                }
+                destino.Cells["Nombre"].Value = (Convert.ToString(origen.Cells["Nombre"].Value) ?? "Subproducto") + " copia";
+                destino.Cells["Orden"].Value = ObtenerSiguienteOrdenPipeline(gridSubproductos);
+                RefrescarArbolPipelineProducto(producto, gridSubproductos, arbol);
+            }));
+
+            acciones.Controls.Add(CrearBotonAccionPipelineJerarquico("Quitar", () =>
+            {
+                NodoPipelineProductoEditor nodo = arbol.CurrentRow?.Tag as NodoPipelineProductoEditor;
+                if (nodo?.FilaSubproducto == null)
+                {
+                    return;
+                }
+                if (nodo.Tipo == "Proceso" && nodo.Proceso != null)
+                {
+                    Subproducto2D subproducto = ObtenerSubproductoModeloFilaPipeline(nodo.FilaSubproducto);
+                    string nombreProceso = string.IsNullOrWhiteSpace(nodo.Proceso.Nombre) ? "proceso" : nodo.Proceso.Nombre;
+                    if (MessageBox.Show(this, "Quitar proceso '" + nombreProceso + "'?", "Pipeline de producto", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) != DialogResult.OK)
+                    {
+                        return;
+                    }
+                    subproducto?.Procesos?.Remove(nodo.Proceso);
+                    claveNodoPipelineActivo = "Subproducto|" + Convert.ToString(nodo.FilaSubproducto.Cells["Orden"].Value) + "|" + Convert.ToString(nodo.FilaSubproducto.Cells["Nombre"].Value) + "|";
+                    RefrescarArbolPipelineProducto(producto, gridSubproductos, arbol);
+                    return;
+                }
+
+                string nombre = Convert.ToString(nodo.FilaSubproducto.Cells["Nombre"].Value) ?? "subproducto";
+                if (MessageBox.Show(this, "Quitar subproducto '" + nombre + "' del pipeline?", "Pipeline de producto", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) != DialogResult.OK)
+                {
+                    return;
+                }
+                gridSubproductos.Rows.Remove(nodo.FilaSubproducto);
+                RefrescarArbolPipelineProducto(producto, gridSubproductos, arbol);
+            }));
+
+            acciones.Controls.Add(CrearBotonAccionPipelineJerarquico("Mover arriba", () => MoverSubproductoPipelineSeleccionado(gridSubproductos, arbol, -1, producto)));
+            acciones.Controls.Add(CrearBotonAccionPipelineJerarquico("Mover abajo", () => MoverSubproductoPipelineSeleccionado(gridSubproductos, arbol, 1, producto)));
+            acciones.Controls.Add(CrearBotonAccionPipelineJerarquico("Validar pipeline", () =>
+            {
+                List<string> errores = ValidarPipelineJerarquico(gridSubproductos);
+                MessageBox.Show(this, errores.Count == 0 ? "Pipeline sin errores bloqueantes." : string.Join(Environment.NewLine, errores), "Validar pipeline", MessageBoxButtons.OK, errores.Count == 0 ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
+            }));
+            acciones.Controls.Add(CrearBotonAccionPipelineJerarquico("Refrescar", () =>
+            {
+                RefrescarArbolPipelineProducto(producto, gridSubproductos, arbol);
+                ConstruirInspectorPipelineProducto(arbol.CurrentRow?.Tag as NodoPipelineProductoEditor, producto, gridSubproductos, arbol, inspector);
+            }));
+            return acciones;
+        }
+
+        private Button CrearBotonAccionPipelineJerarquico(string texto, Action accion)
+        {
+            Button boton = new Button();
+            boton.Text = texto;
+            boton.Width = Math.Max(128, TextRenderer.MeasureText(texto, boton.Font).Width + 24);
+            boton.Height = 30;
+            boton.Margin = new Padding(0, 0, 8, 0);
+            boton.FlatStyle = FlatStyle.Flat;
+            boton.BackColor = Color.White;
+            boton.UseVisualStyleBackColor = false;
+            boton.Click += (s, e) => accion();
+            return boton;
+        }
+
+        private void RefrescarArbolPipelineProducto(
+            Producto2DDefinicion producto,
+            DataGridView gridSubproductos,
+            DataGridView arbol
+        )
+        {
+            string seleccionado = string.IsNullOrWhiteSpace(claveNodoPipelineActivo)
+                ? ObtenerClaveNodoPipeline(arbol.CurrentRow?.Tag as NodoPipelineProductoEditor)
+                : claveNodoPipelineActivo;
+            arbolPipelineRefrescando = true;
+            arbol.Rows.Clear();
+            int totalSub = gridSubproductos.Rows.Cast<DataGridViewRow>().Count(r => r != null && !r.IsNewRow);
+            double horasProducto = gridSubproductos.Rows.Cast<DataGridViewRow>()
+                .Where(r => r != null && !r.IsNewRow)
+                .Sum(r => ParsearDoublePipeline(r.Cells["HorasAsignadasStd"].Value));
+            int rowProducto = arbol.Rows.Add(0, producto.Nombre, "Producto", "1", ObtenerUnidadComercialPipeline(producto), "", horasProducto.ToString("0.##"), "-", "", totalSub == 0 ? "Incompleto" : "Configurado");
+            arbol.Rows[rowProducto].Tag = new NodoPipelineProductoEditor { Tipo = "Producto", Nivel = 0, Nombre = producto.Nombre, Producto = producto };
+            arbol.Rows[rowProducto].DefaultCellStyle.BackColor = Color.FromArgb(232, 244, 255);
+            arbol.Rows[rowProducto].DefaultCellStyle.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
+
+            foreach (DataGridViewRow sub in gridSubproductos.Rows.Cast<DataGridViewRow>()
+                .Where(r => r != null && !r.IsNewRow)
+                .OrderBy(r => ParsearEnteroPipeline(r.Cells["Orden"].Value, 0)))
+            {
+                Subproducto2D subproducto = ObtenerSubproductoModeloFilaPipeline(sub);
+                string nombre = subproducto == null ? Convert.ToString(sub.Cells["Nombre"].Value) ?? "" : subproducto.Nombre;
+                string estado = ObtenerEstadoSubproductoPipelineEditor(sub);
+                int cantidadProcesos = subproducto?.Procesos?.Count(p => p != null && p.Activo) ?? 0;
+                int rowSub = arbol.Rows.Add(
+                    1,
+                    "  " + nombre,
+                    "Subproducto",
+                    (subproducto == null ? "1" : subproducto.Cantidad.ToString("0.##")),
+                    string.IsNullOrWhiteSpace(subproducto?.Unidad) ? ObtenerUnidadComercialPipeline(producto) : subproducto.Unidad,
+                    subproducto?.TipoComportamientoCalculo ?? "Suma de procesos",
+                    Convert.ToString(sub.Cells["HorasAsignadasStd"].Value) ?? "0",
+                    "-",
+                    Convert.ToString(sub.Cells["DependeDe"].Value) ?? "",
+                    cantidadProcesos == 0 ? "Sin procesos" : estado);
+                arbol.Rows[rowSub].Tag = new NodoPipelineProductoEditor { Tipo = "Subproducto", Nivel = 1, Nombre = nombre, Producto = producto, FilaSubproducto = sub };
+                arbol.Rows[rowSub].DefaultCellStyle.BackColor = Color.White;
+
+                foreach (ProcesoProductivo2D proceso in (subproducto?.Procesos ?? new List<ProcesoProductivo2D>()).Where(p => p != null).OrderBy(p => p.Orden))
+                {
+                    EcuacionProductivaDefinicion ecuacion = ObtenerEcuacionProcesoPipeline(proceso);
+                    string cargo = string.IsNullOrWhiteSpace(proceso.CargosSugeridos)
+                        ? ObtenerCargoResumenEcuacionPipeline(ecuacion, sub)
+                        : proceso.CargosSugeridos;
+                    int rowProc = arbol.Rows.Add(
+                        2,
+                        "      " + (string.IsNullOrWhiteSpace(proceso.Nombre) ? proceso.SubEtapa : proceso.Nombre),
+                        "Proceso",
+                        proceso.Cantidad.ToString("0.##"),
+                        string.IsNullOrWhiteSpace(proceso.Unidad) ? ObtenerUnidadComercialPipeline(producto) : proceso.Unidad,
+                        proceso.ModoCalculoProductivo,
+                        proceso.HorasAsignadasStd.ToString("0.##"),
+                        "-",
+                        proceso.DependencyId,
+                        !proceso.Activo ? "Inactivo" : string.IsNullOrWhiteSpace(cargo) ? "Sin cargo asociado" : "Configurado");
+                    arbol.Rows[rowProc].Tag = new NodoPipelineProductoEditor { Tipo = "Proceso", Nivel = 2, Nombre = proceso.Nombre, Producto = producto, FilaSubproducto = sub, Ecuacion = ecuacion, Proceso = proceso };
+                    arbol.Rows[rowProc].DefaultCellStyle.ForeColor = Color.FromArgb(70, 70, 70);
+                }            }
+
+            foreach (DataGridViewRow row in arbol.Rows)
+            {
+                if (string.Equals(ObtenerClaveNodoPipeline(row.Tag as NodoPipelineProductoEditor), seleccionado, StringComparison.OrdinalIgnoreCase))
+                {
+                    arbol.ClearSelection();
+                    row.Selected = true;
+                    arbol.CurrentCell = row.Cells["Elemento"];
+                    claveNodoPipelineActivo = ObtenerClaveNodoPipeline(row.Tag as NodoPipelineProductoEditor);
+                    arbolPipelineRefrescando = false;
+                    return;
+                }
+            }
+
+            arbolPipelineRefrescando = false;
+        }
+
+        private string ObtenerClaveNodoPipeline(NodoPipelineProductoEditor nodo)
+        {
+            if (nodo == null)
+            {
+                return "";
+            }
+
+            string nombre = nodo.Nombre ?? "";
+            string tipo = nodo.Tipo ?? "";
+            if (nodo.FilaSubproducto != null)
+            {
+                string orden = Convert.ToString(nodo.FilaSubproducto.Cells["Orden"].Value) ?? "";
+                string sub = Convert.ToString(nodo.FilaSubproducto.Cells["Nombre"].Value) ?? nombre;
+                string proceso = nodo.Proceso == null
+                    ? (nodo.Ecuacion == null
+                        ? Convert.ToString(nodo.FilaSubproducto.Cells["EquationKey"].Value) ?? ""
+                        : nodo.Ecuacion.Clave ?? nodo.Ecuacion.IdProceso ?? "")
+                    : nodo.Proceso.Id ?? nodo.Proceso.EquationKey ?? "";
+                return tipo + "|" + orden + "|" + sub + "|" + proceso;
+            }
+
+            return tipo + "|" + nombre;
+        }
+        private void ConstruirInspectorPipelineProducto(
+            NodoPipelineProductoEditor nodo,
+            Producto2DDefinicion producto,
+            DataGridView gridSubproductos,
+            DataGridView arbol,
+            Panel inspector
+        )
+        {
+            inspectorPipelineCargando = true;
+            inspector.SuspendLayout();
+            inspector.Controls.Clear();
+            if (nodo == null)
+            {
+                inspector.Controls.Add(CrearLabelInspectorPipeline("Selecciona un elemento del pipeline.", true));
+                inspector.ResumeLayout();
+                inspectorPipelineCargando = false;
+                return;
+            }
+
+            TableLayoutPanel form = new TableLayoutPanel();
+            form.Dock = DockStyle.Top;
+            form.AutoSize = true;
+            form.ColumnCount = 1;
+            form.RowCount = 1;
+            form.BackColor = inspector.BackColor;
+            form.Controls.Add(CrearLabelInspectorPipeline(nodo.Tipo + ": " + nodo.Nombre, true));
+
+            if (nodo.Tipo == "Producto")
+            {
+                form.Controls.Add(CrearLabelInspectorPipeline("Unidad base: " + ObtenerUnidadComercialPipeline(producto), false));
+                form.Controls.Add(CrearLabelInspectorPipeline("Categoria: " + (producto.Categoria ?? ""), false));
+                form.Controls.Add(CrearLabelInspectorPipeline("Subproductos: " + gridSubproductos.Rows.Cast<DataGridViewRow>().Count(r => r != null && !r.IsNewRow), false));
+                form.Controls.Add(CrearLabelInspectorPipeline("Descripcion: " + (producto.Nota ?? ""), false));
+            }
+            else if (nodo.Tipo == "Subproducto" && nodo.FilaSubproducto != null)
+            {
+                Subproducto2D subproducto = ObtenerSubproductoModeloFilaPipeline(nodo.FilaSubproducto);
+                AgregarEditorTextoInspectorPipeline(form, "Nombre", nodo.FilaSubproducto, "Nombre", producto, gridSubproductos, arbol);
+                AgregarEditorCheckInspectorPipeline(form, "Activado", nodo.FilaSubproducto, "RequeridoPorDefecto", producto, gridSubproductos, arbol);
+                AgregarEditorTextoInspectorPipeline(form, "Orden", nodo.FilaSubproducto, "Orden", producto, gridSubproductos, arbol);
+                AgregarEditorComboInspectorPipeline(form, "Etapa productiva", nodo.FilaSubproducto, "EtapaSugerida", ObtenerOpcionesEtapasPipeline(), producto, gridSubproductos, arbol, false);
+                AgregarEditorComboSubproductoModeloPipeline(form, "Comportamiento", subproducto, new List<string> { "Suma de procesos", "Calculo propio", "Multiplicador", "Overhead", "Agrupador sin calculo" }, producto, gridSubproductos, arbol);
+                form.Controls.Add(CrearLabelInspectorPipeline("Procesos contenidos: " + (subproducto?.Procesos?.Count(p => p != null) ?? 0).ToString("0"), false));
+                form.Controls.Add(CrearResumenProcesosSubproductoPipeline(subproducto));
+                form.Controls.Add(CrearLabelInspectorPipeline("Validacion: " + ObtenerEstadoSubproductoPipelineEditor(nodo.FilaSubproducto), false));
+            }
+            else if (nodo.Tipo == "Proceso" && nodo.Proceso != null)
+            {
+                ProcesoProductivo2D proceso = nodo.Proceso;
+                AgregarEditorTextoProcesoPipeline(form, "Nombre del proceso", proceso, "Nombre", nodo.FilaSubproducto, producto, gridSubproductos, arbol);
+                AgregarEditorCheckProcesoPipeline(form, "Activo", proceso, nodo.FilaSubproducto, producto, gridSubproductos, arbol);
+                AgregarEditorTextoProcesoPipeline(form, "Orden", proceso, "Orden", nodo.FilaSubproducto, producto, gridSubproductos, arbol);
+                AgregarEditorComboProcesoPipeline(form, "Etapa productiva", proceso, "EtapaProductiva", ObtenerOpcionesEtapasPipeline(), nodo.FilaSubproducto, producto, gridSubproductos, arbol, false);
+                AgregarEditorComboProcesoPipeline(form, "Subetapa / trabajo", proceso, "SubEtapa", ObtenerOpcionesSubEtapasPipeline(proceso.EtapaProductiva), nodo.FilaSubproducto, producto, gridSubproductos, arbol, false);
+                AgregarEditorComboProcesoPipeline(form, "Ecuacion productiva", proceso, "EcuacionProductiva", ObtenerOpcionesEcuacionesPipeline(), nodo.FilaSubproducto, producto, gridSubproductos, arbol, true);
+                form.Controls.Add(CrearAccionesEcuacionPipeline(nodo.FilaSubproducto, producto, gridSubproductos, arbol));
+                AgregarEditorComboProcesoPipeline(form, "Modo calculo", proceso, "ModoCalculoProductivo", new List<string> { ModosCalculoProductivo.Rendimiento, ModosCalculoProductivo.TiempoAsignado, "PorCapacidad" }, nodo.FilaSubproducto, producto, gridSubproductos, arbol, false);
+                AgregarEditorTextoProcesoPipeline(form, "Cantidad", proceso, "Cantidad", nodo.FilaSubproducto, producto, gridSubproductos, arbol);
+                AgregarEditorTextoProcesoPipeline(form, "Unidad", proceso, "Unidad", nodo.FilaSubproducto, producto, gridSubproductos, arbol);
+                AgregarEditorTextoProcesoPipeline(form, "Horas estandar", proceso, "HorasAsignadasStd", nodo.FilaSubproducto, producto, gridSubproductos, arbol);
+                AgregarEditorComboProcesoPipeline(form, "Dependencia", proceso, "DependencyId", ObtenerOpcionesDependenciasPipeline(gridSubproductos, nodo.FilaSubproducto), nodo.FilaSubproducto, producto, gridSubproductos, arbol, true);
+                AgregarEditorTextoProcesoPipeline(form, "Cargos asociados", proceso, "CargosSugeridos", nodo.FilaSubproducto, producto, gridSubproductos, arbol);
+                form.Controls.Add(CrearLabelInspectorPipeline("Validacion: " + ObtenerEstadoProcesoPipelineEditor(proceso), false));
+                form.Controls.Add(CrearVistaPreviaCalculoProcesoPipeline(proceso));
+            }
+
+            inspector.Controls.Add(form);
+            inspector.ResumeLayout();
+            inspectorPipelineCargando = false;
+        }
+
+        private Control CrearAccionesEcuacionPipeline(DataGridViewRow row, Producto2DDefinicion producto, DataGridView gridSubproductos, DataGridView arbol)
+        {
+            FlowLayoutPanel panel = new FlowLayoutPanel();
+            panel.AutoSize = true;
+            panel.WrapContents = true;
+            panel.Margin = new Padding(0, 0, 0, 8);
+
+            panel.Controls.Add(CrearBotonEcuacionPipeline("Ver ecuacion", () => MostrarDetalleEcuacionPipeline(row)));
+            panel.Controls.Add(CrearBotonEcuacionPipeline("Editar ecuacion", () => EditarEcuacionPipelineParaFila(row, false, gridSubproductos, arbol)));
+            panel.Controls.Add(CrearBotonEcuacionPipeline("Duplicar ecuacion", () => DuplicarEcuacionPipelineParaFila(row, gridSubproductos, arbol)));
+            panel.Controls.Add(CrearBotonEcuacionPipeline("Crear nueva", () => EditarEcuacionPipelineParaFila(row, true, gridSubproductos, arbol)));
+            panel.Controls.Add(CrearBotonEcuacionPipeline("Recargar biblioteca", () => RecargarBibliotecaEcuacionesPipeline(row, producto, gridSubproductos, arbol)));
+
+            return panel;
+        }
+
+        private Button CrearBotonEcuacionPipeline(string texto, Action accion)
+        {
+            Button boton = new Button();
+            boton.Text = texto;
+            boton.AutoSize = true;
+            boton.Height = 28;
+            boton.Margin = new Padding(0, 0, 6, 4);
+            boton.FlatStyle = FlatStyle.Flat;
+            boton.BackColor = Color.White;
+            boton.Click += (s, e) => accion?.Invoke();
+            return boton;
+        }
+
+        private void MostrarDetalleEcuacionPipeline(DataGridViewRow row)
+        {
+            EcuacionProductivaDefinicion ecuacion = ObtenerEcuacionFilaPipeline(row);
+            if (ecuacion == null)
+            {
+                MessageBox.Show(this, "Ecuacion faltante: no existe en ecuaciones_productivas.json.", "Ver ecuacion", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            string detalle =
+                "Clave: " + ecuacion.Clave + Environment.NewLine +
+                "Nombre: " + ecuacion.NombreVisible + Environment.NewLine +
+                "Tipo: " + ecuacion.TipoEcuacion + Environment.NewLine +
+                "Etapa: " + ecuacion.Etapa + Environment.NewLine +
+                "Subetapa: " + ecuacion.SubEtapa + Environment.NewLine +
+                "Metodo: " + ecuacion.MetodoCalculo.ToString() + Environment.NewLine +
+                "Formula base: " + ecuacion.EcuacionBase + Environment.NewLine + Environment.NewLine +
+                "Variables:" + Environment.NewLine + ecuacion.Variables + Environment.NewLine + Environment.NewLine +
+                "Formula:" + Environment.NewLine + ecuacion.FormulaReferencia + Environment.NewLine + Environment.NewLine +
+                "Cargos:" + Environment.NewLine + ecuacion.CargosPermitidos + Environment.NewLine + Environment.NewLine +
+                "Impacto:" + Environment.NewLine + ecuacion.Impacto;
+
+            MessageBox.Show(this, detalle, "Ecuacion productiva", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        private void EditarEcuacionPipelineParaFila(
+            DataGridViewRow row,
+            bool crearNueva,
+            DataGridView gridSubproductos,
+            DataGridView arbol
+        )
+        {
+            EcuacionProductivaDefinicion baseEcuacion = crearNueva ? null : ObtenerEcuacionFilaPipeline(row);
+            if (!crearNueva && baseEcuacion == null)
+            {
+                MessageBox.Show(this, "No hay una ecuacion real seleccionada para editar.", "Editar ecuacion", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            EcuacionProductivaDefinicion editada = ClonarEcuacionPipeline(baseEcuacion);
+            if (crearNueva)
+            {
+                string sugerida = CrearClaveNuevaEcuacionPipeline("NUEVA_ECUACION");
+                editada.Clave = sugerida;
+                editada.IdProceso = "proc_" + sugerida.ToLowerInvariant();
+                editada.NombreVisible = "Nueva ecuacion";
+                editada.TipoEcuacion = "Variante";
+                editada.EcuacionBase = "CALCULO_POR_CAPACIDAD";
+                editada.MetodoCalculo = MetodoCalculoProceso.PorCapacidad;
+                editada.AlcanceTemporal = AlcanceTemporalProceso.Item;
+                editada.Activa = true;
+            }
+
+            if (!MostrarEditorEcuacionPipeline(editada, crearNueva ? "Crear ecuacion" : "Editar ecuacion"))
+            {
+                return;
+            }
+
+            List<EcuacionProductivaDefinicion> biblioteca = BibliotecaEcuacionesProductivasJsonService.CargarEcuaciones();
+            if (biblioteca.Any(e => e != null &&
+                !ReferenceEquals(e, baseEcuacion) &&
+                !string.Equals(e.Clave, baseEcuacion == null ? "" : baseEcuacion.Clave, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(e.Clave, editada.Clave, StringComparison.OrdinalIgnoreCase)))
+            {
+                MessageBox.Show(this, "Ya existe una ecuacion con la clave " + editada.Clave + ".", "Editar ecuacion", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            if (!crearNueva)
+            {
+                int usos = ContarUsosEcuacionPipeline(baseEcuacion.Clave);
+                if (usos > 1)
+                {
+                    DialogResult confirmar = MessageBox.Show(
+                        this,
+                        "Esta ecuacion esta siendo utilizada por " + usos.ToString("0") + " elementos.\n\nLos cambios afectaran a todos ellos.\n\nQuieres modificar la ecuacion global?",
+                        "Ecuacion compartida",
+                        MessageBoxButtons.OKCancel,
+                        MessageBoxIcon.Warning);
+                    if (confirmar != DialogResult.OK)
+                    {
+                        return;
+                    }
+                }
+            }
+
+            EcuacionProductivaDefinicion existente = biblioteca.FirstOrDefault(e => e != null &&
+                string.Equals(e.Clave, crearNueva ? editada.Clave : baseEcuacion.Clave, StringComparison.OrdinalIgnoreCase));
+            if (existente == null)
+            {
+                biblioteca.Add(editada);
+            }
+            else
+            {
+                CopiarEcuacionPipeline(editada, existente);
+            }
+
+            BibliotecaEcuacionesProductivasJsonService.GuardarEcuaciones(biblioteca);
+            AsignarEcuacionPipelineAFila(row, editada);
+            Producto2DDefinicion productoActivo = ObtenerProductoNodoPipeline(arbol);
+            if (productoActivo != null)
+            {
+                RefrescarArbolPipelineProducto(productoActivo, gridSubproductos, arbol);
+            }
+            MessageBox.Show(this, "Ecuacion guardada y asignada: " + editada.Clave, "Pipeline de producto", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        private bool MostrarEditorEcuacionPipeline(EcuacionProductivaDefinicion ecuacion, string titulo)
+        {
+            using (Form form = new Form())
+            {
+                form.Text = titulo;
+                form.StartPosition = FormStartPosition.CenterParent;
+                form.Width = 640;
+                form.Height = 650;
+                form.MinimizeBox = false;
+                form.MaximizeBox = false;
+
+                TableLayoutPanel layout = new TableLayoutPanel();
+                layout.Dock = DockStyle.Fill;
+                layout.Padding = new Padding(14);
+                layout.ColumnCount = 2;
+                layout.RowCount = 10;
+                layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130));
+                layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+
+                TextBox txtClave = CrearTextBoxEditorEcuacionPipeline(ecuacion.Clave);
+                TextBox txtNombre = CrearTextBoxEditorEcuacionPipeline(ecuacion.NombreVisible);
+                TextBox txtEtapa = CrearTextBoxEditorEcuacionPipeline(ecuacion.Etapa);
+                TextBox txtSubEtapa = CrearTextBoxEditorEcuacionPipeline(ecuacion.SubEtapa);
+                ComboBox cmbMetodo = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList };
+                cmbMetodo.Items.AddRange(Enum.GetNames(typeof(MetodoCalculoProceso)));
+                cmbMetodo.SelectedItem = ecuacion.MetodoCalculo.ToString();
+                TextBox txtBase = CrearTextBoxEditorEcuacionPipeline(ecuacion.EcuacionBase);
+                TextBox txtVariables = CrearTextBoxEditorEcuacionPipeline(ecuacion.Variables, true);
+                TextBox txtFormula = CrearTextBoxEditorEcuacionPipeline(ecuacion.FormulaReferencia, true);
+                TextBox txtCargos = CrearTextBoxEditorEcuacionPipeline(ecuacion.CargosPermitidos, true);
+                TextBox txtImpacto = CrearTextBoxEditorEcuacionPipeline(ecuacion.Impacto, true);
+
+                AgregarFilaEditorEcuacionPipeline(layout, 0, "Clave", txtClave);
+                AgregarFilaEditorEcuacionPipeline(layout, 1, "Nombre", txtNombre);
+                AgregarFilaEditorEcuacionPipeline(layout, 2, "Etapa", txtEtapa);
+                AgregarFilaEditorEcuacionPipeline(layout, 3, "Subetapa", txtSubEtapa);
+                AgregarFilaEditorEcuacionPipeline(layout, 4, "Metodo", cmbMetodo);
+                AgregarFilaEditorEcuacionPipeline(layout, 5, "Formula base", txtBase);
+                AgregarFilaEditorEcuacionPipeline(layout, 6, "Variables", txtVariables);
+                AgregarFilaEditorEcuacionPipeline(layout, 7, "Formula", txtFormula);
+                AgregarFilaEditorEcuacionPipeline(layout, 8, "Cargos", txtCargos);
+                AgregarFilaEditorEcuacionPipeline(layout, 9, "Impacto", txtImpacto);
+
+                FlowLayoutPanel acciones = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 46, FlowDirection = FlowDirection.RightToLeft };
+                Button guardar = new Button { Text = "Guardar", Width = 100, Height = 30, DialogResult = DialogResult.OK };
+                Button cancelar = new Button { Text = "Cancelar", Width = 100, Height = 30, DialogResult = DialogResult.Cancel };
+                acciones.Controls.Add(guardar);
+                acciones.Controls.Add(cancelar);
+
+                form.Controls.Add(layout);
+                form.Controls.Add(acciones);
+                form.AcceptButton = guardar;
+                form.CancelButton = cancelar;
+
+                if (form.ShowDialog(this) != DialogResult.OK)
+                {
+                    return false;
+                }
+
+                if (string.IsNullOrWhiteSpace(txtClave.Text))
+                {
+                    MessageBox.Show(this, "La clave de la ecuacion no puede estar vacia.", "Editar ecuacion", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return false;
+                }
+
+                ecuacion.Clave = txtClave.Text.Trim();
+                ecuacion.IdProceso = string.IsNullOrWhiteSpace(ecuacion.IdProceso) ? "proc_" + ecuacion.Clave.ToLowerInvariant() : ecuacion.IdProceso;
+                ecuacion.NombreVisible = txtNombre.Text.Trim();
+                ecuacion.Etapa = txtEtapa.Text.Trim();
+                ecuacion.SubEtapa = txtSubEtapa.Text.Trim();
+                ecuacion.MetodoCalculo = ParsearEnumEcuacion(Convert.ToString(cmbMetodo.SelectedItem), MetodoCalculoProceso.NoDefinido);
+                ecuacion.EcuacionBase = txtBase.Text.Trim();
+                ecuacion.Variables = txtVariables.Text.Trim();
+                ecuacion.FormulaReferencia = txtFormula.Text.Trim();
+                ecuacion.CargosPermitidos = txtCargos.Text.Trim();
+                ecuacion.Impacto = txtImpacto.Text.Trim();
+                ecuacion.Activa = true;
+                return true;
+            }
+        }
+
+        private TextBox CrearTextBoxEditorEcuacionPipeline(string valor, bool multilinea = false)
+        {
+            return new TextBox
+            {
+                Text = valor ?? "",
+                Dock = DockStyle.Fill,
+                Multiline = multilinea,
+                Height = multilinea ? 72 : 24,
+                ScrollBars = multilinea ? ScrollBars.Vertical : ScrollBars.None
+            };
+        }
+
+        private void AgregarFilaEditorEcuacionPipeline(TableLayoutPanel layout, int fila, string etiqueta, Control control)
+        {
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            Label label = new Label { Text = etiqueta, AutoSize = true, Dock = DockStyle.Top, Font = new Font("Segoe UI", 9f, FontStyle.Bold) };
+            layout.Controls.Add(label, 0, fila);
+            layout.Controls.Add(control, 1, fila);
+        }
+
+        private void AsignarEcuacionPipelineAFila(DataGridViewRow row, EcuacionProductivaDefinicion ecuacion)
+        {
+            if (row == null || ecuacion == null)
+            {
+                return;
+            }
+
+            ActualizarOpcionesEcuacionPipeline(row);
+            DataGridViewComboBoxCell celda = row.Cells["EcuacionProductiva"] as DataGridViewComboBoxCell;
+            string texto = ObtenerTextoEcuacionPipeline(ecuacion);
+            if (celda != null && !celda.Items.Contains(texto))
+            {
+                celda.Items.Add(texto);
+            }
+
+            row.Cells["EquationKey"].Value = ecuacion.Clave ?? "";
+            row.Cells["EcuacionProductiva"].Value = texto;
+            row.Cells["VariablesEcuacion"].Value = ecuacion.Variables ?? "";
+            row.Cells["ImpactoEcuacion"].Value = ecuacion.Impacto ?? "";
+            if (string.IsNullOrWhiteSpace(Convert.ToString(row.Cells["CargosSugeridos"].Value)))
+            {
+                row.Cells["CargosSugeridos"].Value = ecuacion.CargosPermitidos ?? "";
+            }
+        }
+
+        private void ActualizarOpcionesEcuacionPipeline(DataGridViewRow row)
+        {
+            DataGridViewComboBoxCell celda = row == null ? null : row.Cells["EcuacionProductiva"] as DataGridViewComboBoxCell;
+            if (celda == null)
+            {
+                return;
+            }
+
+            string actual = Convert.ToString(row.Cells["EcuacionProductiva"].Value) ?? "";
+            celda.Items.Clear();
+            celda.Items.Add("");
+            foreach (string opcion in ObtenerOpcionesEcuacionesPipeline())
+            {
+                if (!celda.Items.Contains(opcion))
+                {
+                    celda.Items.Add(opcion);
+                }
+            }
+            if (!string.IsNullOrWhiteSpace(actual) && !celda.Items.Contains(actual))
+            {
+                celda.Items.Add(actual);
+            }
+        }
+
+        private EcuacionProductivaDefinicion ClonarEcuacionPipeline(EcuacionProductivaDefinicion origen)
+        {
+            if (origen == null)
+            {
+                return new EcuacionProductivaDefinicion();
+            }
+
+            EcuacionProductivaDefinicion copia = new EcuacionProductivaDefinicion();
+            CopiarEcuacionPipeline(origen, copia);
+            return copia;
+        }
+
+        private void CopiarEcuacionPipeline(EcuacionProductivaDefinicion origen, EcuacionProductivaDefinicion destino)
+        {
+            destino.SchemaVersion = origen.SchemaVersion;
+            destino.Activa = origen.Activa;
+            destino.Clave = origen.Clave;
+            destino.IdProceso = origen.IdProceso;
+            destino.NombreVisible = origen.NombreVisible;
+            destino.TipoProceso = origen.TipoProceso;
+            destino.MetodoCalculo = origen.MetodoCalculo;
+            destino.AlcanceTemporal = origen.AlcanceTemporal;
+            destino.EtapaId = origen.EtapaId;
+            destino.SubEtapaId = origen.SubEtapaId;
+            destino.FormulaId = origen.FormulaId;
+            destino.DependenciasJson = origen.DependenciasJson;
+            destino.PuedeEjecutarseEnParalelo = origen.PuedeEjecutarseEnParalelo;
+            destino.ReglaActivacionJson = origen.ReglaActivacionJson;
+            destino.EtapasCubiertasJson = origen.EtapasCubiertasJson;
+            destino.WarningsMigracionJson = origen.WarningsMigracionJson;
+            destino.TipoEcuacion = origen.TipoEcuacion;
+            destino.EcuacionBase = origen.EcuacionBase;
+            destino.Etapa = origen.Etapa;
+            destino.SubEtapa = origen.SubEtapa;
+            destino.Tokens = origen.Tokens;
+            destino.Variables = origen.Variables;
+            destino.CargosPermitidos = origen.CargosPermitidos;
+            destino.CargosParticipantesJson = origen.CargosParticipantesJson;
+            destino.Impacto = origen.Impacto;
+            destino.FormulaReferencia = origen.FormulaReferencia;
+            destino.Numerador = origen.Numerador;
+            destino.Denominador = origen.Denominador;
+            destino.Nota = origen.Nota;
+        }
+
+        private string CrearClaveNuevaEcuacionPipeline(string baseClave)
+        {
+            HashSet<string> claves = BibliotecaEcuacionesProductivasJsonService.CargarEcuaciones()
+                .Where(e => e != null)
+                .Select(e => e.Clave ?? "")
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            string clave = baseClave;
+            int i = 2;
+            while (claves.Contains(clave))
+            {
+                clave = baseClave + "_" + i.ToString("0");
+                i++;
+            }
+            return clave;
+        }
+
+        private int ContarUsosEcuacionPipeline(string clave)
+        {
+            if (string.IsNullOrWhiteSpace(clave))
+            {
+                return 0;
+            }
+
+            return BibliotecaProductos2DJsonService.CargarProductos()
+                .Where(p => p != null && p.Subproductos != null)
+                .SelectMany(p => p.Subproductos)
+                .Count(s => s != null &&
+                    (string.Equals(s.EquationKey, clave, StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(ExtraerClaveEcuacionPipeline(s.EcuacionProductiva), clave, StringComparison.OrdinalIgnoreCase)));
+        }
+
+        private Producto2DDefinicion ObtenerProductoNodoPipeline(DataGridView arbol)
+        {
+            return (arbol?.CurrentRow?.Tag as NodoPipelineProductoEditor)?.Producto;
+        }
+        private void DuplicarEcuacionPipelineParaFila(DataGridViewRow row, DataGridView gridSubproductos, DataGridView arbol)
+        {
+            EcuacionProductivaDefinicion origen = ObtenerEcuacionFilaPipeline(row);
+            if (origen == null)
+            {
+                MessageBox.Show(this, "No hay una ecuacion real seleccionada para duplicar.", "Duplicar ecuacion", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            EcuacionProductivaDefinicion copia = ClonarEcuacionPipeline(origen);
+            copia.Clave = CrearClaveNuevaEcuacionPipeline((string.IsNullOrWhiteSpace(origen.Clave) ? "ECUACION" : origen.Clave) + "_COPIA");
+            copia.IdProceso = "proc_" + copia.Clave.ToLowerInvariant();
+            copia.NombreVisible = string.IsNullOrWhiteSpace(origen.NombreVisible)
+                ? copia.Clave
+                : origen.NombreVisible + " copia";
+            copia.Nota = ((copia.Nota ?? "") + " Copia creada desde " + origen.Clave + ".").Trim();
+
+            List<EcuacionProductivaDefinicion> biblioteca = BibliotecaEcuacionesProductivasJsonService.CargarEcuaciones();
+            biblioteca.Add(copia);
+            BibliotecaEcuacionesProductivasJsonService.GuardarEcuaciones(biblioteca);
+
+            AsignarEcuacionPipelineAFila(row, copia);
+            Producto2DDefinicion producto = ObtenerProductoNodoPipeline(arbol);
+            if (producto != null)
+            {
+                RefrescarArbolPipelineProducto(producto, gridSubproductos, arbol);
+            }
+
+            MessageBox.Show(this, "Copia creada y asignada: " + copia.Clave, "Duplicar ecuacion", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        private void RecargarBibliotecaEcuacionesPipeline(DataGridViewRow row, Producto2DDefinicion producto, DataGridView gridSubproductos, DataGridView arbol)
+        {
+            ActualizarOpcionesEcuacionPipeline(row);
+            AplicarDetalleEcuacionPipeline(row, true);
+            if (producto != null)
+            {
+                RefrescarArbolPipelineProducto(producto, gridSubproductos, arbol);
+            }
+            MessageBox.Show(this, "Biblioteca recargada desde ecuaciones_productivas.json.", "Pipeline de producto", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+        private EcuacionProductivaDefinicion ObtenerEcuacionFilaPipeline(DataGridViewRow row)
+        {
+            if (row == null || row.IsNewRow)
+            {
+                return null;
+            }
+
+            string clave = row.DataGridView.Columns.Contains("EquationKey")
+                ? Convert.ToString(row.Cells["EquationKey"].Value) ?? ""
+                : "";
+            if (!string.IsNullOrWhiteSpace(clave))
+            {
+                EcuacionProductivaDefinicion porClave = BibliotecaEcuacionesProductivasJsonService.CargarEcuaciones()
+                    .FirstOrDefault(e => e != null &&
+                        (string.Equals(e.Clave, clave, StringComparison.OrdinalIgnoreCase) ||
+                         string.Equals(e.IdProceso, clave, StringComparison.OrdinalIgnoreCase)));
+                if (porClave != null)
+                {
+                    return porClave;
+                }
+            }
+
+            return ObtenerEcuacionPipelinePorTexto(Convert.ToString(row.Cells["EcuacionProductiva"].Value) ?? "");
+        }
+
+        private Control CrearVistaPreviaCalculoPipeline(DataGridViewRow row)
+        {
+            GroupBox grupo = new GroupBox();
+            grupo.Text = "Vista previa del calculo";
+            grupo.AutoSize = true;
+            grupo.Width = 320;
+            grupo.Margin = new Padding(0, 8, 0, 8);
+
+            EcuacionProductivaDefinicion ecuacion = ObtenerEcuacionFilaPipeline(row);
+            string texto;
+            if (ecuacion == null)
+            {
+                texto = "Ecuacion faltante. Selecciona una ecuacion real desde ecuaciones_productivas.json.";
+            }
+            else
+            {
+                texto =
+                    "Ecuacion: " + ObtenerTextoEcuacionPipeline(ecuacion) + Environment.NewLine +
+                    "Formula: " + (ecuacion.FormulaReferencia ?? "") + Environment.NewLine +
+                    "Variables: " + (ecuacion.Variables ?? "") + Environment.NewLine +
+                    "Metodo: " + ecuacion.MetodoCalculo.ToString() + Environment.NewLine +
+                    "Unidad/cantidad: se resuelve en DesgloseProductivoService + CalculoProductivoResolverService.";
+            }
+
+            Label label = CrearLabelInspectorPipeline(texto, false);
+            label.MaximumSize = new Size(300, 0);
+            grupo.Controls.Add(label);
+            return grupo;
+        }
+        private Label CrearLabelInspectorPipeline(string texto, bool titulo)
+        {
+            return new Label
+            {
+                Text = texto,
+                AutoSize = true,
+                MaximumSize = new Size(320, 0),
+                Font = new Font("Segoe UI", titulo ? 11f : 9f, titulo ? FontStyle.Bold : FontStyle.Regular),
+                ForeColor = titulo ? Color.FromArgb(30, 30, 30) : Color.FromArgb(70, 70, 70),
+                Margin = new Padding(0, 0, 0, titulo ? 10 : 8)
+            };
+        }
+
+        private void AgregarEditorTextoInspectorPipeline(TableLayoutPanel form, string etiqueta, DataGridViewRow row, string columna, Producto2DDefinicion producto, DataGridView gridSubproductos, DataGridView arbol)
+        {
+            Label lbl = CrearLabelInspectorPipeline(etiqueta, false);
+            TextBox txt = new TextBox { Width = 300, Text = Convert.ToString(row.Cells[columna].Value) ?? "", Margin = new Padding(0, 0, 0, 8) };
+            txt.Leave += (s, e) =>
+            {
+                if (inspectorPipelineCargando) return;
+                row.Cells[columna].Value = txt.Text;
+                if (columna == "SubEtapaSugerida" || columna == "EtapaSugerida")
+                {
+                    AutorrellenarCargosPipelineDesdeSubEtapa(row, false);
+                    LimpiarDetalleEcuacionPipeline(row);
+                    AutorrellenarEcuacionPipelineDesdeFila(row, true);
+                }
+                RefrescarArbolPipelineProducto(producto, gridSubproductos, arbol);
+            };
+            form.Controls.Add(lbl);
+            form.Controls.Add(txt);
+        }
+
+        private void AgregarEditorCheckInspectorPipeline(TableLayoutPanel form, string etiqueta, DataGridViewRow row, string columna, Producto2DDefinicion producto, DataGridView gridSubproductos, DataGridView arbol)
+        {
+            CheckBox chk = new CheckBox { Text = etiqueta, Checked = Convert.ToBoolean(row.Cells[columna].Value ?? true), AutoSize = true, Margin = new Padding(0, 0, 0, 8) };
+            chk.CheckedChanged += (s, e) =>
+            {
+                if (inspectorPipelineCargando) return;
+                row.Cells[columna].Value = chk.Checked;
+                RefrescarArbolPipelineProducto(producto, gridSubproductos, arbol);
+            };
+            form.Controls.Add(chk);
+        }
+
+        private void AgregarEditorComboInspectorPipeline(TableLayoutPanel form, string etiqueta, DataGridViewRow row, string columna, List<string> opciones, Producto2DDefinicion producto, DataGridView gridSubproductos, DataGridView arbol, bool permitirVacio = true)
+        {
+            Label lbl = CrearLabelInspectorPipeline(etiqueta, false);
+            ComboBox cmb = new ComboBox { Width = 300, DropDownStyle = ComboBoxStyle.DropDownList, Margin = new Padding(0, 0, 0, 8) };
+            if (permitirVacio)
+            {
+                cmb.Items.Add("");
+            }
+            foreach (string opcion in opciones.Where(o => !string.IsNullOrWhiteSpace(o)).Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                cmb.Items.Add(opcion);
+            }
+            string actual = Convert.ToString(row.Cells[columna].Value) ?? "";
+            if (!string.IsNullOrWhiteSpace(actual) && !cmb.Items.Contains(actual))
+            {
+                cmb.Items.Add(actual);
+            }
+            if (cmb.Items.Contains(actual))
+            {
+                cmb.SelectedItem = actual;
+            }
+            else if (cmb.Items.Count > 0)
+            {
+                cmb.SelectedIndex = 0;
+            }
+            cmb.SelectedIndexChanged += (s, e) =>
+            {
+                if (inspectorPipelineCargando) return;
+                row.Cells[columna].Value = Convert.ToString(cmb.SelectedItem) ?? "";
+                if (columna == "EcuacionProductiva")
+                {
+                    AplicarDetalleEcuacionPipeline(row, true);
+                }
+                if (columna == "SubEtapaSugerida" || columna == "EtapaSugerida")
+                {
+                    AutorrellenarCargosPipelineDesdeSubEtapa(row, false);
+                    LimpiarDetalleEcuacionPipeline(row);
+                    AutorrellenarEcuacionPipelineDesdeFila(row, true);
+                }
+                RefrescarArbolPipelineProducto(producto, gridSubproductos, arbol);
+            };
+            form.Controls.Add(lbl);
+            form.Controls.Add(cmb);
+        }
+
+        private string ObtenerAyudaComportamientoSubproductoPipeline(Subproducto2D subproducto)
+        {
+            string valor = string.IsNullOrWhiteSpace(subproducto?.TipoComportamientoCalculo)
+                ? "Suma de procesos"
+                : subproducto.TipoComportamientoCalculo;
+
+            if (valor == "Calculo propio")
+            {
+                return "Usa una ecuacion propia del subproducto. Solo conviene cuando el subproducto completo se calcula como una sola unidad.";
+            }
+
+            if (valor == "Multiplicador")
+            {
+                return "Multiplica el resultado de sus procesos hijos por una cantidad o factor del subproducto.";
+            }
+
+            if (valor == "Overhead")
+            {
+                return "Agrega una carga extra sobre procesos existentes, sin reemplazar el detalle operativo.";
+            }
+
+            if (valor == "Agrupador sin calculo")
+            {
+                return "Agrupa procesos para ordenar el pipeline, pero no suma horas ni costos propios.";
+            }
+
+            return "Suma horas y costos de los procesos hijos. Este es el comportamiento normal para piezas como Rough animation, Clean up o Color.";
+        }
+
+        private Control CrearBotonAgregarProcesoInspectorPipeline(
+            DataGridViewRow filaSubproducto,
+            Subproducto2D subproducto,
+            Producto2DDefinicion producto,
+            DataGridView gridSubproductos,
+            DataGridView arbol,
+            Panel inspector
+        )
+        {
+            Button boton = new Button();
+            string nombre = string.IsNullOrWhiteSpace(subproducto?.Nombre) ? "este subproducto" : subproducto.Nombre;
+            boton.Text = "+ Agregar proceso a " + nombre;
+            boton.Width = 300;
+            boton.Height = 32;
+            boton.Margin = new Padding(0, 0, 0, 8);
+            boton.FlatStyle = FlatStyle.Flat;
+            boton.BackColor = Color.FromArgb(225, 242, 255);
+            boton.UseVisualStyleBackColor = false;
+            boton.Click += (s, e) =>
+            {
+                AgregarProcesoASubproductoPipeline(filaSubproducto, producto, gridSubproductos, arbol, inspector);
+            };
+            return boton;
+        }
+
+        private void AgregarProcesoASubproductoPipeline(
+            DataGridViewRow filaPadre,
+            Producto2DDefinicion producto,
+            DataGridView gridSubproductos,
+            DataGridView arbol,
+            Panel inspector
+        )
+        {
+            if (filaPadre == null)
+            {
+                MessageBox.Show(this, "Selecciona un subproducto para agregarle un proceso.", "Pipeline de producto", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            Subproducto2D subproducto = ObtenerSubproductoModeloFilaPipeline(filaPadre);
+            if (subproducto == null)
+            {
+                return;
+            }
+
+            string etapa = string.IsNullOrWhiteSpace(subproducto.EtapaSugerida)
+                ? ObtenerOpcionesEtapasPipeline().FirstOrDefault() ?? "Produccion"
+                : subproducto.EtapaSugerida;
+            List<string> subetapas = ObtenerOpcionesSubEtapasPipeline(etapa);
+            ProcesoProductivo2D proceso = new ProcesoProductivo2D
+            {
+                Id = AsegurarIdPipeline("", "proc"),
+                ParentSubproductId = subproducto.Id,
+                Orden = (subproducto.Procesos ?? new List<ProcesoProductivo2D>()).Count == 0
+                    ? 10
+                    : subproducto.Procesos.Where(p => p != null).Max(p => p.Orden) + 10,
+                Nombre = "Nuevo proceso",
+                Activo = true,
+                EtapaProductiva = etapa,
+                SubEtapa = subetapas.FirstOrDefault() ?? "",
+                ModoCalculoProductivo = ModosCalculoProductivo.Rendimiento,
+                Cantidad = 1.0,
+                Unidad = string.IsNullOrWhiteSpace(subproducto.Unidad) ? ObtenerUnidadComercialPipeline(producto) : subproducto.Unidad
+            };
+
+            subproducto.Procesos = subproducto.Procesos ?? new List<ProcesoProductivo2D>();
+            subproducto.Procesos.Add(proceso);
+            claveNodoPipelineActivo = "Proceso|" + Convert.ToString(filaPadre.Cells["Orden"].Value) + "|" + subproducto.Nombre + "|" + proceso.Id;
+            RefrescarArbolPipelineProducto(producto, gridSubproductos, arbol);
+            ConstruirInspectorPipelineProducto(arbol.CurrentRow?.Tag as NodoPipelineProductoEditor, producto, gridSubproductos, arbol, inspector);
+        }
+        private void AgregarEditorComboSubproductoModeloPipeline(TableLayoutPanel form, string etiqueta, Subproducto2D subproducto, List<string> opciones, Producto2DDefinicion producto, DataGridView gridSubproductos, DataGridView arbol)
+        {
+            Label lbl = CrearLabelInspectorPipeline(etiqueta, false);
+            ComboBox cmb = new ComboBox { Width = 300, DropDownStyle = ComboBoxStyle.DropDownList, Margin = new Padding(0, 0, 0, 8) };
+            foreach (string opcion in opciones.Where(o => !string.IsNullOrWhiteSpace(o)).Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                cmb.Items.Add(opcion);
+            }
+            string actual = string.IsNullOrWhiteSpace(subproducto?.TipoComportamientoCalculo) ? "Suma de procesos" : subproducto.TipoComportamientoCalculo;
+            if (!cmb.Items.Contains(actual)) cmb.Items.Add(actual);
+            cmb.SelectedItem = actual;
+            cmb.SelectedIndexChanged += (s, e) =>
+            {
+                if (inspectorPipelineCargando || subproducto == null) return;
+                subproducto.TipoComportamientoCalculo = Convert.ToString(cmb.SelectedItem) ?? "Suma de procesos";
+                RefrescarArbolPipelineProducto(producto, gridSubproductos, arbol);
+            };
+            form.Controls.Add(lbl);
+            form.Controls.Add(cmb);
+        }
+
+        private Control CrearResumenProcesosSubproductoPipeline(Subproducto2D subproducto)
+        {
+            ListBox lista = new ListBox { Width = 300, Height = 86, Margin = new Padding(0, 0, 0, 8) };
+            foreach (ProcesoProductivo2D proceso in (subproducto?.Procesos ?? new List<ProcesoProductivo2D>()).Where(p => p != null).OrderBy(p => p.Orden))
+            {
+                lista.Items.Add((proceso.Activo ? "" : "[Inactivo] ") + proceso.Orden.ToString("0") + " - " + (string.IsNullOrWhiteSpace(proceso.Nombre) ? proceso.SubEtapa : proceso.Nombre));
+            }
+            if (lista.Items.Count == 0)
+            {
+                lista.Items.Add("Sin procesos. Usa Agregar proceso.");
+            }
+            return lista;
+        }
+
+        private void AgregarEditorTextoProcesoPipeline(TableLayoutPanel form, string etiqueta, ProcesoProductivo2D proceso, string propiedad, DataGridViewRow row, Producto2DDefinicion producto, DataGridView gridSubproductos, DataGridView arbol)
+        {
+            Label lbl = CrearLabelInspectorPipeline(etiqueta, false);
+            TextBox txt = new TextBox { Width = 300, Text = ObtenerValorProcesoPipeline(proceso, propiedad), Margin = new Padding(0, 0, 0, 8) };
+            txt.Leave += (s, e) =>
+            {
+                if (inspectorPipelineCargando) return;
+                AsignarValorProcesoPipeline(proceso, propiedad, txt.Text);
+                SincronizarProcesoPrincipalAFilaPipeline(row, proceso);
+                RefrescarArbolPipelineProducto(producto, gridSubproductos, arbol);
+            };
+            form.Controls.Add(lbl);
+            form.Controls.Add(txt);
+        }
+
+        private void AgregarEditorCheckProcesoPipeline(TableLayoutPanel form, string etiqueta, ProcesoProductivo2D proceso, DataGridViewRow row, Producto2DDefinicion producto, DataGridView gridSubproductos, DataGridView arbol)
+        {
+            CheckBox chk = new CheckBox { Text = etiqueta, Checked = proceso == null || proceso.Activo, AutoSize = true, Margin = new Padding(0, 0, 0, 8) };
+            chk.CheckedChanged += (s, e) =>
+            {
+                if (inspectorPipelineCargando || proceso == null) return;
+                proceso.Activo = chk.Checked;
+                SincronizarProcesoPrincipalAFilaPipeline(row, proceso);
+                RefrescarArbolPipelineProducto(producto, gridSubproductos, arbol);
+            };
+            form.Controls.Add(chk);
+        }
+
+        private void AgregarEditorComboProcesoPipeline(TableLayoutPanel form, string etiqueta, ProcesoProductivo2D proceso, string propiedad, List<string> opciones, DataGridViewRow row, Producto2DDefinicion producto, DataGridView gridSubproductos, DataGridView arbol, bool permitirVacio)
+        {
+            Label lbl = CrearLabelInspectorPipeline(etiqueta, false);
+            ComboBox cmb = new ComboBox { Width = 300, DropDownStyle = ComboBoxStyle.DropDownList, Margin = new Padding(0, 0, 0, 8) };
+            if (permitirVacio) cmb.Items.Add("");
+            foreach (string opcion in opciones.Where(o => !string.IsNullOrWhiteSpace(o)).Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                cmb.Items.Add(opcion);
+            }
+            string actual = ObtenerValorProcesoPipeline(proceso, propiedad);
+            if (!string.IsNullOrWhiteSpace(actual) && !cmb.Items.Contains(actual)) cmb.Items.Add(actual);
+            if (cmb.Items.Contains(actual)) cmb.SelectedItem = actual;
+            else if (cmb.Items.Count > 0) cmb.SelectedIndex = 0;
+            cmb.SelectedIndexChanged += (s, e) =>
+            {
+                if (inspectorPipelineCargando || proceso == null) return;
+                AsignarValorProcesoPipeline(proceso, propiedad, Convert.ToString(cmb.SelectedItem) ?? "");
+                if (propiedad == "EtapaProductiva")
+                {
+                    List<string> subetapas = ObtenerOpcionesSubEtapasPipeline(proceso.EtapaProductiva);
+                    if (!subetapas.Contains(proceso.SubEtapa)) proceso.SubEtapa = subetapas.FirstOrDefault() ?? "";
+                }
+                if (propiedad == "EcuacionProductiva")
+                {
+                    EcuacionProductivaDefinicion ecuacion = ObtenerEcuacionProcesoPipeline(proceso);
+                    if (ecuacion != null)
+                    {
+                        proceso.EquationKey = ecuacion.Clave ?? "";
+                        proceso.VariablesEcuacion = ecuacion.Variables ?? "";
+                        proceso.ImpactoEcuacion = ecuacion.Impacto ?? "";
+                        if (string.IsNullOrWhiteSpace(proceso.CargosSugeridos)) proceso.CargosSugeridos = ecuacion.CargosPermitidos ?? "";
+                    }
+                }
+                SincronizarProcesoPrincipalAFilaPipeline(row, proceso);
+                RefrescarArbolPipelineProducto(producto, gridSubproductos, arbol);
+            };
+            form.Controls.Add(lbl);
+            form.Controls.Add(cmb);
+        }
+
+        private string ObtenerValorProcesoPipeline(ProcesoProductivo2D proceso, string propiedad)
+        {
+            if (proceso == null) return "";
+            switch (propiedad)
+            {
+                case "Nombre": return proceso.Nombre ?? "";
+                case "Orden": return proceso.Orden.ToString("0");
+                case "EtapaProductiva": return proceso.EtapaProductiva ?? "";
+                case "SubEtapa": return proceso.SubEtapa ?? "";
+                case "EcuacionProductiva": return proceso.EcuacionProductiva ?? "";
+                case "ModoCalculoProductivo": return proceso.ModoCalculoProductivo ?? "";
+                case "Cantidad": return proceso.Cantidad.ToString("0.##");
+                case "Unidad": return proceso.Unidad ?? "";
+                case "HorasAsignadasStd": return proceso.HorasAsignadasStd.ToString("0.##");
+                case "DependencyId": return proceso.DependencyId ?? "";
+                case "CargosSugeridos": return proceso.CargosSugeridos ?? "";
+                default: return "";
+            }
+        }
+
+        private void AsignarValorProcesoPipeline(ProcesoProductivo2D proceso, string propiedad, string valor)
+        {
+            if (proceso == null) return;
+            switch (propiedad)
+            {
+                case "Nombre": proceso.Nombre = valor ?? ""; break;
+                case "Orden": proceso.Orden = ParsearEnteroPipeline(valor, proceso.Orden); break;
+                case "EtapaProductiva": proceso.EtapaProductiva = valor ?? ""; break;
+                case "SubEtapa": proceso.SubEtapa = valor ?? ""; break;
+                case "EcuacionProductiva": proceso.EcuacionProductiva = valor ?? ""; break;
+                case "ModoCalculoProductivo": proceso.ModoCalculoProductivo = valor ?? ""; break;
+                case "Cantidad": proceso.Cantidad = Math.Max(0.0, ParsearDoublePipeline(valor)); break;
+                case "Unidad": proceso.Unidad = valor ?? ""; break;
+                case "HorasAsignadasStd": proceso.HorasAsignadasStd = Math.Max(0.0, ParsearDoublePipeline(valor)); break;
+                case "DependencyId": proceso.DependencyId = valor == "Sin dependencia" ? "" : valor ?? ""; break;
+                case "CargosSugeridos": proceso.CargosSugeridos = valor ?? ""; break;
+            }
+        }
+
+        private void SincronizarProcesoPrincipalAFilaPipeline(DataGridViewRow row, ProcesoProductivo2D proceso)
+        {
+            Subproducto2D subproducto = row?.Tag as Subproducto2D;
+            if (row == null || proceso == null || subproducto?.Procesos == null)
+            {
+                return;
+            }
+
+            ProcesoProductivo2D principal = subproducto.Procesos.Where(p => p != null).OrderBy(p => p.Orden).FirstOrDefault();
+            if (!ReferenceEquals(principal, proceso))
+            {
+                return;
+            }
+
+            row.Cells["SubEtapaSugerida"].Value = proceso.SubEtapa ?? "";
+            row.Cells["EtapaSugerida"].Value = proceso.EtapaProductiva ?? "";
+            row.Cells["EquationKey"].Value = proceso.EquationKey ?? "";
+            row.Cells["EcuacionProductiva"].Value = proceso.EcuacionProductiva ?? "";
+            row.Cells["ModoCalculoProductivo"].Value = proceso.ModoCalculoProductivo ?? "";
+            row.Cells["HorasAsignadasStd"].Value = proceso.HorasAsignadasStd.ToString("0.##");
+            row.Cells["CargosSugeridos"].Value = proceso.CargosSugeridos ?? "";
+            row.Cells["VariablesEcuacion"].Value = proceso.VariablesEcuacion ?? "";
+            row.Cells["ImpactoEcuacion"].Value = proceso.ImpactoEcuacion ?? "";
+            row.Cells["DependeDe"].Value = proceso.DependencyId ?? "";
+        }
+
+        private string ObtenerEstadoProcesoPipelineEditor(ProcesoProductivo2D proceso)
+        {
+            if (proceso == null) return "Sin proceso";
+            if (!proceso.Activo) return "Inactivo";
+            if (string.IsNullOrWhiteSpace(proceso.EtapaProductiva)) return "Falta etapa";
+            if (string.IsNullOrWhiteSpace(proceso.SubEtapa)) return "Falta subetapa";
+            if (string.IsNullOrWhiteSpace(proceso.EcuacionProductiva) && string.IsNullOrWhiteSpace(proceso.EquationKey)) return "Falta ecuacion";
+            if (string.IsNullOrWhiteSpace(proceso.CargosSugeridos)) return "Sin cargo asociado";
+            return "Configurado";
+        }
+
+        private Control CrearVistaPreviaCalculoProcesoPipeline(ProcesoProductivo2D proceso)
+        {
+            GroupBox grupo = new GroupBox { Text = "Vista previa del calculo", AutoSize = true, Width = 320, Margin = new Padding(0, 8, 0, 8) };
+            EcuacionProductivaDefinicion ecuacion = ObtenerEcuacionProcesoPipeline(proceso);
+            string texto = ecuacion == null
+                ? "Ecuacion faltante. Selecciona una ecuacion real desde ecuaciones_productivas.json."
+                : "Ecuacion: " + ObtenerTextoEcuacionPipeline(ecuacion) + Environment.NewLine +
+                  "Formula: " + (ecuacion.FormulaReferencia ?? "") + Environment.NewLine +
+                  "Variables: " + (ecuacion.Variables ?? "") + Environment.NewLine +
+                  "Metodo: " + ecuacion.MetodoCalculo.ToString() + Environment.NewLine +
+                  "Unidad/cantidad: se resuelve en DesgloseProductivoService + CalculoProductivoResolverService.";
+            Label label = CrearLabelInspectorPipeline(texto, false);
+            label.MaximumSize = new Size(300, 0);
+            grupo.Controls.Add(label);
+            return grupo;
+        }
+        private List<string> ObtenerOpcionesEtapasPipeline()
+        {
+            List<string> baseValida = new List<string> { "Desarrollo", "Preproduccion", "Produccion", "Postproduccion" };
+            if (bibliotecaEtapas == null || bibliotecaEtapas.Count == 0)
+            {
+                return baseValida;
+            }
+
+            List<string> opciones = bibliotecaEtapas
+                .OrderBy(e => e.Orden)
+                .Select(e => e.Clave)
+                .Where(e => baseValida.Contains(e, StringComparer.OrdinalIgnoreCase))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            return opciones.Count == 0 ? baseValida : opciones;
+        }
+
+        private List<string> ObtenerOpcionesEcuacionesPipeline()
+        {
+            return BibliotecaEcuacionesProductivasJsonService.CargarEcuaciones()
+                .Where(e => e != null && e.Activa)
+                .OrderBy(e => e.NombreVisible)
+                .Select(ObtenerTextoEcuacionPipeline)
+                .ToList();
+        }
+
+        private List<string> ObtenerOpcionesDependenciasPipeline(DataGridView grid, DataGridViewRow actual)
+        {
+            List<string> opciones = new List<string> { "Sin dependencia" };
+            foreach (DataGridViewRow row in grid.Rows)
+            {
+                if (row == null || row.IsNewRow || ReferenceEquals(row, actual))
+                {
+                    continue;
+                }
+                string nombre = Convert.ToString(row.Cells["Nombre"].Value) ?? "";
+                if (!string.IsNullOrWhiteSpace(nombre))
+                {
+                    opciones.Add(nombre);
+                }
+            }
+            return opciones;
+        }
+
+        private List<EcuacionProductivaDefinicion> ObtenerProcesosVisualesPipeline(DataGridViewRow row)
+        {
+            List<EcuacionProductivaDefinicion> ecuaciones = BibliotecaEcuacionesProductivasJsonService.CargarEcuaciones();
+            EcuacionProductivaDefinicion principal = ObtenerEcuacionPipelinePorTexto(Convert.ToString(row.Cells["EcuacionProductiva"].Value) ?? "");
+            if (principal == null)
+            {
+                return new List<EcuacionProductivaDefinicion>();
+            }
+            List<EcuacionProductivaDefinicion> resultado = new List<EcuacionProductivaDefinicion> { principal };
+            resultado.AddRange(ecuaciones.Where(e => e != null && e.Activa && string.Equals(e.EcuacionBase, principal.Clave, StringComparison.OrdinalIgnoreCase)));
+            return resultado;
+        }
+
+        private EcuacionProductivaDefinicion ObtenerEcuacionProcesoPipeline(ProcesoProductivo2D proceso)
+        {
+            if (proceso == null)
+            {
+                return null;
+            }
+
+            List<EcuacionProductivaDefinicion> ecuaciones = BibliotecaEcuacionesProductivasJsonService.CargarEcuaciones();
+            if (!string.IsNullOrWhiteSpace(proceso.EquationKey))
+            {
+                EcuacionProductivaDefinicion porClave = ecuaciones.FirstOrDefault(e => e != null &&
+                    (string.Equals(e.Clave, proceso.EquationKey, StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(e.IdProceso, proceso.EquationKey, StringComparison.OrdinalIgnoreCase)));
+                if (porClave != null)
+                {
+                    return porClave;
+                }
+            }
+
+            return ObtenerEcuacionPipelinePorTexto(proceso.EcuacionProductiva ?? "");
+        }
+        private string ObtenerCargoResumenEcuacionPipeline(EcuacionProductivaDefinicion ecuacion, DataGridViewRow row)
+        {
+            string cargos = string.IsNullOrWhiteSpace(ecuacion?.CargosPermitidos)
+                ? Convert.ToString(row.Cells["CargosSugeridos"].Value) ?? ""
+                : ecuacion.CargosPermitidos;
+            return cargos;
+        }
+
+        private string ObtenerEstadoSubproductoPipelineEditor(DataGridViewRow row)
+        {
+            if (!Convert.ToBoolean(row.Cells["RequeridoPorDefecto"].Value ?? true))
+            {
+                return "Desactivado";
+            }
+            if (string.IsNullOrWhiteSpace(Convert.ToString(row.Cells["Nombre"].Value)))
+            {
+                return "Incompleto";
+            }
+            if (string.IsNullOrWhiteSpace(Convert.ToString(row.Cells["EcuacionProductiva"].Value)))
+            {
+                return "Sin ecuacion";
+            }
+            if (string.IsNullOrWhiteSpace(Convert.ToString(row.Cells["CargosSugeridos"].Value)))
+            {
+                return "Sin cargo asociado";
+            }
+            return "Configurado";
+        }
+
+        private List<string> ValidarPipelineJerarquico(DataGridView grid)
+        {
+            List<string> errores = new List<string>();
+            HashSet<string> nombres = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (DataGridViewRow row in grid.Rows)
+            {
+                if (row == null || row.IsNewRow)
+                {
+                    continue;
+                }
+                string nombre = Convert.ToString(row.Cells["Nombre"].Value) ?? "";
+                if (string.IsNullOrWhiteSpace(nombre))
+                {
+                    errores.Add("Hay un subproducto sin nombre.");
+                }
+                else if (!nombres.Add(nombre))
+                {
+                    errores.Add("Nombre duplicado: " + nombre);
+                }
+                string dependencia = Convert.ToString(row.Cells["DependeDe"].Value) ?? "";
+                if (!string.IsNullOrWhiteSpace(dependencia) && !string.Equals(dependencia, "Sin dependencia", StringComparison.OrdinalIgnoreCase) && string.Equals(dependencia, nombre, StringComparison.OrdinalIgnoreCase))
+                {
+                    errores.Add(nombre + ": no puede depender de si mismo.");
+                }
+                if (ParsearDoublePipeline(row.Cells["HorasAsignadasStd"].Value) < 0)
+                {
+                    errores.Add(nombre + ": horas negativas.");
+                }
+            }
+            return errores;
+        }
+
+        private int ObtenerSiguienteOrdenPipeline(DataGridView grid)
+        {
+            int max = 0;
+            foreach (DataGridViewRow row in grid.Rows)
+            {
+                if (row != null && !row.IsNewRow)
+                {
+                    max = Math.Max(max, ParsearEnteroPipeline(row.Cells["Orden"].Value, 0));
+                }
+            }
+            return max + 10;
+        }
+
+        private void MoverSubproductoPipelineSeleccionado(DataGridView gridSubproductos, DataGridView arbol, int delta, Producto2DDefinicion producto)
+        {
+            NodoPipelineProductoEditor nodo = arbol.CurrentRow?.Tag as NodoPipelineProductoEditor;
+            DataGridViewRow row = nodo?.FilaSubproducto;
+            if (row == null)
+            {
+                return;
+            }
+            int orden = ParsearEnteroPipeline(row.Cells["Orden"].Value, 0);
+            row.Cells["Orden"].Value = Math.Max(0, orden + delta * 10);
+            RefrescarArbolPipelineProducto(producto, gridSubproductos, arbol);
+        }
+
+        private int ParsearEnteroPipeline(object valor, int fallback)
+        {
+            return int.TryParse(Convert.ToString(valor), out int resultado) ? resultado : fallback;
+        }
+
+        private double ParsearDoublePipeline(object valor)
+        {
+            return double.TryParse(Convert.ToString(valor), out double resultado) ? resultado : 0.0;
+        }
+
+        private string ObtenerUnidadComercialPipeline(Producto2DDefinicion producto)
+        {
+            if (producto == null)
+            {
+                return "";
+            }
+            if (!string.IsNullOrWhiteSpace(producto.UnidadComercialPrincipal))
+            {
+                return producto.UnidadComercialPrincipal;
+            }
+            if (!string.IsNullOrWhiteSpace(producto.UnidadDuracionSugerida) &&
+                !string.Equals(producto.UnidadDuracionSugerida, "no aplica", StringComparison.OrdinalIgnoreCase))
+            {
+                return producto.UnidadDuracionSugerida;
+            }
+            return string.IsNullOrWhiteSpace(producto.UnidadCantidadSugerida)
+                ? "unidad"
+                : producto.UnidadCantidadSugerida;
+        }
+
         private DataGridView CrearGrillaSubproductosProducto(Producto2DDefinicion producto)
         {
             DataGridView grid = new DataGridView();
@@ -4101,6 +6249,22 @@ namespace Cotizador_animacion_Othalart
             grid.BackgroundColor = Color.White;
             grid.BorderStyle = BorderStyle.FixedSingle;
             grid.GridColor = Color.FromArgb(210, 210, 210);
+
+            grid.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "Mover",
+                HeaderText = "",
+                Width = 34,
+                ReadOnly = true,
+                Frozen = true,
+                ToolTipText = "Arrastra desde aquí para cambiar el orden",
+                DefaultCellStyle = new DataGridViewCellStyle
+                {
+                    NullValue = "\u2195",
+                    Alignment = DataGridViewContentAlignment.MiddleCenter,
+                    Font = new Font("Segoe UI Symbol", 11.0f, FontStyle.Bold)
+                }
+            });
 
             grid.Columns.Add(new DataGridViewCheckBoxColumn
             {
@@ -4181,6 +6345,44 @@ namespace Cotizador_animacion_Othalart
             }
 
             grid.Columns.Add(colEcuacion);
+
+            DataGridViewComboBoxColumn colModoCalculo = new DataGridViewComboBoxColumn();
+            colModoCalculo.Name = "ModoCalculoProductivo";
+            colModoCalculo.HeaderText = "Modo cálculo";
+            colModoCalculo.Width = 135;
+            colModoCalculo.FlatStyle = FlatStyle.Flat;
+            colModoCalculo.Items.Add(ModosCalculoProductivo.Rendimiento);
+            colModoCalculo.Items.Add(ModosCalculoProductivo.TiempoAsignado);
+            grid.Columns.Add(colModoCalculo);
+
+            grid.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "HorasAsignadasMin",
+                HeaderText = "Horas mín.",
+                Width = 85
+            });
+
+            grid.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "HorasAsignadasStd",
+                HeaderText = "Horas std.",
+                Width = 85
+            });
+
+            grid.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "HorasAsignadasHolgura",
+                HeaderText = "Horas holg.",
+                Width = 90
+            });
+
+            grid.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "EquationKey",
+                HeaderText = "EquationKey",
+                Width = 120,
+                Visible = false
+            });
 
             grid.Columns.Add(new DataGridViewTextBoxColumn
             {
@@ -4274,6 +6476,10 @@ namespace Cotizador_animacion_Othalart
                 );
                 int rowIndex = grid.Rows.Add();
                 DataGridViewRow row = grid.Rows[rowIndex];
+                row.Tag = ClonarSubproductoPipeline(subproducto);
+                row.Cells["Mover"].Value = "\u2195";
+                row.Cells["Mover"].Style.Alignment = DataGridViewContentAlignment.MiddleCenter;
+                row.Cells["Mover"].Style.Font = new Font("Segoe UI Symbol", 11.0f, FontStyle.Bold);
 
                 string etapa = subproducto.EtapaSugerida ?? "";
 
@@ -4282,7 +6488,8 @@ namespace Cotizador_animacion_Othalart
                     colEtapa.Items.Add(etapa);
                 }
 
-                row.Cells["RequeridoPorDefecto"].Value = subproducto.RequeridoPorDefecto;
+                row.Cells["RequeridoPorDefecto"].Value =
+                    ObtenerUsarSubproductoPipelineDesdeProyecto(subproducto);
                 row.Cells["Orden"].Value = subproducto.Orden <= 0 ? ordenFallback : subproducto.Orden;
                 row.Cells["Categoria"].Value = string.IsNullOrWhiteSpace(subproducto.Categoria)
                     ? ObtenerNombreVisibleEtapa(etapa)
@@ -4315,7 +6522,16 @@ namespace Cotizador_animacion_Othalart
                     colEcuacion.Items.Add(ecuacionTexto);
                 }
 
+                row.Cells["EquationKey"].Value = ResolverClaveEcuacionPipeline(subproducto.EquationKey, ecuacionTexto);
                 row.Cells["EcuacionProductiva"].Value = ecuacionTexto;
+                row.Cells["ModoCalculoProductivo"].Value =
+                    ModosCalculoProductivo.Normalizar(subproducto.ModoCalculoProductivo);
+                row.Cells["HorasAsignadasMin"].Value =
+                    FormatearNumeroCompacto(subproducto.HorasAsignadasMin);
+                row.Cells["HorasAsignadasStd"].Value =
+                    FormatearNumeroCompacto(subproducto.HorasAsignadasStd);
+                row.Cells["HorasAsignadasHolgura"].Value =
+                    FormatearNumeroCompacto(subproducto.HorasAsignadasHolgura);
                 row.Cells["VariablesEcuacion"].Value = subproducto.VariablesEcuacion;
                 row.Cells["ImpactoEcuacion"].Value = subproducto.ImpactoEcuacion;
                 row.Cells["DependeDe"].Value = subproducto.DependeDe;
@@ -4396,6 +6612,13 @@ namespace Cotizador_animacion_Othalart
             grid.CellMouseLeave += DgvRecetaProducto_CellMouseLeave;
             grid.CellToolTipTextNeeded -= DgvRecetaProducto_CellToolTipTextNeeded;
             grid.CellToolTipTextNeeded += DgvRecetaProducto_CellToolTipTextNeeded;
+
+            foreach (DataGridViewColumn column in grid.Columns)
+            {
+                column.SortMode = DataGridViewColumnSortMode.NotSortable;
+            }
+
+            ConfigurarArrastreFilasPipeline(grid);
 
             return grid;
         }
@@ -5319,6 +7542,22 @@ namespace Cotizador_animacion_Othalart
             return resultado;
         }
 
+        private string ResolverClaveEcuacionPipeline(string clavePreferida, string textoVisible)
+        {
+            if (!string.IsNullOrWhiteSpace(clavePreferida))
+            {
+                return clavePreferida.Trim();
+            }
+
+            EcuacionProductivaDefinicion ecuacion = ObtenerEcuacionPipelinePorTexto(textoVisible);
+            if (ecuacion != null && !string.IsNullOrWhiteSpace(ecuacion.Clave))
+            {
+                return ecuacion.Clave.Trim();
+            }
+
+            return ExtraerClaveEcuacionPipeline(textoVisible);
+        }
+
         private EcuacionProductivaDefinicion ObtenerEcuacionPipelinePorTexto(string texto)
         {
             if (string.IsNullOrWhiteSpace(texto))
@@ -5326,13 +7565,17 @@ namespace Cotizador_animacion_Othalart
                 return null;
             }
 
+            string clave = ExtraerClaveEcuacionPipeline(texto);
             string normalizado = NormalizarTextoDatosVisual(texto);
+            string claveNormalizada = NormalizarTextoDatosVisual(clave);
 
             return BibliotecaEcuacionesProductivasJsonService.CargarEcuaciones()
                 .FirstOrDefault(e =>
                     e != null &&
                     (
-                        NormalizarTextoDatosVisual(e.Clave) == normalizado ||
+                        NormalizarTextoDatosVisual(e.Clave) == claveNormalizada ||
+                        NormalizarTextoDatosVisual(e.IdProceso) == claveNormalizada ||
+                        NormalizarTextoDatosVisual(e.FormulaId) == claveNormalizada ||
                         NormalizarTextoDatosVisual(e.NombreVisible) == normalizado ||
                         NormalizarTextoDatosVisual(ObtenerTextoEcuacionPipeline(e)) == normalizado
                     )
@@ -5393,6 +7636,7 @@ namespace Cotizador_animacion_Othalart
             if (sobrescribir || string.IsNullOrWhiteSpace(ecuacionActual))
             {
                 row.Cells["EcuacionProductiva"].Value = texto;
+                row.Cells["EquationKey"].Value = ecuacion.Clave ?? "";
             }
 
             if (sobrescribir || string.IsNullOrWhiteSpace(variablesActuales))
@@ -5418,6 +7662,11 @@ namespace Cotizador_animacion_Othalart
                 row.Cells["EcuacionProductiva"].Value = "";
             }
 
+            if (row.DataGridView.Columns.Contains("EquationKey"))
+            {
+                row.Cells["EquationKey"].Value = "";
+            }
+
             if (row.DataGridView.Columns.Contains("VariablesEcuacion"))
             {
                 row.Cells["VariablesEcuacion"].Value = "";
@@ -5436,13 +7685,21 @@ namespace Cotizador_animacion_Othalart
                 return;
             }
 
-            EcuacionProductivaDefinicion ecuacion = ObtenerEcuacionPipelinePorTexto(
-                Convert.ToString(row.Cells["EcuacionProductiva"].Value) ?? ""
-            );
+            EcuacionProductivaDefinicion ecuacion = ObtenerEcuacionFilaPipeline(row);
 
             if (ecuacion == null)
             {
                 return;
+            }
+
+            if (row.DataGridView.Columns.Contains("EquationKey"))
+            {
+                row.Cells["EquationKey"].Value = ecuacion.Clave ?? "";
+            }
+
+            if (row.DataGridView.Columns.Contains("EcuacionProductiva"))
+            {
+                row.Cells["EcuacionProductiva"].Value = ObtenerTextoEcuacionPipeline(ecuacion);
             }
 
             if (sobrescribir || string.IsNullOrWhiteSpace(Convert.ToString(row.Cells["VariablesEcuacion"].Value)))
@@ -5813,13 +8070,22 @@ namespace Cotizador_animacion_Othalart
 
         private List<string> ObtenerOpcionesSubEtapasPipeline()
         {
+            return ObtenerOpcionesSubEtapasPipeline("");
+        }
+
+        private List<string> ObtenerOpcionesSubEtapasPipeline(string etapaProductiva)
+        {
             if (bibliotecaSubEtapas == null || bibliotecaSubEtapas.Count == 0)
             {
                 bibliotecaSubEtapas = BibliotecaSubEtapasJsonService.CargarSubEtapas();
             }
 
+            string etapaNormalizada = NormalizarTextoDatosVisual(etapaProductiva ?? "");
+
             return (bibliotecaSubEtapas ?? new List<SubEtapaProyecto>())
                 .Where(s => s != null && !string.IsNullOrWhiteSpace(s.Nombre))
+                .Where(s => string.IsNullOrWhiteSpace(etapaNormalizada) ||
+                    NormalizarTextoDatosVisual(s.EtapaPadre ?? "") == etapaNormalizada)
                 .OrderBy(s => ObtenerOrdenEtapaGeneral(s.EtapaPadre))
                 .ThenBy(s => s.Orden)
                 .ThenBy(s => s.Nombre)
@@ -5921,8 +8187,15 @@ namespace Cotizador_animacion_Othalart
         )
         {
             ConfirmarEdicionGrillaPipeline(gridSubproductos);
+            NormalizarOrdenFilasPipeline(gridSubproductos);
 
-            productoEditado.Subproductos = LeerSubproductosProductoDesdeGrilla(gridSubproductos);
+            Dictionary<string, bool> usosProyecto =
+                LeerUsosProyectoDesdeGrillaPipeline(gridSubproductos);
+
+            productoEditado.Subproductos = LeerSubproductosProductoDesdeGrilla(
+                gridSubproductos,
+                false
+            );
             productoEditado.Etapas = ObtenerEtapasSecuencialesProducto(productoEditado);
 
             List<Producto2DDefinicion> productos =
@@ -5952,6 +8225,8 @@ namespace Cotizador_animacion_Othalart
             destino.Etapas = productoEditado.Etapas;
             destino.Subproductos = productoEditado.Subproductos;
             BibliotecaProductos2DJsonService.GuardarProductos(productos);
+
+            SincronizarSeleccionProyectoDesdePipeline(productoEditado, usosProyecto);
 
             if (cotizacion != null)
             {
@@ -6007,7 +8282,10 @@ namespace Cotizador_animacion_Othalart
             manager?.EndCurrentEdit();
         }
 
-        private List<Subproducto2D> LeerSubproductosProductoDesdeGrilla(DataGridView grid)
+        private List<Subproducto2D> LeerSubproductosProductoDesdeGrilla(
+            DataGridView grid,
+            bool usarCheckComoRequeridoPorDefecto = true
+        )
         {
             ConfirmarEdicionGrillaPipeline(grid);
 
@@ -6030,19 +8308,50 @@ namespace Cotizador_animacion_Othalart
                 string etapa = Convert.ToString(row.Cells["EtapaSugerida"].Value) ?? "";
                 string categoria = ObtenerNombreVisibleEtapa(etapa);
 
+                bool checkUsar = ConvertirCeldaBoolEntregable(row.Cells["RequeridoPorDefecto"].Value);
+                bool requeridoPorDefecto = usarCheckComoRequeridoPorDefecto
+                    ? checkUsar
+                    : ObtenerRequeridoPorDefectoMaestroPipeline(row, checkUsar);
+
+                Subproducto2D subproductoOriginalFila = ObtenerSubproductoModeloFilaPipeline(row);
                 Subproducto2D subproducto = EnriquecerSubproductoDesdeBibliotecas(
                     new Subproducto2D
                     {
+                        Id = subproductoOriginalFila?.Id ?? "",
+                        Descripcion = subproductoOriginalFila?.Descripcion ?? "",
                         Nombre = nombre.Trim(),
                         Categoria = categoria,
                         Orden = ParsearEnteroDatos(row.Cells["Orden"].Value, subproductos.Count * 10 + 10),
-                        RequeridoPorDefecto = ConvertirCeldaBoolEntregable(row.Cells["RequeridoPorDefecto"].Value),
+                        RequeridoPorDefecto = requeridoPorDefecto,
                         PuedeEntregarCliente = ConvertirCeldaBoolEntregable(row.Cells["PuedeEntregarCliente"].Value),
                         EtapaSugerida = etapa.Trim(),
                         SubEtapaSugerida = Convert.ToString(row.Cells["SubEtapaSugerida"].Value) ?? "",
                         DependeDe = Convert.ToString(row.Cells["DependeDe"].Value) ?? "",
                         CargosSugeridos = Convert.ToString(row.Cells["CargosSugeridos"].Value) ?? "",
+                        EquationKey = Convert.ToString(row.Cells["EquationKey"].Value) ?? "",
                         EcuacionProductiva = Convert.ToString(row.Cells["EcuacionProductiva"].Value) ?? "",
+                        ModoCalculoProductivo = ModosCalculoProductivo.Normalizar(
+                            Convert.ToString(row.Cells["ModoCalculoProductivo"].Value)
+                        ),
+                        Cantidad = subproductoOriginalFila?.Cantidad ?? 1.0,
+                        Unidad = string.IsNullOrWhiteSpace(subproductoOriginalFila?.Unidad) ? "unidad" : subproductoOriginalFila.Unidad,
+                        TipoComportamientoCalculo = string.IsNullOrWhiteSpace(subproductoOriginalFila?.TipoComportamientoCalculo) ? "Suma de procesos" : subproductoOriginalFila.TipoComportamientoCalculo,
+                        Procesos = (subproductoOriginalFila?.Procesos ?? new List<ProcesoProductivo2D>())
+                            .Where(p => p != null)
+                            .Select(ClonarProcesoPipeline)
+                            .ToList(),
+                        HorasAsignadasMin = ParsearDoubleProducto2D(
+                            row.Cells["HorasAsignadasMin"].Value,
+                            0.0
+                        ),
+                        HorasAsignadasStd = ParsearDoubleProducto2D(
+                            row.Cells["HorasAsignadasStd"].Value,
+                            0.0
+                        ),
+                        HorasAsignadasHolgura = ParsearDoubleProducto2D(
+                            row.Cells["HorasAsignadasHolgura"].Value,
+                            0.0
+                        ),
                         VariablesEcuacion = Convert.ToString(row.Cells["VariablesEcuacion"].Value) ?? "",
                         ImpactoEcuacion = Convert.ToString(row.Cells["ImpactoEcuacion"].Value) ?? "",
                         Resolucion = Convert.ToString(row.Cells["Resolucion"].Value) ?? "Interno",
@@ -6052,10 +8361,324 @@ namespace Cotizador_animacion_Othalart
                     nombre
                 );
 
+                AsegurarProcesosSubproductoPipeline(subproducto, row);
                 subproductos.Add(subproducto);
             }
 
             return subproductos;
+        }
+
+        private Dictionary<string, bool> LeerUsosProyectoDesdeGrillaPipeline(DataGridView grid)
+        {
+            Dictionary<string, bool> usos = new Dictionary<string, bool>();
+
+            if (grid == null)
+            {
+                return usos;
+            }
+
+            ConfirmarEdicionGrillaPipeline(grid);
+
+            foreach (DataGridViewRow row in grid.Rows)
+            {
+                if (row == null || row.IsNewRow)
+                {
+                    continue;
+                }
+
+                string nombre = Convert.ToString(row.Cells["Nombre"].Value) ?? "";
+
+                if (string.IsNullOrWhiteSpace(nombre))
+                {
+                    continue;
+                }
+
+                string etapa = Convert.ToString(row.Cells["EtapaSugerida"].Value) ?? "";
+                string subEtapa = Convert.ToString(row.Cells["SubEtapaSugerida"].Value) ?? "";
+                string clave = CrearClaveSubproductoPipeline(nombre, etapa, subEtapa);
+
+                usos[clave] = ConvertirCeldaBoolEntregable(row.Cells["RequeridoPorDefecto"].Value);
+            }
+
+            return usos;
+        }
+
+        private bool ObtenerRequeridoPorDefectoMaestroPipeline(
+            DataGridViewRow row,
+            bool fallback
+        )
+        {
+            Subproducto2D original = row == null ? null : row.Tag as Subproducto2D;
+
+            if (original == null)
+            {
+                return fallback;
+            }
+
+            return original.RequeridoPorDefecto;
+        }
+
+        private string CrearClaveSubproductoPipeline(
+            string nombre,
+            string etapa,
+            string subEtapa
+        )
+        {
+            return NormalizarTextoDatosVisual(nombre) + "|" +
+                   NormalizarTextoDatosVisual(etapa) + "|" +
+                   NormalizarTextoDatosVisual(subEtapa);
+        }
+
+        private bool ObtenerUsarSubproductoPipelineDesdeProyecto(Subproducto2D subproducto)
+        {
+            if (subproducto == null || cotizacion == null || cotizacion.BriefProducto == null)
+            {
+                return subproducto != null && subproducto.RequeridoPorDefecto;
+            }
+
+            Pieza2DSeleccionGuardada guardada = BuscarPiezaGuardadaParaSubproducto(subproducto);
+
+            if (guardada != null)
+            {
+                return guardada.Usar;
+            }
+
+            return subproducto.RequeridoPorDefecto;
+        }
+
+        private Pieza2DSeleccionGuardada BuscarPiezaGuardadaParaSubproducto(Subproducto2D subproducto)
+        {
+            if (subproducto == null ||
+                cotizacion == null ||
+                cotizacion.BriefProducto == null ||
+                cotizacion.BriefProducto.Piezas2DSeleccionGuardadas == null)
+            {
+                return null;
+            }
+
+            string categoria = string.IsNullOrWhiteSpace(subproducto.Categoria)
+                ? ObtenerNombreVisibleEtapa(subproducto.EtapaSugerida ?? "")
+                : subproducto.Categoria;
+
+            string clave = CrearClaveSeleccionEntregable(
+                categoria,
+                subproducto.Nombre ?? "",
+                subproducto.EtapaSugerida ?? "",
+                subproducto.SubEtapaSugerida ?? ""
+            );
+
+            Pieza2DSeleccionGuardada encontrada = cotizacion.BriefProducto.Piezas2DSeleccionGuardadas
+                .FirstOrDefault(p =>
+                    p != null &&
+                    !string.IsNullOrWhiteSpace(p.ClaveSeleccion) &&
+                    NormalizarTextoDatosVisual(p.ClaveSeleccion) ==
+                    NormalizarTextoDatosVisual(clave)
+                );
+
+            if (encontrada != null)
+            {
+                return encontrada;
+            }
+
+            return cotizacion.BriefProducto.Piezas2DSeleccionGuardadas
+                .FirstOrDefault(p =>
+                    p != null &&
+                    NormalizarTextoDatosVisual(p.Nombre) ==
+                    NormalizarTextoDatosVisual(subproducto.Nombre ?? "")
+                );
+        }
+
+        private void SincronizarSeleccionProyectoDesdePipeline(
+            Producto2DDefinicion productoEditado,
+            Dictionary<string, bool> usosProyecto
+        )
+        {
+            if (productoEditado == null || productoEditado.Subproductos == null)
+            {
+                return;
+            }
+
+            BriefProductoProyecto brief = ObtenerBriefProductoSeguro();
+
+            if (brief.Piezas2DSeleccionGuardadas == null)
+            {
+                brief.Piezas2DSeleccionGuardadas = new List<Pieza2DSeleccionGuardada>();
+            }
+
+            if (brief.ClavesEntregablesSeleccionados == null)
+            {
+                brief.ClavesEntregablesSeleccionados = new List<string>();
+            }
+
+            List<Subproducto2D> subproductos = productoEditado.Subproductos
+                .Where(s => s != null && !string.IsNullOrWhiteSpace(s.Nombre))
+                .OrderBy(s => s.Orden <= 0 ? int.MaxValue : s.Orden)
+                .ToList();
+
+            if (subproductos.Count == 0)
+            {
+                return;
+            }
+
+            HashSet<string> clavesActuales = new HashSet<string>();
+            HashSet<string> nombresActuales = new HashSet<string>();
+
+            foreach (Subproducto2D subproducto in subproductos)
+            {
+                string categoria = string.IsNullOrWhiteSpace(subproducto.Categoria)
+                    ? ObtenerNombreVisibleEtapa(subproducto.EtapaSugerida ?? "")
+                    : subproducto.Categoria;
+
+                clavesActuales.Add(NormalizarTextoDatosVisual(CrearClaveSeleccionEntregable(
+                    categoria,
+                    subproducto.Nombre ?? "",
+                    subproducto.EtapaSugerida ?? "",
+                    subproducto.SubEtapaSugerida ?? ""
+                )));
+                nombresActuales.Add(NormalizarTextoDatosVisual(subproducto.Nombre ?? ""));
+            }
+
+            List<Pieza2DSeleccionGuardada> anteriores = brief.Piezas2DSeleccionGuardadas
+                .Where(p => p != null)
+                .ToList();
+
+            brief.Piezas2DSeleccionGuardadas = anteriores
+                .Where(p =>
+                {
+                    string clave = NormalizarTextoDatosVisual(p.ClaveSeleccion ?? "");
+                    string nombre = NormalizarTextoDatosVisual(p.Nombre ?? "");
+                    return !clavesActuales.Contains(clave) && !nombresActuales.Contains(nombre);
+                })
+                .ToList();
+
+            HashSet<string> nombresSeleccionados = new HashSet<string>(
+                subproductos
+                    .Where(s => ObtenerUsarProyectoPipeline(s, usosProyecto))
+                    .Select(s => NormalizarTextoDatosVisual(s.Nombre ?? ""))
+                    .Where(n => !string.IsNullOrWhiteSpace(n))
+            );
+
+            double duracionProducto = ObtenerDuracionProductoValor();
+            string unidadDuracionProducto = ObtenerDuracionProductoUnidad();
+            int cantidad = ObtenerCantidadGlobalProductoActual();
+
+            foreach (Subproducto2D subproducto in subproductos)
+            {
+                string categoria = string.IsNullOrWhiteSpace(subproducto.Categoria)
+                    ? ObtenerNombreVisibleEtapa(subproducto.EtapaSugerida ?? "")
+                    : subproducto.Categoria;
+
+                string clave = CrearClaveSeleccionEntregable(
+                    categoria,
+                    subproducto.Nombre ?? "",
+                    subproducto.EtapaSugerida ?? "",
+                    subproducto.SubEtapaSugerida ?? ""
+                );
+
+                Pieza2DSeleccionGuardada anterior = anteriores.FirstOrDefault(p =>
+                    p != null &&
+                    (
+                        NormalizarTextoDatosVisual(p.ClaveSeleccion ?? "") ==
+                        NormalizarTextoDatosVisual(clave) ||
+                        NormalizarTextoDatosVisual(p.Nombre ?? "") ==
+                        NormalizarTextoDatosVisual(subproducto.Nombre ?? "")
+                    )
+                );
+
+                string unidadCantidad = string.IsNullOrWhiteSpace(anterior?.UnidadCantidad)
+                    ? ObtenerUnidadCantidadSubproducto(subproducto, productoEditado)
+                    : anterior.UnidadCantidad;
+
+                bool dependeDelTiempo = EsSubproductoDependienteDelTiempo(subproducto);
+                bool usarEnProyecto = ObtenerUsarProyectoPipeline(subproducto, usosProyecto);
+
+                brief.Piezas2DSeleccionGuardadas.Add(new Pieza2DSeleccionGuardada
+                {
+                    ClaveSeleccion = clave,
+                    Usar = usarEnProyecto,
+                    Categoria = categoria,
+                    Nombre = subproducto.Nombre ?? "",
+                    Cantidad = anterior != null && anterior.Cantidad > 0
+                        ? anterior.Cantidad
+                        : cantidad,
+                    DuracionPorUnidad = anterior != null
+                        ? anterior.DuracionPorUnidad
+                        : dependeDelTiempo ? duracionProducto : 0.0,
+                    UnidadDuracion = !string.IsNullOrWhiteSpace(anterior?.UnidadDuracion)
+                        ? anterior.UnidadDuracion
+                        : dependeDelTiempo ? unidadDuracionProducto : "no aplica",
+                    UnidadCantidad = unidadCantidad,
+                    EtapaSugerida = subproducto.EtapaSugerida ?? "",
+                    SubEtapaSugerida = subproducto.SubEtapaSugerida ?? "",
+                    DependeDe = FiltrarDependenciasPorTablaFinal(
+                        subproducto.DependeDe ?? "",
+                        nombresSeleccionados
+                    ),
+                    CargosSugeridos = subproducto.CargosSugeridos ?? "",
+                    EquationKey = subproducto.EquationKey ?? "",
+                    EcuacionProductiva = subproducto.EcuacionProductiva ?? "",
+                    VariablesEcuacion = subproducto.VariablesEcuacion ?? "",
+                    ImpactoEcuacion = subproducto.ImpactoEcuacion ?? "",
+                    ModoCalculoProductivo =
+                        ModosCalculoProductivo.Normalizar(subproducto.ModoCalculoProductivo),
+                    HorasAsignadasMin = subproducto.HorasAsignadasMin,
+                    HorasAsignadasStd = subproducto.HorasAsignadasStd,
+                    HorasAsignadasHolgura = subproducto.HorasAsignadasHolgura,
+                    Nota = anterior != null && !string.IsNullOrWhiteSpace(anterior.Nota)
+                        ? anterior.Nota
+                        : subproducto.Nota ?? ""
+                });
+            }
+
+            brief.ClavesEntregablesSeleccionados = brief.Piezas2DSeleccionGuardadas
+                .Where(p => p != null && p.Usar)
+                .Select(p => p.ClaveSeleccion)
+                .Where(c => !string.IsNullOrWhiteSpace(c))
+                .Distinct()
+                .ToList();
+
+            int total = brief.Piezas2DSeleccionGuardadas.Count;
+            brief.SeleccionarTodosEntregablesActivo =
+                total > 0 && brief.Piezas2DSeleccionGuardadas.All(p => p != null && p.Usar);
+        }
+
+        private bool ObtenerUsarProyectoPipeline(
+            Subproducto2D subproducto,
+            Dictionary<string, bool> usosProyecto
+        )
+        {
+            if (subproducto == null)
+            {
+                return false;
+            }
+
+            if (usosProyecto == null || usosProyecto.Count == 0)
+            {
+                return subproducto.RequeridoPorDefecto;
+            }
+
+            string clave = CrearClaveSubproductoPipeline(
+                subproducto.Nombre ?? "",
+                subproducto.EtapaSugerida ?? "",
+                subproducto.SubEtapaSugerida ?? ""
+            );
+
+            if (usosProyecto.TryGetValue(clave, out bool usar))
+            {
+                return usar;
+            }
+
+            string clavePorNombre = NormalizarTextoDatosVisual(subproducto.Nombre ?? "");
+
+            foreach (KeyValuePair<string, bool> par in usosProyecto)
+            {
+                if (par.Key.StartsWith(clavePorNombre + "|"))
+                {
+                    return par.Value;
+                }
+            }
+
+            return subproducto.RequeridoPorDefecto;
         }
 
         private Producto2DDefinicion ConstruirProductoTemporalDesdeEditor(
@@ -6093,6 +8716,16 @@ namespace Cotizador_animacion_Othalart
             }
 
             return fallback;
+        }
+
+        private string FormatearNumeroCompacto(double valor)
+        {
+            if (Math.Abs(valor) < 0.0001)
+            {
+                return "";
+            }
+
+            return valor.ToString("0.##", new System.Globalization.CultureInfo("es-CL"));
         }
 
         private FlowLayoutPanel CrearPanelDuracionProducto()
@@ -6886,7 +9519,10 @@ namespace Cotizador_animacion_Othalart
             formatosEntregaSeleccionados.Clear();
             formatosEntregaSeleccionados.Add("MP4");
 
-            CargarEntregablesProducto(producto);
+            if (dgvEntregablesIndustria != null && dgvEntregablesIndustria.Columns.Count > 0)
+            {
+                CargarEntregablesProducto(producto);
+            }
 
             RefrescarResumen();
             RefrescarPanelSiguientePasoDatos();
@@ -6896,7 +9532,7 @@ namespace Cotizador_animacion_Othalart
 
         private void CargarEntregablesProducto(string nombreProducto)
         {
-            if (dgvEntregablesIndustria == null)
+            if (dgvEntregablesIndustria == null || dgvEntregablesIndustria.Columns.Count == 0)
             {
                 return;
             }
@@ -8019,3 +10655,4 @@ namespace Cotizador_animacion_Othalart
         }
     }
 }
+

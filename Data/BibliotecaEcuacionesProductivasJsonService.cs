@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Cotizador_animacion_Othalart.Models;
 
 namespace Cotizador_animacion_Othalart.Data
@@ -104,7 +105,7 @@ namespace Cotizador_animacion_Othalart.Data
 
         public static List<EcuacionProductivaDefinicion> CrearBase()
         {
-            return new List<EcuacionProductivaDefinicion>
+            List<EcuacionProductivaDefinicion> baseSistema = new List<EcuacionProductivaDefinicion>
             {
                 CrearBaseGenerica("CALCULO_POR_CAPACIDAD", "Calculo por capacidad productiva",
                     "cantidad;unidad;capacidad;periodo;cargo",
@@ -185,6 +186,78 @@ namespace Cotizador_animacion_Othalart.Data
                     "Calcula revision tecnica, render/export y armado de entregables.",
                     ConstruirFormulaVectorial("piezas"))
             };
+
+            AgregarProcesosProductivosBase(baseSistema);
+            return baseSistema;
+        }
+
+        private static void AgregarProcesosProductivosBase(List<EcuacionProductivaDefinicion> baseSistema)
+        {
+            if (baseSistema == null)
+            {
+                return;
+            }
+
+            baseSistema.Add(ConfigurarProceso(Crear("REVISION_ROUGH", "Revision de rough animation", "CALCULO_POR_DURACION", "Produccion", "Revision de rough animation",
+                "revision;rough;control;supervision", "horas_produccion;porcentaje_revision;ciclos;cargo",
+                "Supervisor de animacion (tipico)", "Revision y control de calidad posterior a rough animation.",
+                "horas_revision = horas_produccion * 0.10"), TipoProcesoProductivo.RevisionControl, MetodoCalculoProceso.PorPorcentajeProduccion, AlcanceTemporalProceso.Item, "proc_rough", false));
+
+            baseSistema.Add(ConfigurarProceso(Crear("CORRECCION_ROUGH", "Correcciones de rough animation", "CALCULO_POR_DURACION", "Produccion", "Correcciones de rough animation",
+                "correccion;retrabajo;rough", "horas_produccion;tasa_retrabajo;cargo",
+                "Animador 2D (tipico)", "Retrabajo esperado luego de revision de rough animation.",
+                "horas_correccion = horas_produccion * 0.15"), TipoProcesoProductivo.CorreccionRetrabajo, MetodoCalculoProceso.PorPorcentajeProduccion, AlcanceTemporalProceso.Item, "proc_rough", false));
+
+            baseSistema.Add(ConfigurarProceso(Crear("REVISION_CLEAN_UP", "Revision de clean up", "CALCULO_POR_DURACION", "Produccion", "Revision de clean up",
+                "revision;clean up;cleanup;control;supervision", "horas_produccion;porcentaje_revision;ciclos;cargo",
+                "Supervisor de animacion (tipico)", "Revision tecnica de clean up como proceso independiente.",
+                "horas_revision = horas_produccion * 0.10"), TipoProcesoProductivo.RevisionControl, MetodoCalculoProceso.PorPorcentajeProduccion, AlcanceTemporalProceso.Item, "proc_clean_up", false));
+
+            baseSistema.Add(ConfigurarProceso(Crear("DIRECCION_ARTE_PROYECTO", "Direccion de arte", "CALCULO_GESTION", "Direccion, supervision y gestion", "Direccion de arte",
+                "direccion;arte;transversal;visual", "semanas_activas;horas_por_semana;dedicacion;cargo",
+                "Director de arte (tipico)", "Direccion transversal por duracion, sin multiplicarse por item.",
+                "horas_direccion = semanas_activas * 8"), TipoProcesoProductivo.Direccion, MetodoCalculoProceso.PorDuracionProyecto, AlcanceTemporalProceso.ProyectoCompleto, "", true));
+
+            baseSistema.Add(ConfigurarProceso(Crear("COORDINACION_PRODUCCION_PROYECTO", "Coordinacion de produccion", "CALCULO_GESTION", "Direccion, supervision y gestion", "Coordinacion de produccion",
+                "gestion;coordinacion;produccion;seguimiento;transversal", "semanas_activas;horas_por_semana;dedicacion;cargo",
+                "Productor / coordinador (tipico)", "Coordinacion transversal por duracion, sin duplicarse por item.",
+                "horas_gestion = semanas_activas * 4"), TipoProcesoProductivo.GestionCoordinacion, MetodoCalculoProceso.PorDuracionProyecto, AlcanceTemporalProceso.ProyectoCompleto, "", true));
+        }
+
+        private static EcuacionProductivaDefinicion ConfigurarProceso(
+            EcuacionProductivaDefinicion ecuacion,
+            TipoProcesoProductivo tipo,
+            MetodoCalculoProceso metodo,
+            AlcanceTemporalProceso alcance,
+            string dependencia,
+            bool paralelo
+        )
+        {
+            ecuacion.SchemaVersion = 2;
+            ecuacion.IdProceso = "proc_" + NormalizarId(ecuacion.Clave);
+            ecuacion.TipoProceso = tipo;
+            ecuacion.MetodoCalculo = metodo;
+            ecuacion.AlcanceTemporal = alcance;
+            ecuacion.FormulaId = ecuacion.EcuacionBase;
+            ecuacion.EtapaId = NormalizarId(ecuacion.Etapa);
+            ecuacion.SubEtapaId = NormalizarId(ecuacion.SubEtapa);
+            ecuacion.PuedeEjecutarseEnParalelo = paralelo;
+            ecuacion.ReglaActivacionJson = JsonSerializer.Serialize(new ReglaActivacionProceso
+            {
+                Tipo = string.IsNullOrWhiteSpace(dependencia)
+                    ? TipoReglaActivacionProceso.Manual
+                    : TipoReglaActivacionProceso.ProcesoExistente,
+                ProcesoOrigenId = dependencia
+            }, CrearOpcionesJson());
+            ecuacion.DependenciasJson = string.IsNullOrWhiteSpace(dependencia)
+                ? ""
+                : JsonSerializer.Serialize(new List<string> { dependencia }, CrearOpcionesJson());
+            ecuacion.EtapasCubiertasJson = alcance == AlcanceTemporalProceso.ProyectoCompleto ||
+                alcance == AlcanceTemporalProceso.MultiplesEtapas
+                    ? JsonSerializer.Serialize(new List<string> { "preproduccion", "produccion", "postproduccion" }, CrearOpcionesJson())
+                    : "";
+            ecuacion.WarningsMigracionJson = "[]";
+            return ecuacion;
         }
 
         private static EcuacionProductivaDefinicion Crear(
@@ -305,6 +378,11 @@ namespace Cotizador_animacion_Othalart.Data
                     ecuacion.Clave = NormalizarTexto(ecuacion.NombreVisible).ToUpperInvariant();
                 }
 
+                if (ecuacion.SchemaVersion <= 0)
+                {
+                    ecuacion.SchemaVersion = 1;
+                }
+
                 if (string.IsNullOrWhiteSpace(ecuacion.NombreVisible))
                 {
                     ecuacion.NombreVisible = ecuacion.Clave;
@@ -321,6 +399,8 @@ namespace Cotizador_animacion_Othalart.Data
                         ? "Base"
                         : "Variante";
                 }
+
+                MigrarMetadatosProceso(ecuacion);
 
                 if (string.IsNullOrWhiteSpace(ecuacion.CargosPermitidos))
                 {
@@ -385,8 +465,134 @@ namespace Cotizador_animacion_Othalart.Data
                 e != null &&
                 (EsFormulaProductivaSimpleAnterior(e.FormulaReferencia) ||
                  EsFormulaGestionAnterior(e.FormulaReferencia) ||
+                 e.SchemaVersion < 2 ||
+                 string.IsNullOrWhiteSpace(e.IdProceso) ||
+                 e.TipoProceso == TipoProcesoProductivo.NoClasificado ||
+                 e.MetodoCalculo == MetodoCalculoProceso.NoDefinido ||
+                 e.AlcanceTemporal == AlcanceTemporalProceso.NoDefinido ||
+                 string.IsNullOrWhiteSpace(e.FormulaId) ||
                  string.IsNullOrWhiteSpace(e.Numerador) ||
                  string.IsNullOrWhiteSpace(e.Denominador)));
+        }
+
+        private static void MigrarMetadatosProceso(EcuacionProductivaDefinicion ecuacion)
+        {
+            if (ecuacion == null)
+            {
+                return;
+            }
+
+            List<string> warnings = LeerListaJson(ecuacion.WarningsMigracionJson);
+            bool fueMigrada = ecuacion.SchemaVersion < 2 ||
+                string.IsNullOrWhiteSpace(ecuacion.IdProceso) ||
+                ecuacion.TipoProceso == TipoProcesoProductivo.NoClasificado ||
+                ecuacion.MetodoCalculo == MetodoCalculoProceso.NoDefinido ||
+                ecuacion.AlcanceTemporal == AlcanceTemporalProceso.NoDefinido;
+
+            if (string.IsNullOrWhiteSpace(ecuacion.IdProceso))
+            {
+                ecuacion.IdProceso = "proc_" + NormalizarId(
+                    string.IsNullOrWhiteSpace(ecuacion.Clave)
+                        ? ecuacion.NombreVisible
+                        : ecuacion.Clave
+                );
+            }
+
+            if (string.IsNullOrWhiteSpace(ecuacion.FormulaId))
+            {
+                ecuacion.FormulaId = string.IsNullOrWhiteSpace(ecuacion.EcuacionBase)
+                    ? ecuacion.Clave
+                    : ecuacion.EcuacionBase;
+            }
+
+            if (string.IsNullOrWhiteSpace(ecuacion.EtapaId))
+            {
+                ecuacion.EtapaId = NormalizarId(ecuacion.Etapa);
+            }
+
+            if (string.IsNullOrWhiteSpace(ecuacion.SubEtapaId))
+            {
+                ecuacion.SubEtapaId = NormalizarId(ecuacion.SubEtapa);
+            }
+
+            if (ecuacion.TipoProceso == TipoProcesoProductivo.NoClasificado)
+            {
+                ecuacion.TipoProceso = InferirTipoProceso(ecuacion);
+                AgregarWarningMigracion(
+                    warnings,
+                    "TipoProceso inferido por fallback desde clave/nombre. Confirmar clasificación."
+                );
+            }
+
+            if (ecuacion.MetodoCalculo == MetodoCalculoProceso.NoDefinido)
+            {
+                ecuacion.MetodoCalculo = InferirMetodoCalculo(ecuacion);
+                AgregarWarningMigracion(
+                    warnings,
+                    "MetodoCalculo inferido por fallback desde fórmula/variables. Confirmar método."
+                );
+            }
+
+            if (ecuacion.AlcanceTemporal == AlcanceTemporalProceso.NoDefinido)
+            {
+                ecuacion.AlcanceTemporal = InferirAlcanceTemporal(ecuacion);
+                AgregarWarningMigracion(
+                    warnings,
+                    "AlcanceTemporal inferido por fallback desde tipo de proceso. Confirmar alcance."
+                );
+            }
+
+            if (string.IsNullOrWhiteSpace(ecuacion.ReglaActivacionJson))
+            {
+                ReglaActivacionProceso regla = new ReglaActivacionProceso
+                {
+                    Tipo = ecuacion.TipoProceso == TipoProcesoProductivo.RevisionControl ||
+                        ecuacion.TipoProceso == TipoProcesoProductivo.CorreccionRetrabajo
+                            ? TipoReglaActivacionProceso.ProcesoExistente
+                            : TipoReglaActivacionProceso.Manual,
+                    ProcesoOrigenId = InferirProcesoOrigenId(ecuacion)
+                };
+                ecuacion.ReglaActivacionJson = JsonSerializer.Serialize(regla, CrearOpcionesJson());
+            }
+
+            if (string.IsNullOrWhiteSpace(ecuacion.DependenciasJson) &&
+                (ecuacion.TipoProceso == TipoProcesoProductivo.RevisionControl ||
+                 ecuacion.TipoProceso == TipoProcesoProductivo.CorreccionRetrabajo))
+            {
+                string origen = InferirProcesoOrigenId(ecuacion);
+                if (!string.IsNullOrWhiteSpace(origen))
+                {
+                    ecuacion.DependenciasJson = JsonSerializer.Serialize(
+                        new List<string> { origen },
+                        CrearOpcionesJson()
+                    );
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(ecuacion.EtapasCubiertasJson) &&
+                (ecuacion.AlcanceTemporal == AlcanceTemporalProceso.MultiplesEtapas ||
+                 ecuacion.AlcanceTemporal == AlcanceTemporalProceso.ProyectoCompleto))
+            {
+                List<string> etapas = string.IsNullOrWhiteSpace(ecuacion.EtapaId)
+                    ? new List<string>()
+                    : new List<string> { ecuacion.EtapaId };
+                ecuacion.EtapasCubiertasJson = JsonSerializer.Serialize(etapas, CrearOpcionesJson());
+            }
+
+            if (EsProcesoTransversal(ecuacion.TipoProceso))
+            {
+                ecuacion.PuedeEjecutarseEnParalelo = true;
+            }
+
+            if (fueMigrada)
+            {
+                ecuacion.SchemaVersion = 2;
+            }
+
+            ecuacion.WarningsMigracionJson = JsonSerializer.Serialize(
+                warnings.Distinct().ToList(),
+                CrearOpcionesJson()
+            );
         }
 
         private static bool AgregarEcuacionesBaseFaltantes(
@@ -402,7 +608,7 @@ namespace Cotizador_animacion_Othalart.Data
             );
 
             foreach (EcuacionProductivaDefinicion baseDef in CrearBase()
-                .Where(e => e != null && NormalizarTexto(e.TipoEcuacion) == "base"))
+                .Where(e => e != null))
             {
                 string clave = NormalizarTexto(baseDef.Clave);
 
@@ -793,13 +999,212 @@ namespace Cotizador_animacion_Othalart.Data
             return AppContext.BaseDirectory;
         }
 
+        private static TipoProcesoProductivo InferirTipoProceso(EcuacionProductivaDefinicion ecuacion)
+        {
+            string texto = NormalizarTexto(
+                (ecuacion == null ? "" : ecuacion.Clave + " " + ecuacion.NombreVisible + " " +
+                 ecuacion.SubEtapa + " " + ecuacion.Tokens)
+            );
+
+            if (texto.Contains("correccion") || texto.Contains("retrabajo"))
+            {
+                return TipoProcesoProductivo.CorreccionRetrabajo;
+            }
+
+            if (texto.Contains("revision") || texto.Contains("aprobacion") || texto.Contains("control"))
+            {
+                return TipoProcesoProductivo.RevisionControl;
+            }
+
+            if (texto.Contains("supervision") || texto.Contains("supervisor"))
+            {
+                return TipoProcesoProductivo.Supervision;
+            }
+
+            if (texto.Contains("direccion") || texto.Contains("director"))
+            {
+                return TipoProcesoProductivo.Direccion;
+            }
+
+            if (texto.Contains("gestion") || texto.Contains("coordinacion") || texto.Contains("seguimiento"))
+            {
+                return TipoProcesoProductivo.GestionCoordinacion;
+            }
+
+            if (texto.Contains("export") || texto.Contains("entrega") || texto.Contains("render"))
+            {
+                return TipoProcesoProductivo.EntregaSoporte;
+            }
+
+            return TipoProcesoProductivo.ProduccionDirecta;
+        }
+
+        private static MetodoCalculoProceso InferirMetodoCalculo(EcuacionProductivaDefinicion ecuacion)
+        {
+            string texto = NormalizarTexto(
+                (ecuacion == null ? "" : ecuacion.EcuacionBase + " " + ecuacion.FormulaReferencia + " " +
+                 ecuacion.Variables + " " + ecuacion.Numerador + " " + ecuacion.Denominador)
+            );
+            TipoProcesoProductivo tipo = ecuacion == null
+                ? TipoProcesoProductivo.NoClasificado
+                : ecuacion.TipoProceso;
+
+            if (tipo == TipoProcesoProductivo.RevisionControl)
+            {
+                return texto.Contains("porcentaje") || texto.Contains("%")
+                    ? MetodoCalculoProceso.PorPorcentajeProduccion
+                    : MetodoCalculoProceso.PorRevision;
+            }
+
+            if (tipo == TipoProcesoProductivo.CorreccionRetrabajo)
+            {
+                return MetodoCalculoProceso.PorPorcentajeProduccion;
+            }
+
+            if (tipo == TipoProcesoProductivo.Direccion ||
+                tipo == TipoProcesoProductivo.Supervision ||
+                tipo == TipoProcesoProductivo.GestionCoordinacion)
+            {
+                if (texto.Contains("proyecto"))
+                {
+                    return MetodoCalculoProceso.PorDuracionProyecto;
+                }
+
+                return MetodoCalculoProceso.PorDuracionEtapa;
+            }
+
+            if (texto.Contains("capacidad"))
+            {
+                return MetodoCalculoProceso.PorCapacidad;
+            }
+
+            if (texto.Contains("segundos") || texto.Contains("duracion"))
+            {
+                return MetodoCalculoProceso.PorDuracionEntregable;
+            }
+
+            return MetodoCalculoProceso.PorCantidad;
+        }
+
+        private static AlcanceTemporalProceso InferirAlcanceTemporal(EcuacionProductivaDefinicion ecuacion)
+        {
+            if (ecuacion == null)
+            {
+                return AlcanceTemporalProceso.NoDefinido;
+            }
+
+            if (ecuacion.TipoProceso == TipoProcesoProductivo.Direccion ||
+                ecuacion.TipoProceso == TipoProcesoProductivo.GestionCoordinacion)
+            {
+                return AlcanceTemporalProceso.MultiplesEtapas;
+            }
+
+            if (ecuacion.TipoProceso == TipoProcesoProductivo.Supervision)
+            {
+                return AlcanceTemporalProceso.Etapa;
+            }
+
+            if (ecuacion.TipoProceso == TipoProcesoProductivo.EntregaSoporte)
+            {
+                return AlcanceTemporalProceso.Etapa;
+            }
+
+            return AlcanceTemporalProceso.Item;
+        }
+
+        private static string InferirProcesoOrigenId(EcuacionProductivaDefinicion ecuacion)
+        {
+            if (ecuacion == null)
+            {
+                return "";
+            }
+
+            string texto = NormalizarTexto(ecuacion.Clave + " " + ecuacion.NombreVisible + " " + ecuacion.SubEtapa);
+            string[] prefijos = new[] { "revision de ", "revision ", "correcciones de ", "correccion de ", "correccion ", "retrabajo de " };
+            foreach (string prefijo in prefijos)
+            {
+                int indice = texto.IndexOf(prefijo, StringComparison.Ordinal);
+                if (indice >= 0)
+                {
+                    string origen = texto.Substring(indice + prefijo.Length).Trim();
+                    if (!string.IsNullOrWhiteSpace(origen))
+                    {
+                        return "proc_" + NormalizarId(origen);
+                    }
+                }
+            }
+
+            return "";
+        }
+
+        private static bool EsProcesoTransversal(TipoProcesoProductivo tipo)
+        {
+            return tipo == TipoProcesoProductivo.Supervision ||
+                tipo == TipoProcesoProductivo.Direccion ||
+                tipo == TipoProcesoProductivo.GestionCoordinacion;
+        }
+
+        private static List<string> LeerListaJson(string json)
+        {
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                return new List<string>();
+            }
+
+            try
+            {
+                return JsonSerializer.Deserialize<List<string>>(json, CrearOpcionesJson()) ??
+                    new List<string>();
+            }
+            catch
+            {
+                return new List<string>();
+            }
+        }
+
+        private static void AgregarWarningMigracion(List<string> warnings, string warning)
+        {
+            if (warnings == null || string.IsNullOrWhiteSpace(warning))
+            {
+                return;
+            }
+
+            if (!warnings.Contains(warning))
+            {
+                warnings.Add(warning);
+            }
+        }
+
+        private static string NormalizarId(string texto)
+        {
+            string normalizado = NormalizarTexto(texto);
+            if (string.IsNullOrWhiteSpace(normalizado))
+            {
+                return "";
+            }
+
+            char[] chars = normalizado
+                .Select(c => char.IsLetterOrDigit(c) ? c : '_')
+                .ToArray();
+
+            string id = new string(chars);
+            while (id.Contains("__"))
+            {
+                id = id.Replace("__", "_");
+            }
+
+            return id.Trim('_');
+        }
+
         private static JsonSerializerOptions CrearOpcionesJson()
         {
-            return new JsonSerializerOptions
+            JsonSerializerOptions opciones = new JsonSerializerOptions
             {
                 WriteIndented = true,
                 PropertyNameCaseInsensitive = true
             };
+            opciones.Converters.Add(new JsonStringEnumConverter());
+            return opciones;
         }
 
         private static string NormalizarTexto(string texto)

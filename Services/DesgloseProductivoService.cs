@@ -1,4 +1,6 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
+using System.Globalization;
+using System.Text.Json;
 using Cotizador_animacion_Othalart.Data;
 using Cotizador_animacion_Othalart.Models;
 
@@ -158,6 +160,7 @@ namespace Cotizador_animacion_Othalart.Services
             AsegurarRequerimientosDesdePipelineSeleccionado(desglose, cotizacion);
             CompactarRequerimientosDuplicados(desglose);
             AplicarRendimientosProductivos(desglose, cotizacion);
+            AplicarProcesosProductivosDerivados(desglose, cotizacion);
             ValidarParametrosDesglose(desglose);
             RecalcularTotales(desglose, cotizacion);
 
@@ -277,6 +280,9 @@ namespace Cotizador_animacion_Othalart.Services
                 CargosParticipantesJson = string.IsNullOrWhiteSpace(origen.CargosParticipantesJson)
                     ? ecuacion.CargosParticipantesJson
                     : origen.CargosParticipantesJson,
+                EquationKey = string.IsNullOrWhiteSpace(origen.EquationKey)
+                    ? ecuacion.Clave
+                    : origen.EquationKey,
                 EcuacionProductiva = string.IsNullOrWhiteSpace(origen.EcuacionProductiva)
                     ? FormatearEcuacionJson(ecuacion)
                     : origen.EcuacionProductiva,
@@ -286,6 +292,10 @@ namespace Cotizador_animacion_Othalart.Services
                 ImpactoEcuacion = string.IsNullOrWhiteSpace(origen.ImpactoEcuacion)
                     ? ecuacion.Impacto
                     : origen.ImpactoEcuacion,
+                ModoCalculoProductivo = ModosCalculoProductivo.Normalizar(origen.ModoCalculoProductivo),
+                HorasAsignadasMin = origen.HorasAsignadasMin,
+                HorasAsignadasStd = origen.HorasAsignadasStd,
+                HorasAsignadasHolgura = origen.HorasAsignadasHolgura,
                 PlanosEstimados = origen.PlanosEstimados,
                 BackgroundsEstimados = origen.BackgroundsEstimados,
                 PersonajesEstimados = origen.PersonajesEstimados,
@@ -477,6 +487,8 @@ namespace Cotizador_animacion_Othalart.Services
             string ecuacionUsada = string.IsNullOrWhiteSpace(entregable.EcuacionProductiva)
                 ? "PIPELINE-JSON-FALLBACK | Requerimiento desde producto editable"
                 : entregable.EcuacionProductiva;
+            EcuacionProductivaDefinicion ecuacionVinculada =
+                BuscarEcuacionProductivaVinculada(entregable, etapa, subEtapa);
             string notaEcuacion = CrearNotaEcuacionPipeline(entregable);
 
             RequerimientoProduccionInterna req = new RequerimientoProduccionInterna
@@ -484,6 +496,12 @@ namespace Cotizador_animacion_Othalart.Services
                 EntregableCliente = entregable.Nombre,
                 CategoriaEntregable = entregable.Categoria,
                 EcuacionUsada = ecuacionUsada,
+                ProcesoId = ecuacionVinculada == null ? "" : ecuacionVinculada.IdProceso,
+                TipoProceso = ecuacionVinculada == null ? TipoProcesoProductivo.NoClasificado : ecuacionVinculada.TipoProceso,
+                MetodoCalculo = ecuacionVinculada == null ? MetodoCalculoProceso.NoDefinido : ecuacionVinculada.MetodoCalculo,
+                AlcanceTemporal = ecuacionVinculada == null ? AlcanceTemporalProceso.NoDefinido : ecuacionVinculada.AlcanceTemporal,
+                DependenciasProcesoJson = ecuacionVinculada == null ? "" : ecuacionVinculada.DependenciasJson,
+                PuedeEjecutarseEnParalelo = ecuacionVinculada != null && ecuacionVinculada.PuedeEjecutarseEnParalelo,
                 TipoInterno = subEtapa,
                 NombreRequerimiento = subEtapa,
                 Cantidad = cantidad,
@@ -505,6 +523,14 @@ namespace Cotizador_animacion_Othalart.Services
                 RendimientoCantidad = 0.0,
                 RendimientoPeriodo = "",
                 RendimientoOrigen = "",
+                ModoCalculoProductivo =
+                    ModosCalculoProductivo.Normalizar(entregable.ModoCalculoProductivo),
+                HorasMinimas = Math.Max(0.0, entregable.HorasAsignadasMin),
+                HorasEstandar = Math.Max(0.0, entregable.HorasAsignadasStd),
+                HorasHolgura = Math.Max(0.0, entregable.HorasAsignadasHolgura),
+                OrigenHoras = ModosCalculoProductivo.EsTiempoAsignado(entregable.ModoCalculoProductivo)
+                    ? "Tiempo asignado en productos2d.json"
+                    : "",
                 DiasPersonaMin = 0.0,
                 DiasPersonaStd = 0.0,
                 DiasPersonaHolgura = 0.0,
@@ -567,14 +593,27 @@ namespace Cotizador_animacion_Othalart.Services
             string subEtapa
         )
         {
+            return ObtenerCargosPonderadosDesdeEcuacion(
+                BuscarEcuacionProductivaVinculada(entregable, etapa, subEtapa)
+            );
+        }
+
+        private static EcuacionProductivaDefinicion BuscarEcuacionProductivaVinculada(
+            EntregableBrief entregable,
+            string etapa,
+            string subEtapa
+        )
+        {
             if (entregable == null)
             {
-                return "";
+                return null;
             }
 
             EcuacionProductivaDefinicion ecuacion = null;
             string ecuacionTexto = entregable.EcuacionProductiva ?? "";
-            string clave = ecuacionTexto.Split('|').FirstOrDefault();
+            string clave = string.IsNullOrWhiteSpace(entregable.EquationKey)
+                ? ecuacionTexto.Split('|').FirstOrDefault()
+                : entregable.EquationKey;
             if (!string.IsNullOrWhiteSpace(clave))
             {
                 ecuacion = BibliotecaEcuacionesProductivasJsonService.CargarEcuaciones()
@@ -593,7 +632,7 @@ namespace Cotizador_animacion_Othalart.Services
                 );
             }
 
-            return ObtenerCargosPonderadosDesdeEcuacion(ecuacion);
+            return ecuacion;
         }
 
         private static RequerimientoProduccionInterna CrearRequerimientoSinDefinicion(
@@ -625,6 +664,18 @@ namespace Cotizador_animacion_Othalart.Services
                 NivelCargoSugerido = "típico",
                 Nota = motivo + ". Definir en Pipeline del producto o en la pestaña Ecuaciones."
             };
+
+            if (entregable != null)
+            {
+                req.ModoCalculoProductivo =
+                    ModosCalculoProductivo.Normalizar(entregable.ModoCalculoProductivo);
+                req.HorasMinimas = Math.Max(0.0, entregable.HorasAsignadasMin);
+                req.HorasEstandar = Math.Max(0.0, entregable.HorasAsignadasStd);
+                req.HorasHolgura = Math.Max(0.0, entregable.HorasAsignadasHolgura);
+                req.OrigenHoras = ModosCalculoProductivo.EsTiempoAsignado(req.ModoCalculoProductivo)
+                    ? "Tiempo asignado en productos2d.json"
+                    : "";
+            }
 
             AplicarDiagnosticoParametros(req, new List<string>
             {
@@ -835,7 +886,23 @@ namespace Cotizador_animacion_Othalart.Services
                     continue;
                 }
 
-                if (req.RendimientoCantidad <= 0.0)
+                if (!ModosCalculoProductivo.EsTiempoAsignado(req.ModoCalculoProductivo) &&
+                    req.RendimientoCantidadOverride > 0.0)
+                {
+                    req.RendimientoCantidad = req.RendimientoCantidadOverride;
+                    if (!string.IsNullOrWhiteSpace(req.RendimientoPeriodoOverride))
+                    {
+                        req.RendimientoPeriodo = req.RendimientoPeriodoOverride;
+                    }
+
+                    req.RendimientoOrigen = string.IsNullOrWhiteSpace(req.RendimientoOrigen)
+                        ? "EditadoEnProyecto"
+                        : req.RendimientoOrigen;
+                    req.TieneOverrideLocalCalculo = true;
+                }
+
+                if (!ModosCalculoProductivo.EsTiempoAsignado(req.ModoCalculoProductivo) &&
+                    req.RendimientoCantidad <= 0.0)
                 {
                     RendimientoProductivo rendimiento =
                         BibliotecaRendimientosProductivosJsonService.BuscarMejorPara(req);
@@ -848,7 +915,7 @@ namespace Cotizador_animacion_Othalart.Services
                     }
                 }
 
-                BibliotecaRendimientosProductivosJsonService.AplicarRendimiento(
+                CalculoProductivoResolverService.Aplicar(
                     req,
                     diasHabilesSemana
                 );
@@ -950,12 +1017,20 @@ namespace Cotizador_animacion_Othalart.Services
                     req.EcuacionUsada + " " + req.Unidad
                 );
 
-            if (requiereRendimiento && req.RendimientoCantidad <= 0.0)
+            bool usaTiempoAsignado =
+                ModosCalculoProductivo.EsTiempoAsignado(req.ModoCalculoProductivo);
+
+            if (usaTiempoAsignado && req.HorasEstandar <= 0.0)
+            {
+                faltantes.Add("horas asignadas no definidas para cálculo por tiempo");
+            }
+
+            if (!usaTiempoAsignado && requiereRendimiento && req.RendimientoCantidad <= 0.0)
             {
                 faltantes.Add("rendimiento/capacidad no definido en rendimientos_productivos.json");
             }
 
-            if (requiereRendimiento && req.DiasPersonaStd <= 0.0)
+            if ((usaTiempoAsignado || requiereRendimiento) && req.DiasPersonaStd <= 0.0)
             {
                 faltantes.Add("días-persona no calculados");
             }
@@ -1058,7 +1133,11 @@ namespace Cotizador_animacion_Othalart.Services
                 NormalizarCompactacion(req.Calidad) + "|" +
                 NormalizarCompactacion(req.BloqueProductivo) + "|" +
                 NormalizarCompactacion(req.ModoPlanificacion) + "|" +
-                NormalizarCompactacion(req.DependeDe);
+                NormalizarCompactacion(req.DependeDe) + "|" +
+                NormalizarCompactacion(ModosCalculoProductivo.Normalizar(req.ModoCalculoProductivo)) + "|" +
+                req.HorasMinimas.ToString("0.####") + "|" +
+                req.HorasEstandar.ToString("0.####") + "|" +
+                req.HorasHolgura.ToString("0.####");
         }
 
         private static RequerimientoProduccionInterna CompactarGrupoRequerimientos(
@@ -1217,6 +1296,376 @@ namespace Cotizador_animacion_Othalart.Services
             return texto ?? "(sin nombre)";
         }
 
+        private static void AplicarProcesosProductivosDerivados(
+            DesgloseProductivoProyecto desglose,
+            Cotizacion cotizacion
+        )
+        {
+            if (desglose == null || desglose.Requerimientos == null)
+            {
+                return;
+            }
+
+            List<EcuacionProductivaDefinicion> biblioteca =
+                BibliotecaEcuacionesProductivasJsonService.CargarEcuaciones();
+            List<RequerimientoProduccionInterna> existentes = desglose.Requerimientos
+                .Where(r => r != null)
+                .ToList();
+            List<RequerimientoProduccionInterna> nuevas = new List<RequerimientoProduccionInterna>();
+
+            foreach (RequerimientoProduccionInterna baseReq in existentes
+                .Where(r => r.TipoProceso == TipoProcesoProductivo.ProduccionDirecta &&
+                            !string.IsNullOrWhiteSpace(r.ProcesoId)))
+            {
+                foreach (EcuacionProductivaDefinicion proceso in biblioteca.Where(e =>
+                    e != null &&
+                    e.Activa &&
+                    (e.TipoProceso == TipoProcesoProductivo.RevisionControl ||
+                     e.TipoProceso == TipoProcesoProductivo.CorreccionRetrabajo) &&
+                    DependeDeProceso(e, baseReq.ProcesoId)))
+                {
+                    if (ExisteFilaProcesoDerivado(existentes, nuevas, baseReq, proceso))
+                    {
+                        continue;
+                    }
+
+                    RequerimientoProduccionInterna derivado =
+                        CrearRequerimientoDerivadoPorPorcentaje(baseReq, proceso);
+                    if (derivado != null)
+                    {
+                        nuevas.Add(derivado);
+                    }
+                }
+            }
+
+            foreach (EcuacionProductivaDefinicion proceso in biblioteca.Where(e =>
+                e != null &&
+                e.Activa &&
+                EsTipoTransversal(e.TipoProceso) &&
+                (e.AlcanceTemporal == AlcanceTemporalProceso.ProyectoCompleto ||
+                 e.AlcanceTemporal == AlcanceTemporalProceso.MultiplesEtapas ||
+                 e.AlcanceTemporal == AlcanceTemporalProceso.Etapa)))
+            {
+                if (ExisteFilaProcesoTransversal(existentes, nuevas, proceso))
+                {
+                    continue;
+                }
+
+                RequerimientoProduccionInterna transversal =
+                    CrearRequerimientoTransversal(proceso, cotizacion, desglose);
+                if (transversal != null)
+                {
+                    nuevas.Add(transversal);
+                    RegistrarProcesoTransversal(desglose, transversal, proceso);
+                }
+            }
+
+            if (nuevas.Count > 0)
+            {
+                desglose.Requerimientos.AddRange(nuevas);
+            }
+        }
+
+        private static RequerimientoProduccionInterna CrearRequerimientoDerivadoPorPorcentaje(
+            RequerimientoProduccionInterna baseReq,
+            EcuacionProductivaDefinicion proceso
+        )
+        {
+            double horasBase = ObtenerHorasStd(baseReq);
+            if (horasBase <= 0.0)
+            {
+                return null;
+            }
+
+            double factor = ObtenerFactorProceso(proceso);
+            double horas = horasBase * factor;
+            string cargo = ObtenerCargoPrincipalProceso(proceso);
+            double tarifaHora = ObtenerTarifaHoraCargo(cargo);
+            double costo = horas * tarifaHora;
+
+            return new RequerimientoProduccionInterna
+            {
+                EntregableCliente = baseReq.EntregableCliente,
+                CategoriaEntregable = baseReq.CategoriaEntregable,
+                EcuacionUsada = proceso.Clave + " | " + proceso.NombreVisible,
+                ProcesoId = proceso.IdProceso,
+                TipoProceso = proceso.TipoProceso,
+                MetodoCalculo = proceso.MetodoCalculo,
+                AlcanceTemporal = proceso.AlcanceTemporal,
+                DependenciasProcesoJson = proceso.DependenciasJson,
+                PuedeEjecutarseEnParalelo = proceso.PuedeEjecutarseEnParalelo,
+                TipoInterno = proceso.SubEtapa,
+                NombreRequerimiento = proceso.NombreVisible,
+                Cantidad = baseReq.Cantidad,
+                Unidad = baseReq.Unidad,
+                EtapaSugerida = string.IsNullOrWhiteSpace(proceso.Etapa) ? baseReq.EtapaSugerida : proceso.Etapa,
+                Calidad = baseReq.Calidad,
+                BloqueProductivo = string.IsNullOrWhiteSpace(proceso.Etapa) ? baseReq.BloqueProductivo : proceso.Etapa,
+                ModoPlanificacion = proceso.PuedeEjecutarseEnParalelo ? "Paralelo en etapa" : "Secuencial",
+                DependeDe = string.IsNullOrWhiteSpace(baseReq.ProcesoId) ? baseReq.NombreRequerimiento : baseReq.ProcesoId,
+                CargoSugerido = cargo,
+                NivelCargoSugerido = "típico",
+                AreaCargoSugerida = baseReq.AreaCargoSugerida,
+                TarifaDiaCargoCLP = tarifaHora * 8.0,
+                ModoCalculoProductivo = ModosCalculoProductivo.TiempoAsignado,
+                HorasMinimas = horas,
+                HorasEstandar = horas,
+                HorasHolgura = horas,
+                OrigenHoras = "Proceso derivado: " + proceso.TipoProceso + " (" + (factor * 100.0).ToString("0.#", CultureInfo.InvariantCulture) + "% de " + baseReq.NombreRequerimiento + ")",
+                DiasPersonaMin = horas / 8.0,
+                DiasPersonaStd = horas / 8.0,
+                DiasPersonaHolgura = horas / 8.0,
+                CostoMinimoCLP = costo,
+                CostoEstandarCLP = costo,
+                CostoHolguraCLP = costo,
+                ParametrosCompletos = tarifaHora > 0.0,
+                DiagnosticoParametros = tarifaHora > 0.0 ? "OK" : "Cargo sin tarifa para proceso derivado.",
+                Nota = "Generado como proceso separado; no es un cargo mezclado en producción directa."
+            };
+        }
+
+        private static RequerimientoProduccionInterna CrearRequerimientoTransversal(
+            EcuacionProductivaDefinicion proceso,
+            Cotizacion cotizacion,
+            DesgloseProductivoProyecto desglose
+        )
+        {
+            double semanas = ObtenerSemanasActivasTransversal(cotizacion, desglose);
+            double horasSemana = ObtenerHorasSemanaProceso(proceso);
+            if (semanas <= 0.0 || horasSemana <= 0.0)
+            {
+                return null;
+            }
+
+            string cargo = ObtenerCargoPrincipalProceso(proceso);
+            double tarifaHora = ObtenerTarifaHoraCargo(cargo);
+            double horas = semanas * horasSemana;
+            double costo = horas * tarifaHora;
+
+            return new RequerimientoProduccionInterna
+            {
+                EntregableCliente = "Proyecto",
+                CategoriaEntregable = "Dirección, supervisión y gestión",
+                EcuacionUsada = proceso.Clave + " | " + proceso.NombreVisible,
+                ProcesoId = proceso.IdProceso,
+                TipoProceso = proceso.TipoProceso,
+                MetodoCalculo = proceso.MetodoCalculo,
+                AlcanceTemporal = proceso.AlcanceTemporal,
+                DependenciasProcesoJson = proceso.DependenciasJson,
+                PuedeEjecutarseEnParalelo = true,
+                TipoInterno = proceso.SubEtapa,
+                NombreRequerimiento = proceso.NombreVisible,
+                Cantidad = semanas,
+                Unidad = "semanas",
+                EtapaSugerida = "Direccion, supervision y gestion",
+                BloqueProductivo = "Direccion, supervision y gestion",
+                ModoPlanificacion = "Transversal paralelo",
+                DependeDe = "",
+                CargoSugerido = cargo,
+                NivelCargoSugerido = "típico",
+                AreaCargoSugerida = "Gestion",
+                TarifaDiaCargoCLP = tarifaHora * 8.0,
+                ModoCalculoProductivo = ModosCalculoProductivo.TiempoAsignado,
+                HorasMinimas = horas,
+                HorasEstandar = horas,
+                HorasHolgura = horas,
+                OrigenHoras = "Proceso transversal: " + horasSemana.ToString("0.##", CultureInfo.InvariantCulture) + " h/semana x " + semanas.ToString("0.##", CultureInfo.InvariantCulture) + " semanas.",
+                DiasPersonaMin = horas / 8.0,
+                DiasPersonaStd = horas / 8.0,
+                DiasPersonaHolgura = horas / 8.0,
+                CostoMinimoCLP = costo,
+                CostoEstandarCLP = costo,
+                CostoHolguraCLP = costo,
+                ParametrosCompletos = tarifaHora > 0.0,
+                DiagnosticoParametros = tarifaHora > 0.0 ? "OK - transversal sin duplicación por item." : "Cargo sin tarifa para proceso transversal.",
+                Nota = "Proceso transversal registrado una sola vez; puede prorratearse sin duplicar horas reales."
+            };
+        }
+
+        private static void RegistrarProcesoTransversal(
+            DesgloseProductivoProyecto desglose,
+            RequerimientoProduccionInterna req,
+            EcuacionProductivaDefinicion proceso
+        )
+        {
+            if (desglose.ProcesosTransversales == null)
+            {
+                desglose.ProcesosTransversales = new List<ProcesoTransversalProyecto>();
+            }
+
+            desglose.ProcesosTransversales.Add(new ProcesoTransversalProyecto
+            {
+                Id = req.ProcesoId,
+                ProcesoBibliotecaId = proceso.IdProceso,
+                Nombre = proceso.NombreVisible,
+                TipoProceso = proceso.TipoProceso,
+                AlcanceTemporal = proceso.AlcanceTemporal,
+                EtapasCubiertas = LeerListaJson(proceso.EtapasCubiertasJson),
+                SemanasActivas = req.Cantidad,
+                HorasPorSemana = ObtenerHorasSemanaProceso(proceso),
+                PorcentajeDedicacion = 100.0,
+                CargoId = req.CargoSugerido,
+                HorasCalculadas = req.HorasEstandar,
+                HorasAsignadas = req.HorasEstandar,
+                OrigenHoras = req.OrigenHoras,
+                ReglaProrrateo = ReglaProrrateoProceso.SinProrratear
+            });
+        }
+
+        private static bool DependeDeProceso(EcuacionProductivaDefinicion proceso, string procesoOrigenId)
+        {
+            if (proceso == null || string.IsNullOrWhiteSpace(procesoOrigenId))
+            {
+                return false;
+            }
+
+            if (LeerListaJson(proceso.DependenciasJson)
+                .Any(d => string.Equals(d, procesoOrigenId, StringComparison.OrdinalIgnoreCase)))
+            {
+                return true;
+            }
+
+            ReglaActivacionProceso regla = LeerReglaActivacion(proceso.ReglaActivacionJson);
+            return regla != null &&
+                string.Equals(regla.ProcesoOrigenId, procesoOrigenId, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool ExisteFilaProcesoDerivado(
+            List<RequerimientoProduccionInterna> existentes,
+            List<RequerimientoProduccionInterna> nuevas,
+            RequerimientoProduccionInterna baseReq,
+            EcuacionProductivaDefinicion proceso
+        )
+        {
+            return existentes.Concat(nuevas).Any(r =>
+                r != null &&
+                string.Equals(r.ProcesoId, proceso.IdProceso, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(r.EntregableCliente, baseReq.EntregableCliente, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(r.DependeDe, baseReq.ProcesoId, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static bool ExisteFilaProcesoTransversal(
+            List<RequerimientoProduccionInterna> existentes,
+            List<RequerimientoProduccionInterna> nuevas,
+            EcuacionProductivaDefinicion proceso
+        )
+        {
+            return existentes.Concat(nuevas).Any(r =>
+                r != null &&
+                string.Equals(r.ProcesoId, proceso.IdProceso, StringComparison.OrdinalIgnoreCase) &&
+                EsTipoTransversal(r.TipoProceso));
+        }
+
+        private static double ObtenerFactorProceso(EcuacionProductivaDefinicion proceso)
+        {
+            return ReglaCalculoProcesoService.ObtenerFactorPorcentaje(proceso);
+        }
+
+        private static double ObtenerHorasSemanaProceso(EcuacionProductivaDefinicion proceso)
+        {
+            return ReglaCalculoProcesoService.ObtenerHorasPorSemana(proceso);
+        }
+
+        private static double ObtenerSemanasActivasTransversal(Cotizacion cotizacion, DesgloseProductivoProyecto desglose)
+        {
+            if (cotizacion != null && cotizacion.PlazoClienteSemanas > 0.0)
+            {
+                return cotizacion.PlazoClienteSemanas;
+            }
+
+            if (cotizacion != null && cotizacion.DuracionPlanificadaSemanas > 0.0)
+            {
+                return cotizacion.DuracionPlanificadaSemanas;
+            }
+
+            double maxDiasProductivos = desglose == null || desglose.Requerimientos == null
+                ? 0.0
+                : desglose.Requerimientos
+                    .Where(r => r != null && r.TipoProceso == TipoProcesoProductivo.ProduccionDirecta)
+                    .Select(r => r.DiasPersonaStd)
+                    .DefaultIfEmpty(0.0)
+                    .Max();
+
+            return Math.Max(1.0, maxDiasProductivos / DiasTrabajoSemana);
+        }
+
+        private static string ObtenerCargoPrincipalProceso(EcuacionProductivaDefinicion proceso)
+        {
+            EcuacionProductivaRuntimeService.CargoVector cargo =
+                EcuacionProductivaRuntimeService.ObtenerVectorCargos(proceso).FirstOrDefault();
+            return cargo == null ? "" : cargo.Cargo;
+        }
+
+        private static double ObtenerHorasStd(RequerimientoProduccionInterna req)
+        {
+            if (req == null)
+            {
+                return 0.0;
+            }
+
+            if (req.HorasEstandar > 0.0)
+            {
+                return req.HorasEstandar;
+            }
+
+            return req.DiasPersonaStd * 8.0;
+        }
+
+        private static double ObtenerTarifaHoraCargo(string cargoTexto)
+        {
+            CategoriaTrabajador cargo = BibliotecaCargosJsonService.BuscarCargo(cargoTexto, "", "típico");
+            if (cargo == null)
+            {
+                return 0.0;
+            }
+
+            double sueldo = cargo.SueldoMensualCLPTipico > 0.0
+                ? cargo.SueldoMensualCLPTipico
+                : cargo.SueldoMensualCLP;
+            return sueldo <= 0.0 ? 0.0 : sueldo / 22.0 / 8.0;
+        }
+
+        private static bool EsTipoTransversal(TipoProcesoProductivo tipo)
+        {
+            return tipo == TipoProcesoProductivo.Supervision ||
+                tipo == TipoProcesoProductivo.Direccion ||
+                tipo == TipoProcesoProductivo.GestionCoordinacion;
+        }
+
+        private static List<string> LeerListaJson(string json)
+        {
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                return new List<string>();
+            }
+
+            try
+            {
+                return JsonSerializer.Deserialize<List<string>>(json) ?? new List<string>();
+            }
+            catch
+            {
+                return new List<string>();
+            }
+        }
+
+        private static ReglaActivacionProceso LeerReglaActivacion(string json)
+        {
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                return null;
+            }
+
+            try
+            {
+                return JsonSerializer.Deserialize<ReglaActivacionProceso>(json);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
         private static void RecalcularTotales(
             DesgloseProductivoProyecto desglose,
             Cotizacion cotizacion
@@ -1237,6 +1686,22 @@ namespace Cotizador_animacion_Othalart.Services
             desglose.HorasGestionEstandar = 0.0;
             desglose.CostoGestionEstandarCLP = 0.0;
             desglose.GestionesCalculadas.Clear();
+            desglose.HorasProduccionDirecta = 0.0;
+            desglose.HorasRevisionControl = 0.0;
+            desglose.HorasCorreccionRetrabajo = 0.0;
+            desglose.HorasSupervision = 0.0;
+            desglose.HorasDireccion = 0.0;
+            desglose.HorasGestionCoordinacion = 0.0;
+            desglose.HorasEntregaSoporte = 0.0;
+            desglose.CostoProduccionDirectaCLP = 0.0;
+            desglose.CostoRevisionControlCLP = 0.0;
+            desglose.CostoCorreccionRetrabajoCLP = 0.0;
+            desglose.CostoSupervisionCLP = 0.0;
+            desglose.CostoDireccionCLP = 0.0;
+            desglose.CostoGestionCoordinacionCLP = 0.0;
+            desglose.CostoEntregaSoporteCLP = 0.0;
+            desglose.CostoDirectoCLP = 0.0;
+            desglose.CostoIndirectoTransversalCLP = 0.0;
 
             foreach (RequerimientoProduccionInterna req in desglose.Requerimientos)
             {
@@ -1252,9 +1717,14 @@ namespace Cotizador_animacion_Othalart.Services
                 desglose.CostoMinimoCLP += req.CostoMinimoCLP;
                 desglose.CostoEstandarCLP += req.CostoEstandarCLP;
                 desglose.CostoHolguraCLP += req.CostoHolguraCLP;
+
+                AcumularSubtotalTipoProceso(desglose, req);
             }
 
-            AplicarGestionProductivaDerivada(desglose);
+            if (!desglose.Requerimientos.Any(r => r != null && EsTipoTransversal(r.TipoProceso)))
+            {
+                AplicarGestionProductivaDerivada(desglose);
+            }
 
             double capacidadBasePersonas = ObtenerPersonasPlanificadasDesdeManoObra(cotizacion);
 
@@ -1398,6 +1868,57 @@ namespace Cotizador_animacion_Othalart.Services
                 desglose.CostoHolguraCLP += gestion.CostoHolguraCLP;
                 desglose.HorasGestionEstandar += gestion.HorasEstandar;
                 desglose.CostoGestionEstandarCLP += gestion.CostoEstandarCLP;
+            }
+        }
+
+        private static void AcumularSubtotalTipoProceso(
+            DesgloseProductivoProyecto desglose,
+            RequerimientoProduccionInterna req
+        )
+        {
+            double horas = ObtenerHorasStd(req);
+            double costo = Math.Max(0.0, req.CostoEstandarCLP);
+
+            switch (req.TipoProceso)
+            {
+                case TipoProcesoProductivo.RevisionControl:
+                    desglose.HorasRevisionControl += horas;
+                    desglose.CostoRevisionControlCLP += costo;
+                    desglose.CostoDirectoCLP += costo;
+                    break;
+                case TipoProcesoProductivo.CorreccionRetrabajo:
+                    desglose.HorasCorreccionRetrabajo += horas;
+                    desglose.CostoCorreccionRetrabajoCLP += costo;
+                    desglose.CostoDirectoCLP += costo;
+                    break;
+                case TipoProcesoProductivo.Supervision:
+                    desglose.HorasSupervision += horas;
+                    desglose.CostoSupervisionCLP += costo;
+                    desglose.CostoIndirectoTransversalCLP += costo;
+                    break;
+                case TipoProcesoProductivo.Direccion:
+                    desglose.HorasDireccion += horas;
+                    desglose.CostoDireccionCLP += costo;
+                    desglose.CostoIndirectoTransversalCLP += costo;
+                    break;
+                case TipoProcesoProductivo.GestionCoordinacion:
+                    desglose.HorasGestionCoordinacion += horas;
+                    desglose.CostoGestionCoordinacionCLP += costo;
+                    desglose.HorasGestionEstandar += horas;
+                    desglose.CostoGestionEstandarCLP += costo;
+                    desglose.CostoIndirectoTransversalCLP += costo;
+                    break;
+                case TipoProcesoProductivo.EntregaSoporte:
+                    desglose.HorasEntregaSoporte += horas;
+                    desglose.CostoEntregaSoporteCLP += costo;
+                    desglose.CostoDirectoCLP += costo;
+                    break;
+                case TipoProcesoProductivo.ProduccionDirecta:
+                default:
+                    desglose.HorasProduccionDirecta += horas;
+                    desglose.CostoProduccionDirectaCLP += costo;
+                    desglose.CostoDirectoCLP += costo;
+                    break;
             }
         }
 

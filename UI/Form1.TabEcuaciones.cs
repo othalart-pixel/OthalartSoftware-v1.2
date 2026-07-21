@@ -31,6 +31,8 @@ namespace Cotizador_animacion_Othalart
         private TextBox txtNuevoTokenEcuacion = new TextBox();
         private ListBox lstEcuacionCargosPermitidos = new ListBox();
         private ComboBox cmbCargoPermitidoEcuacion = new ComboBox();
+        private Label lblEstadoCargosParticipantesEcuacion = new Label();
+        private const string TextoSeleccionarCargoEcuacion = "Selecciona un cargo...";
         private NumericUpDown nudPonderadorCargoEcuacion = new NumericUpDown();
         private RichTextBox rtbResumenVectorCargosEcuacion = new RichTextBox();
         private DataGridView dgvCargosParticipantesEcuacion = new DataGridView();
@@ -49,12 +51,14 @@ namespace Cotizador_animacion_Othalart
         private ComboBox cmbFiltroEstadoEcuacion = new ComboBox();
         private ComboBox cmbFiltroEtapaEcuacion = new ComboBox();
         private ListView lvBibliotecaEcuaciones = new ListView();
+        private Panel pnlFichaResumenEcuacion = new Panel();
         private RichTextBox rtbValidacionEcuaciones = new RichTextBox();
         private List<Tuple<Rectangle, string, string>> nodosMapaFlujoEcuacion =
             new List<Tuple<Rectangle, string, string>>();
         private bool cargandoEditorEcuaciones = false;
         private bool sincronizandoBibliotecaEcuaciones = false;
         private bool actualizandoCargosParticipantes = false;
+        private bool mostrandoDetalleCalculoCargos = false;
 
         private sealed class OpcionFormulaMadreEcuacion
         {
@@ -116,7 +120,7 @@ namespace Cotizador_animacion_Othalart
             titulo.AutoSize = true;
 
             Label ayuda = new Label();
-            ayuda.Text = "Define formulas madre y procesos productivos. Cada proceso puede usar una formula madre, cargos, variables y palabras de busqueda para viajar al pipeline y al desglose.";
+            ayuda.Text = "Biblioteca global · Define cómo se calculan las horas y qué cargos realizan cada trabajo. Usa el editor simple; los detalles técnicos quedan disponibles cuando los necesites.";
             ayuda.Font = new Font("Segoe UI", 9.5f);
             ayuda.ForeColor = Color.FromArgb(90, 90, 90);
             ayuda.AutoSize = true;
@@ -128,12 +132,12 @@ namespace Cotizador_animacion_Othalart
             acciones.Margin = new Padding(0, 6, 0, 14);
             acciones.Padding = new Padding(0, 2, 0, 2);
 
-            Button btnAgregarBase = CrearBotonEcuacion("Agregar formula madre");
-            btnAgregarBase.Width = 165;
+            Button btnAgregarBase = CrearBotonEcuacion("Nueva regla base");
+            btnAgregarBase.Width = 145;
             btnAgregarBase.Click += (s, e) => AgregarEcuacionProductiva(true);
 
-            Button btnAgregarVariante = CrearBotonEcuacion("Agregar proceso");
-            btnAgregarVariante.Width = 135;
+            Button btnAgregarVariante = CrearBotonEcuacion("Nuevo proceso");
+            btnAgregarVariante.Width = 130;
             btnAgregarVariante.Click += (s, e) => AgregarEcuacionProductiva(false);
 
             Button btnQuitar = CrearBotonEcuacion("Quitar");
@@ -147,16 +151,18 @@ namespace Cotizador_animacion_Othalart
             btnRestaurar.Width = 130;
             btnRestaurar.Click += (s, e) => RestaurarBibliotecaEcuacionesProductivas();
 
-            Button btnAbrirEditor = CrearBotonEcuacion("Abrir editor visual");
+            Button btnAbrirEditor = CrearBotonEcuacion("Editar seleccionado");
             btnAbrirEditor.Width = 155;
+            btnAbrirEditor.BackColor = Color.FromArgb(0, 120, 105);
+            btnAbrirEditor.ForeColor = Color.White;
             btnAbrirEditor.Click += (s, e) =>
             {
                 CargarEditorEcuacionDesdeFilaSeleccionada();
                 AbrirEditorVisualEcuacion();
             };
 
-            Button btnAbrirMapa = CrearBotonEcuacion("Ver mapa / flujo");
-            btnAbrirMapa.Width = 145;
+            Button btnAbrirMapa = CrearBotonEcuacion("Ver relaciones");
+            btnAbrirMapa.Width = 130;
             btnAbrirMapa.Click += (s, e) =>
             {
                 CargarEditorEcuacionDesdeFilaSeleccionada();
@@ -226,6 +232,8 @@ namespace Cotizador_animacion_Othalart
             dgvEcuacionesProductivas.Columns.Clear();
             dgvEcuacionesProductivas.Columns.Add(new DataGridViewCheckBoxColumn { Name = "Activa", HeaderText = "Activa", Width = 58 });
             dgvEcuacionesProductivas.Columns.Add("Clave", "Clave");
+            dgvEcuacionesProductivas.Columns.Add("SchemaVersion", "Schema");
+            dgvEcuacionesProductivas.Columns.Add("IdProceso", "Id proceso");
             dgvEcuacionesProductivas.Columns.Add("NombreVisible", "Nombre visible");
 
             DataGridViewComboBoxColumn colTipo = new DataGridViewComboBoxColumn();
@@ -246,6 +254,49 @@ namespace Cotizador_animacion_Othalart
 
             dgvEcuacionesProductivas.Columns.Add("Etapa", "Etapa");
             dgvEcuacionesProductivas.Columns.Add("SubEtapa", "Subetapa");
+
+            DataGridViewComboBoxColumn colTipoProceso = new DataGridViewComboBoxColumn();
+            colTipoProceso.Name = "TipoProceso";
+            colTipoProceso.HeaderText = "Tipo proceso";
+            colTipoProceso.Width = 155;
+            colTipoProceso.FlatStyle = FlatStyle.Flat;
+            foreach (string valor in Enum.GetNames(typeof(TipoProcesoProductivo)))
+            {
+                colTipoProceso.Items.Add(valor);
+            }
+            dgvEcuacionesProductivas.Columns.Add(colTipoProceso);
+
+            DataGridViewComboBoxColumn colMetodoCalculo = new DataGridViewComboBoxColumn();
+            colMetodoCalculo.Name = "MetodoCalculo";
+            colMetodoCalculo.HeaderText = "Método cálculo";
+            colMetodoCalculo.Width = 170;
+            colMetodoCalculo.FlatStyle = FlatStyle.Flat;
+            foreach (string valor in Enum.GetNames(typeof(MetodoCalculoProceso)))
+            {
+                colMetodoCalculo.Items.Add(valor);
+            }
+            dgvEcuacionesProductivas.Columns.Add(colMetodoCalculo);
+
+            DataGridViewComboBoxColumn colAlcanceTemporal = new DataGridViewComboBoxColumn();
+            colAlcanceTemporal.Name = "AlcanceTemporal";
+            colAlcanceTemporal.HeaderText = "Alcance";
+            colAlcanceTemporal.Width = 150;
+            colAlcanceTemporal.FlatStyle = FlatStyle.Flat;
+            foreach (string valor in Enum.GetNames(typeof(AlcanceTemporalProceso)))
+            {
+                colAlcanceTemporal.Items.Add(valor);
+            }
+            dgvEcuacionesProductivas.Columns.Add(colAlcanceTemporal);
+
+            dgvEcuacionesProductivas.Columns.Add("EtapaId", "Etapa id");
+            dgvEcuacionesProductivas.Columns.Add("SubEtapaId", "Subetapa id");
+            dgvEcuacionesProductivas.Columns.Add("FormulaId", "Formula id");
+            dgvEcuacionesProductivas.Columns.Add("DependenciasJson", "Dependencias");
+            dgvEcuacionesProductivas.Columns.Add(new DataGridViewCheckBoxColumn { Name = "PuedeEjecutarseEnParalelo", HeaderText = "Paralelo", Width = 72 });
+            dgvEcuacionesProductivas.Columns.Add("ReglaActivacionJson", "Regla activación");
+            dgvEcuacionesProductivas.Columns.Add("EtapasCubiertasJson", "Etapas cubiertas");
+            dgvEcuacionesProductivas.Columns.Add("WarningsMigracionJson", "Warnings migración");
+
             dgvEcuacionesProductivas.Columns.Add("Tokens", "Palabras de busqueda");
             dgvEcuacionesProductivas.Columns.Add("Variables", "Variables de entrada");
             dgvEcuacionesProductivas.Columns.Add("CargosPermitidos", "Cargos participantes");
@@ -257,9 +308,18 @@ namespace Cotizador_animacion_Othalart
             dgvEcuacionesProductivas.Columns.Add("Nota", "Nota");
 
             SetColEcuacion("Clave", 145);
+            SetColEcuacion("SchemaVersion", 70);
+            SetColEcuacion("IdProceso", 180);
             SetColEcuacion("NombreVisible", 210);
             SetColEcuacion("Etapa", 125);
             SetColEcuacion("SubEtapa", 190);
+            SetColEcuacion("EtapaId", 130);
+            SetColEcuacion("SubEtapaId", 150);
+            SetColEcuacion("FormulaId", 150);
+            SetColEcuacion("DependenciasJson", 220);
+            SetColEcuacion("ReglaActivacionJson", 260);
+            SetColEcuacion("EtapasCubiertasJson", 220);
+            SetColEcuacion("WarningsMigracionJson", 260);
             SetColEcuacion("Tokens", 320);
             SetColEcuacion("Variables", 330);
             SetColEcuacion("CargosPermitidos", 360);
@@ -272,6 +332,8 @@ namespace Cotizador_animacion_Othalart
             dgvEcuacionesProductivas.Columns["Numerador"].Visible = false;
             dgvEcuacionesProductivas.Columns["Denominador"].Visible = false;
             dgvEcuacionesProductivas.Columns["CargosParticipantesJson"].Visible = false;
+            dgvEcuacionesProductivas.Columns["SchemaVersion"].ReadOnly = true;
+            dgvEcuacionesProductivas.Columns["WarningsMigracionJson"].ReadOnly = true;
 
             dgvEcuacionesProductivas.SelectionChanged -= DgvEcuacionesProductivas_SelectionChanged;
             dgvEcuacionesProductivas.SelectionChanged += DgvEcuacionesProductivas_SelectionChanged;
@@ -296,7 +358,12 @@ namespace Cotizador_animacion_Othalart
             tabsEcuacionesProductivasInternas = new TabControl();
             tabsEcuacionesProductivasInternas.Dock = DockStyle.Fill;
 
-            TabPage tabBiblioteca = new TabPage("Tabla completa");
+            TabPage tabResumen = new TabPage("Ficha");
+            tabResumen.Padding = new Padding(8);
+            tabResumen.BackColor = Color.White;
+            tabResumen.Controls.Add(CrearFichaResumenEcuacionProductiva());
+
+            TabPage tabBiblioteca = new TabPage("Detalle tecnico");
             tabBiblioteca.Padding = new Padding(8);
             tabBiblioteca.BackColor = Color.White;
             tabBiblioteca.Controls.Add(dgvEcuacionesProductivas);
@@ -311,13 +378,194 @@ namespace Cotizador_animacion_Othalart
             tabMapaFlujoEcuacion.BackColor = Color.White;
             tabMapaFlujoEcuacion.Controls.Add(CrearPanelMapaFlujoEcuacion());
 
-            tabsEcuacionesProductivasInternas.TabPages.Add(tabEditorVisualEcuacion);
+            tabsEcuacionesProductivasInternas.TabPages.Add(tabResumen);
             tabsEcuacionesProductivasInternas.TabPages.Add(CrearTabValidacionEcuaciones());
             tabsEcuacionesProductivasInternas.TabPages.Add(tabMapaFlujoEcuacion);
             tabsEcuacionesProductivasInternas.TabPages.Add(tabBiblioteca);
 
             split.Panel2.Controls.Add(tabsEcuacionesProductivasInternas);
             return split;
+        }
+
+        private Control CrearFichaResumenEcuacionProductiva()
+        {
+            Panel contenedor = new Panel();
+            contenedor.Dock = DockStyle.Fill;
+            contenedor.AutoScroll = true;
+            contenedor.BackColor = Color.White;
+
+            pnlFichaResumenEcuacion = new Panel();
+            pnlFichaResumenEcuacion.Dock = DockStyle.Top;
+            pnlFichaResumenEcuacion.AutoSize = true;
+            pnlFichaResumenEcuacion.BackColor = Color.White;
+            pnlFichaResumenEcuacion.Padding = new Padding(16);
+
+            contenedor.Controls.Add(pnlFichaResumenEcuacion);
+            RefrescarFichaResumenEcuacionProductiva();
+            return contenedor;
+        }
+
+        private void RefrescarFichaResumenEcuacionProductiva()
+        {
+            if (pnlFichaResumenEcuacion == null)
+            {
+                return;
+            }
+
+            pnlFichaResumenEcuacion.Controls.Clear();
+
+            DataGridViewRow row = dgvEcuacionesProductivas == null ? null : dgvEcuacionesProductivas.CurrentRow;
+            if (row == null || row.IsNewRow)
+            {
+                Label vacio = new Label();
+                vacio.Text = "Selecciona una ecuacion o proceso en la biblioteca.";
+                vacio.AutoSize = true;
+                vacio.Font = new Font("Segoe UI", 11f, FontStyle.Regular);
+                vacio.ForeColor = Color.FromArgb(90, 90, 90);
+                pnlFichaResumenEcuacion.Controls.Add(vacio);
+                return;
+            }
+
+            string clave = ObtenerValorFilaEcuacion(row, "Clave");
+            string nombre = ObtenerValorFilaEcuacion(row, "NombreVisible");
+            string tipo = ObtenerValorFilaEcuacion(row, "TipoEcuacion");
+            string etapa = ObtenerValorFilaEcuacion(row, "Etapa");
+            string subEtapa = ObtenerValorFilaEcuacion(row, "SubEtapa");
+            string formulaMadre = ObtenerValorFilaEcuacion(row, "EcuacionBase");
+            string variables = ObtenerValorFilaEcuacion(row, "Variables");
+            string cargos = ObtenerValorFilaEcuacion(row, "CargosPermitidos");
+            string cargosJson = ObtenerValorFilaEcuacion(row, "CargosParticipantesJson");
+            string tokens = ObtenerValorFilaEcuacion(row, "Tokens");
+            bool activa = Convert.ToBoolean(row.Cells["Activa"].Value ?? true);
+
+            TableLayoutPanel layout = new TableLayoutPanel();
+            layout.Dock = DockStyle.Top;
+            layout.AutoSize = true;
+            layout.ColumnCount = 1;
+            layout.RowCount = 4;
+            layout.BackColor = Color.White;
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+            Label titulo = new Label();
+            titulo.Text = string.IsNullOrWhiteSpace(nombre) ? clave : nombre;
+            titulo.AutoSize = true;
+            titulo.Font = new Font("Segoe UI", 18f, FontStyle.Bold);
+            titulo.Margin = new Padding(0, 0, 0, 4);
+
+            Label subtitulo = new Label();
+            subtitulo.Text = (string.Equals(tipo, "Base", StringComparison.OrdinalIgnoreCase) ? "Formula madre" : "Proceso") +
+                " | " + (activa ? "Activo" : "Inactivo") +
+                " | " + (string.IsNullOrWhiteSpace(clave) ? "Sin clave" : clave);
+            subtitulo.AutoSize = true;
+            subtitulo.Font = new Font("Segoe UI", 10f, FontStyle.Regular);
+            subtitulo.ForeColor = Color.FromArgb(85, 85, 85);
+            subtitulo.Margin = new Padding(0, 0, 0, 18);
+
+            TableLayoutPanel datos = new TableLayoutPanel();
+            datos.Dock = DockStyle.Top;
+            datos.AutoSize = true;
+            datos.ColumnCount = 2;
+            datos.RowCount = 0;
+            datos.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 180));
+            datos.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            datos.Margin = new Padding(0, 0, 0, 18);
+
+            AgregarFilaResumenEcuacion(datos, "Clase", string.IsNullOrWhiteSpace(tipo) ? "No definida" : tipo);
+            AgregarFilaResumenEcuacion(datos, "Etapa", string.IsNullOrWhiteSpace(etapa) ? "Sin etapa" : etapa);
+            AgregarFilaResumenEcuacion(datos, "Subetapa", string.IsNullOrWhiteSpace(subEtapa) ? "Sin subetapa" : subEtapa);
+            AgregarFilaResumenEcuacion(datos, "Formula madre", string.IsNullOrWhiteSpace(formulaMadre) ? "No aplica" : formulaMadre);
+            AgregarFilaResumenEcuacion(datos, "Variables", ContarItemsSeparados(variables).ToString(CultureInfo.CurrentCulture));
+            AgregarFilaResumenEcuacion(datos, "Cargos", Math.Max(ContarItemsSeparados(cargos), ContarCargosParticipantesJson(cargosJson)).ToString(CultureInfo.CurrentCulture));
+            AgregarFilaResumenEcuacion(datos, "Palabras de busqueda", ContarItemsSeparados(tokens).ToString(CultureInfo.CurrentCulture));
+            AgregarFilaResumenEcuacion(datos, "Ultima validacion", "Disponible en Validacion / prueba");
+
+            FlowLayoutPanel acciones = new FlowLayoutPanel();
+            acciones.AutoSize = true;
+            acciones.FlowDirection = FlowDirection.LeftToRight;
+            acciones.WrapContents = true;
+
+            Button editar = CrearBotonEcuacion("Editar ecuacion");
+            editar.Width = 140;
+            editar.BackColor = Color.FromArgb(0, 120, 105);
+            editar.ForeColor = Color.White;
+            editar.Click += (s, e) =>
+            {
+                CargarEditorEcuacionDesdeFilaSeleccionada();
+                AbrirEditorVisualEcuacion();
+            };
+
+            Button validar = CrearBotonEcuacion("Validar");
+            validar.Width = 90;
+            validar.Click += (s, e) =>
+            {
+                MostrarValidacionBibliotecaEcuaciones();
+                if (tabsEcuacionesProductivasInternas != null && tabsEcuacionesProductivasInternas.TabPages.Count > 1)
+                {
+                    tabsEcuacionesProductivasInternas.SelectedIndex = 1;
+                }
+            };
+
+            acciones.Controls.Add(editar);
+            acciones.Controls.Add(validar);
+
+            layout.Controls.Add(titulo, 0, 0);
+            layout.Controls.Add(subtitulo, 0, 1);
+            layout.Controls.Add(datos, 0, 2);
+            layout.Controls.Add(acciones, 0, 3);
+
+            pnlFichaResumenEcuacion.Controls.Add(layout);
+        }
+
+        private void AgregarFilaResumenEcuacion(TableLayoutPanel tabla, string etiqueta, string valor)
+        {
+            int fila = tabla.RowCount++;
+            tabla.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+            Label lbl = new Label();
+            lbl.Text = etiqueta;
+            lbl.AutoSize = true;
+            lbl.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
+            lbl.ForeColor = Color.FromArgb(70, 70, 70);
+            lbl.Margin = new Padding(0, 0, 12, 8);
+
+            Label txt = new Label();
+            txt.Text = string.IsNullOrWhiteSpace(valor) ? "No informado" : valor;
+            txt.AutoSize = true;
+            txt.MaximumSize = new Size(760, 0);
+            txt.Font = new Font("Segoe UI", 9.5f, FontStyle.Regular);
+            txt.ForeColor = Color.FromArgb(30, 30, 30);
+            txt.Margin = new Padding(0, 0, 0, 8);
+
+            tabla.Controls.Add(lbl, 0, fila);
+            tabla.Controls.Add(txt, 1, fila);
+        }
+
+        private int ContarItemsSeparados(string texto)
+        {
+            return (texto ?? "")
+                .Split(new[] { ',', ';', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(v => v.Trim())
+                .Count(v => !string.IsNullOrWhiteSpace(v));
+        }
+
+        private int ContarCargosParticipantesJson(string json)
+        {
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                return 0;
+            }
+
+            try
+            {
+                return JsonSerializer.Deserialize<List<CargoParticipanteFormula>>(json)?.Count ?? 0;
+            }
+            catch
+            {
+                return 0;
+            }
         }
 
         private void AjustarSplitterEcuaciones(SplitContainer split)
@@ -400,10 +648,11 @@ namespace Cotizador_animacion_Othalart
             lvBibliotecaEcuaciones.BorderStyle = BorderStyle.FixedSingle;
             lvBibliotecaEcuaciones.Font = new Font("Segoe UI", 9f);
             lvBibliotecaEcuaciones.Columns.Clear();
-            lvBibliotecaEcuaciones.Columns.Add("Proceso", 185);
-            lvBibliotecaEcuaciones.Columns.Add("Clase", 76);
+            lvBibliotecaEcuaciones.Columns.Add("Trabajo", 190);
+            lvBibliotecaEcuaciones.Columns.Add("Estado", 96);
             lvBibliotecaEcuaciones.Columns.Add("Etapa", 92);
             lvBibliotecaEcuaciones.ContextMenuStrip = CrearMenuContextualBibliotecaEcuaciones();
+            lvBibliotecaEcuaciones.DoubleClick += (s, e) => AbrirEditorEcuacionSeleccionadaDesdeBiblioteca();
             lvBibliotecaEcuaciones.SelectedIndexChanged += (s, e) =>
             {
                 if (sincronizandoBibliotecaEcuaciones)
@@ -461,6 +710,9 @@ namespace Cotizador_animacion_Othalart
         {
             ContextMenuStrip menu = new ContextMenuStrip();
 
+            ToolStripMenuItem editar = new ToolStripMenuItem("Editar ecuacion");
+            editar.Click += (s, e) => AbrirEditorEcuacionSeleccionadaDesdeBiblioteca();
+
             ToolStripMenuItem duplicar = new ToolStripMenuItem("Duplicar");
             duplicar.Click += (s, e) => DuplicarEcuacionSeleccionadaDesdeBiblioteca();
 
@@ -471,14 +723,31 @@ namespace Cotizador_animacion_Othalart
             {
                 bool haySeleccion = lvBibliotecaEcuaciones != null &&
                                     lvBibliotecaEcuaciones.SelectedItems.Count > 0;
+                editar.Enabled = haySeleccion;
                 duplicar.Enabled = haySeleccion;
                 quitar.Enabled = haySeleccion;
             };
 
+            menu.Items.Add(editar);
+            menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add(duplicar);
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add(quitar);
             return menu;
+        }
+
+        private void AbrirEditorEcuacionSeleccionadaDesdeBiblioteca()
+        {
+            if (lvBibliotecaEcuaciones == null || lvBibliotecaEcuaciones.SelectedItems.Count == 0)
+            {
+                return;
+            }
+
+            if (lvBibliotecaEcuaciones.SelectedItems[0].Tag is DataGridViewRow row)
+            {
+                SeleccionarFilaEcuacion(row);
+                AbrirEditorVisualEcuacion();
+            }
         }
 
         private Control CrearBuscadorEcuacionProductiva()
@@ -559,7 +828,7 @@ namespace Cotizador_animacion_Othalart
             root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
             Label titulo = new Label();
-            titulo.Text = "Editor de formula productiva";
+            titulo.Text = "Editor de regla de cálculo";
             titulo.AutoSize = true;
             titulo.Font = new Font("Segoe UI", 11f, FontStyle.Bold);
             titulo.ForeColor = Color.FromArgb(25, 25, 25);
@@ -573,28 +842,19 @@ namespace Cotizador_animacion_Othalart
             chkEcuacionActiva.AutoSize = true;
             ConectarEventosRenderEcuacionProductiva();
 
-            TableLayoutPanel cuerpo = new TableLayoutPanel();
-            cuerpo.Dock = DockStyle.Top;
-            cuerpo.AutoSize = true;
-            cuerpo.ColumnCount = 1;
-            cuerpo.RowCount = 2;
-            cuerpo.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            cuerpo.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            cuerpo.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            cuerpo.Controls.Add(CrearGrupoIdentificacionEcuacion(), 0, 0);
-            cuerpo.Controls.Add(CrearGrupoCalculoEcuacion(), 0, 1);
-
             FlowLayoutPanel acciones = new FlowLayoutPanel();
             acciones.AutoSize = true;
             acciones.FlowDirection = FlowDirection.LeftToRight;
             acciones.Margin = new Padding(0, 10, 0, 0);
 
-            Button btnAplicar = CrearBotonEcuacion("Aplicar a fila");
-            btnAplicar.Width = 130;
+            Button btnAplicar = CrearBotonEcuacion("Aplicar cambios");
+            btnAplicar.Width = 140;
             btnAplicar.Click += (s, e) => AplicarEditorEcuacionAFilaSeleccionada();
 
-            Button btnGuardar = CrearBotonEcuacion("Guardar JSON");
-            btnGuardar.Width = 130;
+            Button btnGuardar = CrearBotonEcuacion("Guardar cambios");
+            btnGuardar.Width = 145;
+            btnGuardar.BackColor = Color.FromArgb(0, 120, 105);
+            btnGuardar.ForeColor = Color.White;
             btnGuardar.Click += (s, e) =>
             {
                 AplicarEditorEcuacionAFilaSeleccionada();
@@ -609,11 +869,11 @@ namespace Cotizador_animacion_Othalart
             btnVolver.Width = 150;
             btnVolver.Click += (s, e) => VolverABibliotecaEcuaciones();
 
-            acciones.Controls.Add(chkEcuacionActiva);
-            acciones.Controls.Add(btnAplicar);
             acciones.Controls.Add(btnGuardar);
+            acciones.Controls.Add(btnAplicar);
             acciones.Controls.Add(btnEditarTexto);
             acciones.Controls.Add(btnVolver);
+            acciones.Controls.Add(chkEcuacionActiva);
 
             Panel scroll = new Panel();
             scroll.Dock = DockStyle.Fill;
@@ -624,21 +884,29 @@ namespace Cotizador_animacion_Othalart
             contenido.Dock = DockStyle.Top;
             contenido.AutoSize = true;
             contenido.ColumnCount = 1;
-            contenido.RowCount = 2;
+            contenido.RowCount = 4;
             contenido.BackColor = Color.FromArgb(248, 249, 251);
             contenido.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             contenido.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-
-            cuerpo.AutoSize = true;
-            cuerpo.MinimumSize = new Size(0, 300);
-            contenido.Controls.Add(cuerpo, 0, 0);
-            contenido.Controls.Add(CrearPanelRenderEcuacionProductiva(), 0, 1);
+            contenido.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            contenido.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            contenido.Controls.Add(CrearPanelEditorSimpleEcuacion(), 0, 0);
+            contenido.Controls.Add(CrearTarjetaCargosEcuacion(), 0, 1);
+            contenido.Controls.Add(CrearPanelVistaPreviaSimpleEcuacion(), 0, 2);
+            contenido.Controls.Add(CrearPanelAvanzadoEcuacion(), 0, 3);
 
             scroll.Controls.Add(contenido);
             contenido.Width = Math.Max(600, scroll.ClientSize.Width - SystemInformation.VerticalScrollBarWidth - 6);
 
             root.Controls.Add(titulo, 0, 0);
-            root.Controls.Add(CrearAyudaEditorEcuacion(), 0, 1);
+            root.Controls.Add(new Label
+            {
+                Text = "Configura la regla con palabras simples. Los identificadores, fórmulas y JSON quedan disponibles en Opciones avanzadas.",
+                AutoSize = true,
+                MaximumSize = new Size(1120, 0),
+                ForeColor = Color.FromArgb(80, 80, 80),
+                Margin = new Padding(0, 0, 0, 12)
+            }, 0, 1);
             root.Controls.Add(scroll, 0, 2);
             root.Controls.Add(acciones, 0, 3);
             scroll.Resize += (s, e) =>
@@ -687,7 +955,7 @@ namespace Cotizador_animacion_Othalart
             tabla.Controls.Add(CrearEtiquetaEditorEcuacion("Variables entrada"), 0, 1);
             tabla.Controls.Add(CrearPanelListaEditableEcuacion(lstEcuacionVariables, txtNuevaVariableEcuacion, "Agregar variable"), 1, 1);
 
-            tabla.Controls.Add(CrearEtiquetaEditorEcuacion("Cargos que participan en esta formula"), 0, 2);
+            tabla.Controls.Add(CrearEtiquetaEditorEcuacion("Equipo y participacion"), 0, 2);
             tabla.Controls.Add(CrearPanelCargosParticipantesEcuacion(), 1, 2);
 
             tabla.Controls.Add(CrearEtiquetaEditorEcuacion("Calculo"), 0, 3);
@@ -1030,12 +1298,17 @@ namespace Cotizador_animacion_Othalart
         private Control CrearPanelCargosParticipantesEcuacion()
         {
             TableLayoutPanel panel = new TableLayoutPanel();
-            panel.Dock = DockStyle.Fill;
+            panel.Dock = DockStyle.Top;
+            panel.AutoSize = true;
+            panel.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             panel.ColumnCount = 1;
-            panel.RowCount = 4;
-            panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 220));
+            panel.RowCount = 7;
             panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 170));
+            panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 154));
+            panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 100));
             panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 1));
             panel.Margin = new Padding(0, 0, 0, 6);
 
@@ -1046,51 +1319,64 @@ namespace Cotizador_animacion_Othalart
             lstEcuacionCargosPermitidos.Dock = DockStyle.Fill;
             lstEcuacionCargosPermitidos.Visible = false;
 
-            FlowLayoutPanel acciones = new FlowLayoutPanel();
-            acciones.AutoSize = true;
-            acciones.FlowDirection = FlowDirection.LeftToRight;
-            acciones.WrapContents = false;
+            Label titulo = new Label();
+            titulo.Text = "Equipo y participacion";
+            titulo.AutoSize = true;
+            titulo.Font = new Font("Segoe UI", 10f, FontStyle.Bold);
+            titulo.ForeColor = Color.FromArgb(35, 35, 35);
+            titulo.Margin = new Padding(0, 0, 0, 6);
+
+            TableLayoutPanel selector = new TableLayoutPanel();
+            selector.Dock = DockStyle.Top;
+            selector.AutoSize = true;
+            selector.ColumnCount = 4;
+            selector.RowCount = 1;
+            selector.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            selector.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            selector.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            selector.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            selector.Margin = new Padding(0, 0, 0, 8);
+
+            RefrescarComboCargosPermitidosEcuacion();
+            cmbCargoPermitidoEcuacion.Width = 320;
+            cmbCargoPermitidoEcuacion.Dock = DockStyle.Fill;
+            cmbCargoPermitidoEcuacion.Margin = new Padding(0, 2, 8, 2);
 
             Button agregar = CrearBotonEcuacion("Agregar cargo");
-            agregar.Width = 128;
-            agregar.Margin = new Padding(0, 2, 6, 0);
+            agregar.Width = 126;
+            agregar.Margin = new Padding(0, 2, 8, 2);
             agregar.Click += (s, e) => AgregarCargoParticipanteEcuacion();
 
-            Button editar = CrearBotonEcuacion("Editar dedicacion");
-            editar.Width = 150;
-            editar.Margin = new Padding(0, 2, 6, 0);
-            editar.Click += (s, e) => EditarCargoParticipanteEcuacion();
-
-            Button quitar = CrearBotonEcuacion("Quitar");
-            quitar.Width = 75;
-            quitar.Margin = new Padding(0, 2, 6, 0);
-            quitar.Click += (s, e) =>
-            {
-                if (dgvCargosParticipantesEcuacion.CurrentRow != null &&
-                    !dgvCargosParticipantesEcuacion.CurrentRow.IsNewRow)
-                {
-                    dgvCargosParticipantesEcuacion.Rows.Remove(dgvCargosParticipantesEcuacion.CurrentRow);
-                    SincronizarCargosParticipantesConLegacy();
-                    ActualizarVistaPreviaCargosParticipantes();
-                    ActualizarRenderEcuacionProductiva();
-                }
-            };
-
             Button revisarCargos = CrearBotonEcuacion("Revisar cargos");
-            revisarCargos.Width = 120;
-            revisarCargos.Margin = new Padding(0, 2, 0, 0);
+            revisarCargos.Width = 118;
+            revisarCargos.Margin = new Padding(0, 2, 8, 2);
             revisarCargos.Click += (s, e) => AbrirTabPrincipal(tabCargosPrincipal, true);
 
-            Button guardarVector = CrearBotonEcuacion("Guardar cargos en JSON");
-            guardarVector.Width = 178;
-            guardarVector.Margin = new Padding(0, 2, 0, 0);
-            guardarVector.Click += (s, e) => GuardarVectorCargosParticipantesJson();
+            Button detalle = CrearBotonEcuacion("Ver detalle del calculo");
+            detalle.Width = 172;
+            detalle.Margin = new Padding(0, 2, 0, 2);
+            detalle.Click += (s, e) =>
+            {
+                mostrandoDetalleCalculoCargos = !mostrandoDetalleCalculoCargos;
+                detalle.Text = mostrandoDetalleCalculoCargos
+                    ? "Ocultar detalle"
+                    : "Ver detalle del calculo";
+                AplicarVistaColumnasCargosParticipantes();
+            };
 
-            acciones.Controls.Add(agregar);
-            acciones.Controls.Add(editar);
-            acciones.Controls.Add(quitar);
-            acciones.Controls.Add(revisarCargos);
-            acciones.Controls.Add(guardarVector);
+            selector.Controls.Add(cmbCargoPermitidoEcuacion, 0, 0);
+            selector.Controls.Add(agregar, 1, 0);
+            selector.Controls.Add(revisarCargos, 2, 0);
+            selector.Controls.Add(detalle, 3, 0);
+
+            lblEstadoCargosParticipantesEcuacion.AutoSize = true;
+            lblEstadoCargosParticipantesEcuacion.Dock = DockStyle.Top;
+            lblEstadoCargosParticipantesEcuacion.MaximumSize = new Size(1100, 0);
+            lblEstadoCargosParticipantesEcuacion.Padding = new Padding(10, 7, 10, 7);
+            lblEstadoCargosParticipantesEcuacion.Margin = new Padding(0, 0, 0, 6);
+            lblEstadoCargosParticipantesEcuacion.BackColor = Color.FromArgb(245, 249, 255);
+            lblEstadoCargosParticipantesEcuacion.ForeColor = Color.FromArgb(45, 75, 115);
+            lblEstadoCargosParticipantesEcuacion.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
 
             rtbVistaPreviaCargosParticipantes.Dock = DockStyle.Fill;
             rtbVistaPreviaCargosParticipantes.ReadOnly = true;
@@ -1101,10 +1387,20 @@ namespace Cotizador_animacion_Othalart
             rtbVistaPreviaCargosParticipantes.ScrollBars = RichTextBoxScrollBars.Vertical;
             rtbVistaPreviaCargosParticipantes.Margin = new Padding(0, 8, 0, 0);
 
-            panel.Controls.Add(dgvCargosParticipantesEcuacion, 0, 0);
-            panel.Controls.Add(acciones, 0, 1);
-            panel.Controls.Add(rtbVistaPreviaCargosParticipantes, 0, 2);
-            panel.Controls.Add(lstEcuacionCargosPermitidos, 0, 3);
+            Label ayuda = new Label();
+            ayuda.Text = "La Participación % se edita aquí. Sueldo, rango y tarifas vienen de cargos.json; puedes modificarlos desde Revisar cargos. Horas y costos se recalculan automáticamente.";
+            ayuda.AutoSize = true;
+            ayuda.MaximumSize = new Size(900, 0);
+            ayuda.ForeColor = Color.FromArgb(90, 90, 90);
+            ayuda.Margin = new Padding(0, 0, 0, 6);
+
+            panel.Controls.Add(titulo, 0, 0);
+            panel.Controls.Add(selector, 0, 1);
+            panel.Controls.Add(lblEstadoCargosParticipantesEcuacion, 0, 2);
+            panel.Controls.Add(dgvCargosParticipantesEcuacion, 0, 3);
+            panel.Controls.Add(ayuda, 0, 4);
+            panel.Controls.Add(rtbVistaPreviaCargosParticipantes, 0, 5);
+            panel.Controls.Add(lstEcuacionCargosPermitidos, 0, 6);
             ActualizarVistaPreviaCargosParticipantes();
             return panel;
         }
@@ -1114,8 +1410,9 @@ namespace Cotizador_animacion_Othalart
             dgvCargosParticipantesEcuacion.Dock = DockStyle.Fill;
             dgvCargosParticipantesEcuacion.AllowUserToAddRows = false;
             dgvCargosParticipantesEcuacion.AllowUserToDeleteRows = false;
-            dgvCargosParticipantesEcuacion.ReadOnly = true;
-            dgvCargosParticipantesEcuacion.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+            dgvCargosParticipantesEcuacion.ReadOnly = false;
+            dgvCargosParticipantesEcuacion.EditMode = DataGridViewEditMode.EditOnEnter;
+            dgvCargosParticipantesEcuacion.SelectionMode = DataGridViewSelectionMode.CellSelect;
             dgvCargosParticipantesEcuacion.MultiSelect = false;
             dgvCargosParticipantesEcuacion.RowHeadersVisible = false;
             dgvCargosParticipantesEcuacion.BackgroundColor = Color.White;
@@ -1126,14 +1423,22 @@ namespace Cotizador_animacion_Othalart
             dgvCargosParticipantesEcuacion.CellDoubleClick += DgvCargosParticipantesEcuacion_CellDoubleClick;
             dgvCargosParticipantesEcuacion.SelectionChanged -= DgvCargosParticipantesEcuacion_SelectionChanged;
             dgvCargosParticipantesEcuacion.SelectionChanged += DgvCargosParticipantesEcuacion_SelectionChanged;
+            dgvCargosParticipantesEcuacion.CellEndEdit -= DgvCargosParticipantesEcuacion_CellEndEdit;
+            dgvCargosParticipantesEcuacion.CellEndEdit += DgvCargosParticipantesEcuacion_CellEndEdit;
+            dgvCargosParticipantesEcuacion.CellContentClick -= DgvCargosParticipantesEcuacion_CellContentClick;
+            dgvCargosParticipantesEcuacion.CellContentClick += DgvCargosParticipantesEcuacion_CellContentClick;
+            dgvCargosParticipantesEcuacion.DataError -= DgvCargosParticipantesEcuacion_DataError;
+            dgvCargosParticipantesEcuacion.DataError += DgvCargosParticipantesEcuacion_DataError;
 
             if (dgvCargosParticipantesEcuacion.Columns.Count > 0)
             {
-                AplicarEncabezadosGrillaCargosParticipantes();
+                AplicarVistaColumnasCargosParticipantes();
                 return;
             }
 
             dgvCargosParticipantesEcuacion.Columns.Add("Cargo", "Cargo");
+            dgvCargosParticipantesEcuacion.Columns.Add("SueldoMensualCLP", "Sueldo mensual");
+            dgvCargosParticipantesEcuacion.Columns.Add("RangoSueldoCLP", "Rango mensual");
             dgvCargosParticipantesEcuacion.Columns.Add("TarifaDiariaCLP", "Tarifa diaria");
             dgvCargosParticipantesEcuacion.Columns.Add("HorasPorDia", "Horas/dia");
             dgvCargosParticipantesEcuacion.Columns.Add("TarifaHorariaCLP", "Tarifa horaria");
@@ -1147,8 +1452,26 @@ namespace Cotizador_animacion_Othalart
             dgvCargosParticipantesEcuacion.Columns.Add("VariableBase", "Variable base");
             dgvCargosParticipantesEcuacion.Columns.Add("CantidadFactor", "Rendimiento/factor");
             dgvCargosParticipantesEcuacion.Columns.Add("FormulaPersonalizada", "Formula personalizada");
+            dgvCargosParticipantesEcuacion.Columns.Add(new DataGridViewButtonColumn
+            {
+                Name = "EditarCargo",
+                HeaderText = "",
+                Text = "Editar",
+                UseColumnTextForButtonValue = true,
+                Width = 72
+            });
+            dgvCargosParticipantesEcuacion.Columns.Add(new DataGridViewButtonColumn
+            {
+                Name = "Accion",
+                HeaderText = "Accion",
+                Text = "Quitar",
+                UseColumnTextForButtonValue = true,
+                Width = 78
+            });
 
-            dgvCargosParticipantesEcuacion.Columns["Cargo"].Width = 230;
+            dgvCargosParticipantesEcuacion.Columns["Cargo"].Width = 260;
+            dgvCargosParticipantesEcuacion.Columns["SueldoMensualCLP"].Width = 135;
+            dgvCargosParticipantesEcuacion.Columns["RangoSueldoCLP"].Width = 190;
             dgvCargosParticipantesEcuacion.Columns["TarifaDiariaCLP"].Width = 110;
             dgvCargosParticipantesEcuacion.Columns["HorasPorDia"].Width = 78;
             dgvCargosParticipantesEcuacion.Columns["TarifaHorariaCLP"].Width = 110;
@@ -1161,14 +1484,10 @@ namespace Cotizador_animacion_Othalart
             dgvCargosParticipantesEcuacion.Columns["ModoCalculo"].Width = 230;
             dgvCargosParticipantesEcuacion.Columns["VariableBase"].Width = 130;
             dgvCargosParticipantesEcuacion.Columns["CantidadFactor"].Width = 105;
-            dgvCargosParticipantesEcuacion.Columns["ModoCalculo"].Visible = true;
-            dgvCargosParticipantesEcuacion.Columns["VariableBase"].Visible = true;
-            dgvCargosParticipantesEcuacion.Columns["CantidadFactor"].Visible = true;
-            dgvCargosParticipantesEcuacion.Columns["FormulaPersonalizada"].Visible = false;
-            AplicarEncabezadosGrillaCargosParticipantes();
+            AplicarVistaColumnasCargosParticipantes();
         }
 
-        private void AplicarEncabezadosGrillaCargosParticipantes()
+        private void AplicarVistaColumnasCargosParticipantes()
         {
             if (dgvCargosParticipantesEcuacion.Columns.Count == 0)
             {
@@ -1224,10 +1543,93 @@ namespace Cotizador_animacion_Othalart
             {
                 dgvCargosParticipantesEcuacion.Columns["CantidadFactor"].HeaderText = "Cantidad/factor";
             }
+
+            foreach (DataGridViewColumn columna in dgvCargosParticipantesEcuacion.Columns)
+            {
+                columna.ReadOnly = true;
+                columna.Visible = false;
+            }
+
+            MostrarColumnaCargoParticipante("Cargo", true);
+            MostrarColumnaCargoParticipante("DedicacionPorcentaje", true);
+            MostrarColumnaCargoParticipante("SueldoMensualCLP", true);
+            MostrarColumnaCargoParticipante("RangoSueldoCLP", true);
+            MostrarColumnaCargoParticipante("TarifaDiariaCLP", true);
+            MostrarColumnaCargoParticipante("TarifaHorariaCLP", true);
+            MostrarColumnaCargoParticipante("HorasPorDia", true);
+            MostrarColumnaCargoParticipante("HorasAsignadas", true);
+            MostrarColumnaCargoParticipante("CostoTotalCLP", true);
+            MostrarColumnaCargoParticipante("EditarCargo", true);
+            MostrarColumnaCargoParticipante("Accion", true);
+
+            dgvCargosParticipantesEcuacion.Columns["DedicacionPorcentaje"].ReadOnly = false;
+            dgvCargosParticipantesEcuacion.Columns["Cargo"].HeaderText = "Cargo";
+            dgvCargosParticipantesEcuacion.Columns["DedicacionPorcentaje"].HeaderText = "Participacion %";
+            dgvCargosParticipantesEcuacion.Columns["SueldoMensualCLP"].HeaderText = "Sueldo mensual";
+            dgvCargosParticipantesEcuacion.Columns["RangoSueldoCLP"].HeaderText = "Rango mensual";
+            dgvCargosParticipantesEcuacion.Columns["TarifaDiariaCLP"].HeaderText = "Tarifa/dia";
+            dgvCargosParticipantesEcuacion.Columns["TarifaHorariaCLP"].HeaderText = "Tarifa/hora";
+            dgvCargosParticipantesEcuacion.Columns["HorasPorDia"].HeaderText = "Jornada h";
+            dgvCargosParticipantesEcuacion.Columns["HorasAsignadas"].HeaderText = "Horas calculadas";
+            dgvCargosParticipantesEcuacion.Columns["CostoTotalCLP"].HeaderText = "Costo";
+            dgvCargosParticipantesEcuacion.Columns["Cargo"].DisplayIndex = 0;
+            dgvCargosParticipantesEcuacion.Columns["DedicacionPorcentaje"].DisplayIndex = 1;
+            dgvCargosParticipantesEcuacion.Columns["SueldoMensualCLP"].DisplayIndex = 2;
+            dgvCargosParticipantesEcuacion.Columns["RangoSueldoCLP"].DisplayIndex = 3;
+            dgvCargosParticipantesEcuacion.Columns["TarifaDiariaCLP"].DisplayIndex = 4;
+            dgvCargosParticipantesEcuacion.Columns["TarifaHorariaCLP"].DisplayIndex = 5;
+            dgvCargosParticipantesEcuacion.Columns["HorasPorDia"].DisplayIndex = 6;
+            dgvCargosParticipantesEcuacion.Columns["HorasAsignadas"].DisplayIndex = 7;
+            dgvCargosParticipantesEcuacion.Columns["CostoTotalCLP"].DisplayIndex = 8;
+            dgvCargosParticipantesEcuacion.Columns["EditarCargo"].DisplayIndex = 9;
+            dgvCargosParticipantesEcuacion.Columns["Accion"].DisplayIndex = 10;
+            dgvCargosParticipantesEcuacion.Columns["DedicacionPorcentaje"].DefaultCellStyle.BackColor =
+                Color.FromArgb(255, 249, 220);
+            dgvCargosParticipantesEcuacion.Columns["DedicacionPorcentaje"].DefaultCellStyle.SelectionBackColor =
+                Color.FromArgb(255, 224, 130);
+            dgvCargosParticipantesEcuacion.Columns["DedicacionPorcentaje"].DefaultCellStyle.ForeColor =
+                Color.FromArgb(70, 55, 0);
+
+            if (mostrandoDetalleCalculoCargos)
+            {
+                MostrarColumnaCargoParticipante("ParticipacionNormalizada", true);
+                MostrarColumnaCargoParticipante("HorasProceso", true);
+                MostrarColumnaCargoParticipante("CostoDerivadoCLP", true);
+                MostrarColumnaCargoParticipante("ModoCalculo", true);
+                MostrarColumnaCargoParticipante("VariableBase", true);
+                MostrarColumnaCargoParticipante("CantidadFactor", true);
+            }
+        }
+
+        private void MostrarColumnaCargoParticipante(string nombre, bool visible)
+        {
+            if (dgvCargosParticipantesEcuacion.Columns.Contains(nombre))
+            {
+                dgvCargosParticipantesEcuacion.Columns[nombre].Visible = visible;
+            }
         }
 
         private void DgvCargosParticipantesEcuacion_CellDoubleClick(object sender, DataGridViewCellEventArgs e)
         {
+            if (e.RowIndex < 0 || e.ColumnIndex < 0)
+            {
+                return;
+            }
+
+            string columna = dgvCargosParticipantesEcuacion.Columns[e.ColumnIndex].Name;
+            if (columna == "DedicacionPorcentaje")
+            {
+                dgvCargosParticipantesEcuacion.BeginEdit(true);
+                return;
+            }
+
+            if (columna == "EditarCargo" || columna == "Accion")
+            {
+                return;
+            }
+
+            dgvCargosParticipantesEcuacion.CurrentCell =
+                dgvCargosParticipantesEcuacion.Rows[e.RowIndex].Cells["Cargo"];
             EditarCargoParticipanteEcuacion();
         }
 
@@ -1239,6 +1641,56 @@ namespace Cotizador_animacion_Othalart
             }
 
             ActualizarVistaPreviaCargosParticipantes();
+        }
+
+        private void DgvCargosParticipantesEcuacion_CellEndEdit(object sender, DataGridViewCellEventArgs e)
+        {
+            if (cargandoEditorEcuaciones || actualizandoCargosParticipantes || e.RowIndex < 0)
+            {
+                return;
+            }
+
+            string columna = dgvCargosParticipantesEcuacion.Columns[e.ColumnIndex].Name;
+            if (columna != "DedicacionPorcentaje")
+            {
+                return;
+            }
+
+            DataGridViewRow row = dgvCargosParticipantesEcuacion.Rows[e.RowIndex];
+            double dedicacion = ConvertirNumeroFlexible(row.Cells["DedicacionPorcentaje"].Value, 100.0);
+            dedicacion = Math.Max(0.0, Math.Min(100.0, dedicacion));
+            row.Cells["DedicacionPorcentaje"].Value = dedicacion.ToString("0.##");
+            ConfirmarCambioCargosParticipantes("Dedicación actualizada. Usa Guardar cambios para conservarla.");
+        }
+
+        private void DgvCargosParticipantesEcuacion_CellContentClick(object sender, DataGridViewCellEventArgs e)
+        {
+            if (cargandoEditorEcuaciones || actualizandoCargosParticipantes || e.RowIndex < 0)
+            {
+                return;
+            }
+
+            string columna = dgvCargosParticipantesEcuacion.Columns[e.ColumnIndex].Name;
+            if (columna == "EditarCargo")
+            {
+                dgvCargosParticipantesEcuacion.CurrentCell =
+                    dgvCargosParticipantesEcuacion.Rows[e.RowIndex].Cells["Cargo"];
+                EditarCargoParticipanteEcuacion();
+                return;
+            }
+
+            if (columna != "Accion")
+            {
+                return;
+            }
+
+            dgvCargosParticipantesEcuacion.Rows.RemoveAt(e.RowIndex);
+            ConfirmarCambioCargosParticipantes("Cargo quitado del equipo. Usa Guardar cambios para conservarlo.");
+        }
+
+        private void DgvCargosParticipantesEcuacion_DataError(object sender, DataGridViewDataErrorEventArgs e)
+        {
+            e.ThrowException = false;
         }
 
         private Control CrearPanelCargosPermitidosEcuacion()
@@ -1344,7 +1796,11 @@ namespace Cotizador_animacion_Othalart
             CargoPonderadoEcuacion seleccionado =
                 ObtenerCargoPonderadoEcuacion(lstEcuacionCargosPermitidos.SelectedItem);
 
-            cmbCargoPermitidoEcuacion.Text = seleccionado.Cargo;
+            int indiceCargo = cmbCargoPermitidoEcuacion.FindStringExact(seleccionado.Cargo);
+            if (indiceCargo >= 0)
+            {
+                cmbCargoPermitidoEcuacion.SelectedIndex = indiceCargo;
+            }
             decimal valor = (decimal)Math.Max(
                 (double)nudPonderadorCargoEcuacion.Minimum,
                 Math.Min((double)nudPonderadorCargoEcuacion.Maximum, seleccionado.Ponderador)
@@ -1356,8 +1812,16 @@ namespace Cotizador_animacion_Othalart
         private void RefrescarComboCargosPermitidosEcuacion()
         {
             string actual = Convert.ToString(cmbCargoPermitidoEcuacion.Text) ?? "";
-            cmbCargoPermitidoEcuacion.DropDownStyle = ComboBoxStyle.DropDown;
+            if (string.Equals(actual, TextoSeleccionarCargoEcuacion, StringComparison.OrdinalIgnoreCase))
+            {
+                actual = "";
+            }
+
+            cmbCargoPermitidoEcuacion.DropDownStyle = ComboBoxStyle.DropDownList;
+            cmbCargoPermitidoEcuacion.AutoCompleteSource = AutoCompleteSource.ListItems;
+            cmbCargoPermitidoEcuacion.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
             cmbCargoPermitidoEcuacion.Items.Clear();
+            cmbCargoPermitidoEcuacion.Items.Add(TextoSeleccionarCargoEcuacion);
 
             foreach (string cargo in Cargos.CrearBibliotecaCompleta()
                 .Where(c => c != null && !string.IsNullOrWhiteSpace(c.NombreCompleto))
@@ -1368,13 +1832,17 @@ namespace Cotizador_animacion_Othalart
                 cmbCargoPermitidoEcuacion.Items.Add(cargo);
             }
 
-            cmbCargoPermitidoEcuacion.Text = actual;
+            int indiceActual = string.IsNullOrWhiteSpace(actual)
+                ? 0
+                : cmbCargoPermitidoEcuacion.FindStringExact(actual);
+            cmbCargoPermitidoEcuacion.SelectedIndex = indiceActual >= 0 ? indiceActual : 0;
         }
 
         private void AgregarCargoPermitidoEcuacion()
         {
             string valor = (cmbCargoPermitidoEcuacion.Text ?? "").Trim();
-            if (string.IsNullOrWhiteSpace(valor))
+            if (string.IsNullOrWhiteSpace(valor) ||
+                string.Equals(valor, TextoSeleccionarCargoEcuacion, StringComparison.OrdinalIgnoreCase))
             {
                 return;
             }
@@ -1410,7 +1878,8 @@ namespace Cotizador_animacion_Othalart
                 lstEcuacionCargosPermitidos.Items.Add(cargoNuevo);
             }
 
-            cmbCargoPermitidoEcuacion.Text = "";
+            cmbCargoPermitidoEcuacion.SelectedIndex =
+                cmbCargoPermitidoEcuacion.Items.Count > 0 ? 0 : -1;
             nudPonderadorCargoEcuacion.Value = 1M;
             ActualizarResumenVectorCargosEcuacion();
             ActualizarRenderEcuacionProductiva();
@@ -1453,16 +1922,48 @@ namespace Cotizador_animacion_Othalart
 
         private void AgregarCargoParticipanteEcuacion()
         {
-            CargoParticipanteFormula participante = MostrarDialogoCargoParticipante(null);
-            if (participante == null)
+            string cargo = (cmbCargoPermitidoEcuacion.Text ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(cargo) ||
+                string.Equals(cargo, TextoSeleccionarCargoEcuacion, StringComparison.OrdinalIgnoreCase))
             {
+                lblEstadoCargosParticipantesEcuacion.Text =
+                    "Selecciona un cargo de la lista y luego presiona Agregar cargo.";
                 return;
             }
 
+            bool existe = ObtenerParticipantesDesdeGrilla()
+                .Any(p => string.Equals(p.Cargo, cargo, StringComparison.OrdinalIgnoreCase));
+
+            if (existe)
+            {
+                MessageBox.Show(
+                    "Ese cargo ya participa en esta formula.",
+                    "Equipo y participacion",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information
+                );
+                return;
+            }
+
+            CategoriaTrabajador cargoBiblioteca = BuscarCargoRenderizadoEcuacion(
+                Cargos.CrearBibliotecaCompleta(),
+                cargo
+            );
+
+            CargoParticipanteFormula participante = new CargoParticipanteFormula
+            {
+                Cargo = cargo,
+                TarifaDiariaCLP = cargoBiblioteca == null ? 0.0 : cargoBiblioteca.SueldoMensualCLPTipico / 22.0,
+                HorasPorDia = 8.0,
+                DedicacionPorcentaje = 100.0,
+                ModoCalculo = ModosCalculoCargoParticipante[0],
+                CantidadFactor = 1.0
+            };
+
             AgregarParticipanteAGrilla(participante);
-            SincronizarCargosParticipantesConLegacy();
-            ActualizarVistaPreviaCargosParticipantes();
-            ActualizarRenderEcuacionProductiva();
+            cmbCargoPermitidoEcuacion.SelectedIndex =
+                cmbCargoPermitidoEcuacion.Items.Count > 0 ? 0 : -1;
+            ConfirmarCambioCargosParticipantes("Cargo agregado al equipo. Usa Guardar cambios para conservarlo.");
         }
 
         private void EditarCargoParticipanteEcuacion()
@@ -1482,9 +1983,30 @@ namespace Cotizador_animacion_Othalart
             }
 
             EscribirParticipanteEnFila(dgvCargosParticipantesEcuacion.CurrentRow, editado);
+            ConfirmarCambioCargosParticipantes(
+                "Configuración del cargo actualizada. Usa Guardar cambios para conservarla."
+            );
+        }
+
+        private void ConfirmarCambioCargosParticipantes(string estado)
+        {
+            if (actualizandoCargosParticipantes)
+            {
+                return;
+            }
+
             SincronizarCargosParticipantesConLegacy();
+            AplicarEditorEcuacionAFilaSeleccionada();
             ActualizarVistaPreviaCargosParticipantes();
             ActualizarRenderEcuacionProductiva();
+            MostrarValidacionBibliotecaEcuaciones();
+
+            if (cotizacion != null)
+            {
+                cotizacion.DesgloseProductivo = null;
+            }
+
+            lblEstadoEcuacionesProductivas.Text = estado;
         }
 
         private void GuardarVectorCargosParticipantesJson()
@@ -1719,13 +2241,50 @@ namespace Cotizador_animacion_Othalart
         private void EscribirParticipanteEnFila(DataGridViewRow row, CargoParticipanteFormula participante)
         {
             List<string> advertencias = new List<string>();
-            double horasProceso = ObtenerHorasProcesoBaseParticipante(participante, advertencias);
-            CalcularParticipantePreview(participante, advertencias);
+            EcuacionProductivaRuntimeService.ResultadoCargo resultado = actualizandoCargosParticipantes
+                ? null
+                : ObtenerResultadoRuntimeParticipante(participante);
+
+            if (resultado != null)
+            {
+                participante.TiempoCalculadoHoras = resultado.HorasTecnicas;
+                participante.DiasTecnicos = resultado.DiasTecnicos;
+                participante.CostoCalculadoCLP = resultado.CostoCLP;
+            }
+            else
+            {
+                CalcularParticipantePreview(participante, advertencias);
+            }
+
             double tarifaHora = participante.HorasPorDia <= 0.0 ? 0.0 : participante.TarifaDiariaCLP / participante.HorasPorDia;
             double dedicacion = Math.Max(0.0, participante.DedicacionPorcentaje) / 100.0;
             double tarifaHoraDedicada = tarifaHora * dedicacion;
+            double horasProceso = dedicacion <= 0.0 ? 0.0 : participante.TiempoCalculadoHoras / dedicacion;
+
+            if (resultado != null)
+            {
+                tarifaHora = resultado.TarifaHoraCLP;
+                tarifaHoraDedicada = resultado.TarifaHoraPonderadaCLP;
+                participante.HorasPorDia = resultado.HorasPorDia <= 0.0 ? participante.HorasPorDia : resultado.HorasPorDia;
+                participante.TarifaDiariaCLP = resultado.TarifaDiaCLP;
+            }
 
             row.Cells["Cargo"].Value = participante.Cargo;
+            CategoriaTrabajador cargoBiblioteca = BuscarCargoRenderizadoEcuacion(
+                Cargos.CrearBibliotecaCompleta(),
+                participante.Cargo
+            );
+            double sueldoMensual = cargoBiblioteca == null
+                ? participante.TarifaDiariaCLP * 22.0
+                : cargoBiblioteca.SueldoMensualCLPTipico;
+            row.Cells["SueldoMensualCLP"].Value = sueldoMensual <= 0.0
+                ? "No definido"
+                : FormatearMiles(sueldoMensual) + " CLP";
+            row.Cells["RangoSueldoCLP"].Value = cargoBiblioteca == null ||
+                (cargoBiblioteca.SueldoMensualCLPMin <= 0.0 && cargoBiblioteca.SueldoMensualCLPMax <= 0.0)
+                    ? "No definido"
+                    : FormatearMiles(cargoBiblioteca.SueldoMensualCLPMin) + " - " +
+                      FormatearMiles(cargoBiblioteca.SueldoMensualCLPMax) + " CLP";
             row.Cells["TarifaDiariaCLP"].Value = FormatearMiles(participante.TarifaDiariaCLP) + " CLP";
             row.Cells["HorasPorDia"].Value = participante.HorasPorDia.ToString("0.##");
             row.Cells["TarifaHorariaCLP"].Value = tarifaHora <= 0.0 ? "No definido" : FormatearMiles(tarifaHora) + " CLP/h";
@@ -1873,6 +2432,7 @@ namespace Cotizador_animacion_Othalart
             }
 
             List<CargoParticipanteFormula> participantes = ObtenerParticipantesDesdeGrilla();
+            ActualizarEstadoVacioCargosParticipantes(participantes.Count);
             rtbVistaPreviaCargosParticipantes.Clear();
 
             if (participantes.Count == 0)
@@ -1886,62 +2446,173 @@ namespace Cotizador_animacion_Othalart
                 return;
             }
 
-            double totalHoras = 0.0;
-            double maxDias = 0.0;
-            double totalCosto = 0.0;
-            double sumaDedicacion = participantes.Sum(p => Math.Max(0.0, p.DedicacionPorcentaje));
-            List<string> advertencias = new List<string>();
+            EcuacionProductivaDefinicion ecuacion = CrearEcuacionTemporalDesdeEditor();
+            List<EcuacionProductivaDefinicion> biblioteca = ConstruirListaEcuacionesDesdeGrilla();
+            double diasHabilesSemana = cotizacion != null && cotizacion.DiasHabilesEstudioPorSemana > 0.0
+                ? cotizacion.DiasHabilesEstudioPorSemana
+                : 5.0;
+            EcuacionProductivaRuntimeService.ResultadoPrueba prueba =
+                EcuacionProductivaRuntimeService.ProbarEcuacion(ecuacion, biblioteca, diasHabilesSemana);
 
-            foreach (CargoParticipanteFormula participante in participantes)
-            {
-                CalcularParticipantePreview(participante, advertencias);
-                totalHoras += participante.TiempoCalculadoHoras;
-                maxDias = Math.Max(maxDias, participante.DiasTecnicos);
-                totalCosto += participante.CostoCalculadoCLP;
-            }
-
+            AplicarResultadosRuntimeAParticipantes(participantes, prueba);
             CargarParticipantesEnGrillaSinRecalcular(participantes);
 
             rtbVistaPreviaCargosParticipantes.SelectionFont = new Font("Segoe UI", 9.5f, FontStyle.Bold);
             rtbVistaPreviaCargosParticipantes.SelectionColor = Color.FromArgb(20, 65, 120);
-            rtbVistaPreviaCargosParticipantes.AppendText("Prueba de dedicacion por cargo\n");
+            rtbVistaPreviaCargosParticipantes.AppendText("Vista previa del equipo\n");
             rtbVistaPreviaCargosParticipantes.SelectionFont = new Font("Segoe UI", 9f, FontStyle.Regular);
             rtbVistaPreviaCargosParticipantes.SelectionColor = Color.FromArgb(55, 55, 55);
             rtbVistaPreviaCargosParticipantes.AppendText(
-                "Cantidad usada: " + ObtenerCantidadPruebaParaParticipante("").ToString("0.##") +
-                " | Dedicacion acumulada informativa: " + sumaDedicacion.ToString("0.##") + "%\n" +
-                "Regla: horas_proceso = cantidad / rendimiento; horas_cargo = horas_proceso * dedicacion_cargo; costo = horas_cargo * tarifa_horaria.\n" +
-                "Nota: la dedicacion no debe sumar 100%; cada cargo aporta su propio tiempo al proceso.\n\n"
+                "Entrada de prueba: " + prueba.CantidadPrueba.ToString("0.##") + " " + prueba.UnidadPrueba + "\n" +
+                "Los datos derivados vienen del motor de ecuaciones, cargos.json y rendimientos_productivos.json.\n\n"
             );
 
-            foreach (CargoParticipanteFormula participante in participantes)
+            foreach (EcuacionProductivaRuntimeService.ResultadoCargo item in prueba.Cargos)
             {
                 rtbVistaPreviaCargosParticipantes.SelectionFont = new Font("Segoe UI", 9f, FontStyle.Bold);
                 rtbVistaPreviaCargosParticipantes.SelectionColor = Color.Black;
-                rtbVistaPreviaCargosParticipantes.AppendText("- " + participante.Cargo + ": ");
+                rtbVistaPreviaCargosParticipantes.AppendText("- " +
+                    (string.IsNullOrWhiteSpace(item.CargoResuelto) ? item.CargoSolicitado : item.CargoResuelto) + ": ");
                 rtbVistaPreviaCargosParticipantes.SelectionFont = new Font("Segoe UI", 9f, FontStyle.Regular);
-                rtbVistaPreviaCargosParticipantes.SelectionColor = Color.FromArgb(45, 45, 45);
+                rtbVistaPreviaCargosParticipantes.SelectionColor =
+                    item.CargoExiste && item.RendimientoExiste
+                        ? Color.FromArgb(45, 45, 45)
+                        : Color.FromArgb(160, 105, 0);
                 rtbVistaPreviaCargosParticipantes.AppendText(
-                    "dedicacion " + participante.DedicacionPorcentaje.ToString("0.##") + "% | " +
-                    participante.TiempoCalculadoHoras.ToString("0.##") + " h asignadas | " +
-                    participante.DiasTecnicos.ToString("0.##") + " dias | " +
-                    "costo derivado " + FormatearValorVisual(participante.CostoCalculadoCLP) + "\n"
+                    "dedicacion " + (item.Dedicacion * 100.0).ToString("0.##") + "% | " +
+                    "horas " + item.HorasTecnicas.ToString("0.##") + " | " +
+                    "costo " + FormatearValorVisual(item.CostoCLP) + " | " +
+                    item.Diagnostico + "\n"
                 );
             }
 
             rtbVistaPreviaCargosParticipantes.SelectionFont = new Font("Segoe UI", 9.5f, FontStyle.Bold);
             rtbVistaPreviaCargosParticipantes.SelectionColor = Color.FromArgb(0, 105, 92);
             rtbVistaPreviaCargosParticipantes.AppendText(
-                "\nTotal horas: " + totalHoras.ToString("0.##") +
-                " | Dias tecnicos: " + maxDias.ToString("0.##") +
-                " | Costo derivado total: " + FormatearValorVisual(totalCosto)
+                "\nTotal horas: " + prueba.Cargos.Sum(c => c.HorasTecnicas).ToString("0.##") +
+                " | Dias tecnicos: " + prueba.DiasTecnicos.ToString("0.##") +
+                " | Costo derivado total: " + FormatearValorVisual(prueba.CostoCLP)
             );
 
-            if (advertencias.Count > 0)
+            List<string> diagnosticos = prueba.Errores
+                .Concat(prueba.Advertencias)
+                .Distinct()
+                .ToList();
+
+            if (diagnosticos.Count > 0)
             {
                 rtbVistaPreviaCargosParticipantes.SelectionFont = new Font("Segoe UI", 9f, FontStyle.Bold);
                 rtbVistaPreviaCargosParticipantes.SelectionColor = Color.FromArgb(170, 80, 0);
-                rtbVistaPreviaCargosParticipantes.AppendText("\n\nAdvertencias\n- " + string.Join("\n- ", advertencias.Distinct()));
+                rtbVistaPreviaCargosParticipantes.AppendText("\n\nDiagnostico\n- " + string.Join("\n- ", diagnosticos));
+            }
+        }
+
+        private void ActualizarEstadoVacioCargosParticipantes(int cantidad)
+        {
+            if (lblEstadoCargosParticipantesEcuacion == null)
+            {
+                return;
+            }
+
+            List<CargoParticipanteFormula> participantes = cantidad <= 0
+                ? new List<CargoParticipanteFormula>()
+                : ObtenerParticipantesDesdeGrilla();
+            string resumen = string.Join(
+                "  ·  ",
+                participantes.Select(p =>
+                    p.Cargo + ": " + p.DedicacionPorcentaje.ToString("0.##") + "%")
+            );
+
+            lblEstadoCargosParticipantesEcuacion.Text = cantidad <= 0
+                ? "Aún no hay cargos asociados. Selecciona uno arriba y presiona Agregar cargo."
+                : "Cargos actuales: " + resumen +
+                  "\nUsa Editar para cambiar toda la configuración, o modifica directamente la celda amarilla de Participación %.";
+            lblEstadoCargosParticipantesEcuacion.BackColor = cantidad <= 0
+                ? Color.FromArgb(255, 248, 230)
+                : Color.FromArgb(235, 247, 244);
+            lblEstadoCargosParticipantesEcuacion.ForeColor = cantidad <= 0
+                ? Color.FromArgb(130, 85, 15)
+                : Color.FromArgb(24, 82, 72);
+        }
+
+        private EcuacionProductivaDefinicion CrearEcuacionTemporalDesdeEditor()
+        {
+            return new EcuacionProductivaDefinicion
+            {
+                Activa = chkEcuacionActiva.Checked,
+                Clave = txtEcuacionClave.Text.Trim(),
+                NombreVisible = txtEcuacionNombre.Text.Trim(),
+                TipoEcuacion = Convert.ToString(cmbEcuacionTipo.SelectedItem) ?? "Variante",
+                EcuacionBase = ObtenerClaveFormulaMadreSeleccionada(),
+                TipoProceso = ObtenerTipoTrabajoSimpleEcuacion(),
+                MetodoCalculo = ObtenerMetodoSimpleEcuacion(),
+                DependenciasJson = ReglaCalculoProcesoService.CrearDependenciasJson(
+                    new[] { ObtenerDependenciaSimpleEcuacion() }),
+                Etapa = txtEcuacionEtapa.Text.Trim(),
+                SubEtapa = txtEcuacionSubEtapa.Text.Trim(),
+                Tokens = UnirListaEcuacion(lstEcuacionTokens),
+                Variables = UnirListaEcuacion(lstEcuacionVariables),
+                CargosPermitidos = UnirListaEcuacion(lstEcuacionCargosPermitidos),
+                CargosParticipantesJson = SerializarParticipantesJson(ObtenerParticipantesDesdeGrilla()),
+                FormulaReferencia = txtEcuacionFormula.Text.Trim(),
+                Numerador = UnirListaEcuacion(lstEcuacionNumerador),
+                Denominador = UnirListaEcuacion(lstEcuacionDenominador),
+                Impacto = txtEcuacionImpacto.Text.Trim(),
+                Nota = txtEcuacionNota.Text.Trim()
+            };
+        }
+
+        private EcuacionProductivaRuntimeService.ResultadoCargo ObtenerResultadoRuntimeParticipante(
+            CargoParticipanteFormula participante
+        )
+        {
+            EcuacionProductivaRuntimeService.ResultadoPrueba prueba =
+                EcuacionProductivaRuntimeService.ProbarEcuacion(
+                    CrearEcuacionTemporalDesdeEditor(),
+                    ConstruirListaEcuacionesDesdeGrilla(),
+                    cotizacion != null && cotizacion.DiasHabilesEstudioPorSemana > 0.0
+                        ? cotizacion.DiasHabilesEstudioPorSemana
+                        : 5.0
+                );
+
+            return prueba.Cargos.FirstOrDefault(c =>
+                NormalizarTextoDatosVisual(c.CargoSolicitado) ==
+                NormalizarTextoDatosVisual(participante.Cargo));
+        }
+
+        private void AplicarResultadosRuntimeAParticipantes(
+            List<CargoParticipanteFormula> participantes,
+            EcuacionProductivaRuntimeService.ResultadoPrueba prueba
+        )
+        {
+            if (participantes == null || prueba == null)
+            {
+                return;
+            }
+
+            foreach (CargoParticipanteFormula participante in participantes)
+            {
+                EcuacionProductivaRuntimeService.ResultadoCargo resultado = prueba.Cargos.FirstOrDefault(c =>
+                    NormalizarTextoDatosVisual(c.CargoSolicitado) ==
+                    NormalizarTextoDatosVisual(participante.Cargo));
+
+                if (resultado == null)
+                {
+                    continue;
+                }
+
+                participante.DedicacionPorcentaje = Math.Max(0.0, Math.Min(100.0, resultado.Dedicacion * 100.0));
+                if (participante.TarifaDiariaCLP <= 0.0)
+                {
+                    participante.TarifaDiariaCLP = resultado.TarifaDiaCLP;
+                }
+                if (participante.HorasPorDia <= 0.0)
+                {
+                    participante.HorasPorDia = resultado.HorasPorDia <= 0.0 ? 8.0 : resultado.HorasPorDia;
+                }
+                participante.TiempoCalculadoHoras = resultado.HorasTecnicas;
+                participante.DiasTecnicos = resultado.DiasTecnicos;
+                participante.CostoCalculadoCLP = resultado.CostoCLP;
             }
         }
 
@@ -2262,6 +2933,7 @@ namespace Cotizador_animacion_Othalart
         {
             CargarEditorEcuacionDesdeFilaSeleccionada();
             SincronizarSeleccionListaBibliotecaEcuaciones();
+            RefrescarFichaResumenEcuacionProductiva();
             MostrarValidacionBibliotecaEcuaciones();
         }
 
@@ -2318,10 +2990,15 @@ namespace Cotizador_animacion_Othalart
         private void AbrirEditorVisualEcuacion()
         {
             if (tabsEcuacionesProductivasInternas == null ||
-                tabEditorVisualEcuacion == null ||
-                !tabsEcuacionesProductivasInternas.TabPages.Contains(tabEditorVisualEcuacion))
+                tabEditorVisualEcuacion == null)
             {
                 return;
+            }
+
+            if (!tabsEcuacionesProductivasInternas.TabPages.Contains(tabEditorVisualEcuacion))
+            {
+                int indice = Math.Min(1, tabsEcuacionesProductivasInternas.TabPages.Count);
+                tabsEcuacionesProductivasInternas.TabPages.Insert(indice, tabEditorVisualEcuacion);
             }
 
             tabsEcuacionesProductivasInternas.SelectedTab = tabEditorVisualEcuacion;
@@ -2370,6 +3047,7 @@ namespace Cotizador_animacion_Othalart
                 txtEcuacionSubEtapa.Text = Convert.ToString(row.Cells["SubEtapa"].Value) ?? "";
                 CargarListaSeparada(lstEcuacionVariables, Convert.ToString(row.Cells["Variables"].Value) ?? "");
                 CargarListaSeparada(lstEcuacionTokens, Convert.ToString(row.Cells["Tokens"].Value) ?? "");
+                RefrescarComboCargosPermitidosEcuacion();
                 CargarListaSeparada(lstEcuacionCargosPermitidos, Convert.ToString(row.Cells["CargosPermitidos"].Value) ?? "");
                 CargarParticipantesEnGrilla(
                     ParsearParticipantesEcuacion(
@@ -2385,6 +3063,7 @@ namespace Cotizador_animacion_Othalart
                 );
                 txtEcuacionImpacto.Text = Convert.ToString(row.Cells["Impacto"].Value) ?? "";
                 txtEcuacionNota.Text = Convert.ToString(row.Cells["Nota"].Value) ?? "";
+                CargarEditorSimpleEcuacionDesdeFila(row);
             }
             finally
             {
@@ -2687,7 +3366,7 @@ namespace Cotizador_animacion_Othalart
             row.Cells["CargosPermitidos"].Value = UnirListaEcuacion(lstEcuacionCargosPermitidos);
             row.Cells["CargosParticipantesJson"].Value =
                 SerializarParticipantesJson(ObtenerParticipantesDesdeGrilla());
-            SincronizarFormulaReferenciaDesdeConstructor();
+            AplicarEditorSimpleAFila(row);
             row.Cells["FormulaReferencia"].Value = txtEcuacionFormula.Text.Trim();
             row.Cells["Numerador"].Value = UnirListaEcuacion(lstEcuacionNumerador);
             row.Cells["Denominador"].Value = UnirListaEcuacion(lstEcuacionDenominador);
@@ -2696,9 +3375,10 @@ namespace Cotizador_animacion_Othalart
 
             RefrescarComboBaseEditorEcuacion();
             ActualizarRenderEcuacionProductiva();
+            ActualizarVistaPreviaSimpleEcuacion();
             lblEstadoEcuacionesProductivas.Text = lstEcuacionCargosPermitidos.Items.Count == 0
                 ? "Cambios aplicados, pero falta ingresar cargos participantes para que la ecuacion calcule costo real."
-                : "Cambios aplicados a la fila. Guarda JSON para dejarlos persistidos.";
+                : "Cambios aplicados. Usa Guardar cambios para conservarlos en la biblioteca.";
         }
 
         private void ActualizarRenderEcuacionProductiva()
@@ -3695,11 +4375,16 @@ namespace Cotizador_animacion_Othalart
                 }
 
                 ListViewItem item = new ListViewItem(string.IsNullOrWhiteSpace(nombre) ? clave : nombre);
-                item.SubItems.Add(string.Equals(tipo, "Base", StringComparison.OrdinalIgnoreCase) ? "Madre" : "Proceso");
+                item.SubItems.Add(ObtenerEstadoAmigableEcuacion(row, activa));
                 item.SubItems.Add(string.IsNullOrWhiteSpace(etapa) ? "Sin etapa" : etapa);
                 item.Tag = row;
                 item.ForeColor = activa ? Color.FromArgb(30, 30, 30) : Color.FromArgb(130, 130, 130);
-                if (string.Equals(tipo, "Base", StringComparison.OrdinalIgnoreCase))
+                string estadoAmigable = item.SubItems[1].Text;
+                if (estadoAmigable.StartsWith("⚠", StringComparison.Ordinal))
+                {
+                    item.BackColor = Color.FromArgb(255, 248, 230);
+                }
+                else if (string.Equals(tipo, "Base", StringComparison.OrdinalIgnoreCase))
                 {
                     item.BackColor = Color.FromArgb(240, 247, 255);
                 }
@@ -3709,6 +4394,41 @@ namespace Cotizador_animacion_Othalart
 
             lvBibliotecaEcuaciones.EndUpdate();
             SincronizarSeleccionListaBibliotecaEcuaciones();
+        }
+
+        private string ObtenerEstadoAmigableEcuacion(DataGridViewRow row, bool activa)
+        {
+            if (!activa)
+            {
+                return "Inactiva";
+            }
+
+            string formula = ObtenerValorFilaEcuacion(row, "FormulaReferencia");
+            string cargos = ObtenerValorFilaEcuacion(row, "CargosPermitidos");
+            string tipo = ObtenerValorFilaEcuacion(row, "TipoEcuacion");
+            string metodo = ObtenerValorFilaEcuacion(row, "MetodoCalculo");
+            string dependencias = ObtenerValorFilaEcuacion(row, "DependenciasJson");
+            if (string.IsNullOrWhiteSpace(formula))
+            {
+                return "⚠ Sin regla";
+            }
+
+            if (!string.Equals(tipo, "Base", StringComparison.OrdinalIgnoreCase) &&
+                string.IsNullOrWhiteSpace(cargos))
+            {
+                return "⚠ Sin cargos";
+            }
+
+            if (string.Equals(
+                    metodo,
+                    MetodoCalculoProceso.PorPorcentajeProduccion.ToString(),
+                    StringComparison.OrdinalIgnoreCase) &&
+                string.IsNullOrWhiteSpace(dependencias))
+            {
+                return "⚠ Sin origen";
+            }
+
+            return "✓ Lista";
         }
 
         private void RefrescarFiltroEtapasEcuaciones()
@@ -3820,6 +4540,8 @@ namespace Cotizador_animacion_Othalart
                 DataGridViewRow row = dgvEcuacionesProductivas.Rows[rowIndex];
                 row.Cells["Activa"].Value = e.Activa;
                 row.Cells["Clave"].Value = e.Clave;
+                row.Cells["SchemaVersion"].Value = e.SchemaVersion;
+                row.Cells["IdProceso"].Value = e.IdProceso;
                 row.Cells["NombreVisible"].Value = e.NombreVisible;
                 row.Cells["TipoEcuacion"].Value = string.IsNullOrWhiteSpace(e.TipoEcuacion)
                     ? "Variante"
@@ -3827,6 +4549,17 @@ namespace Cotizador_animacion_Othalart
                 row.Cells["EcuacionBase"].Value = e.EcuacionBase ?? "";
                 row.Cells["Etapa"].Value = e.Etapa;
                 row.Cells["SubEtapa"].Value = e.SubEtapa;
+                row.Cells["TipoProceso"].Value = e.TipoProceso.ToString();
+                row.Cells["MetodoCalculo"].Value = e.MetodoCalculo.ToString();
+                row.Cells["AlcanceTemporal"].Value = e.AlcanceTemporal.ToString();
+                row.Cells["EtapaId"].Value = e.EtapaId;
+                row.Cells["SubEtapaId"].Value = e.SubEtapaId;
+                row.Cells["FormulaId"].Value = e.FormulaId;
+                row.Cells["DependenciasJson"].Value = e.DependenciasJson;
+                row.Cells["PuedeEjecutarseEnParalelo"].Value = e.PuedeEjecutarseEnParalelo;
+                row.Cells["ReglaActivacionJson"].Value = e.ReglaActivacionJson;
+                row.Cells["EtapasCubiertasJson"].Value = e.EtapasCubiertasJson;
+                row.Cells["WarningsMigracionJson"].Value = e.WarningsMigracionJson;
                 row.Cells["Tokens"].Value = e.Tokens;
                 row.Cells["Variables"].Value = e.Variables;
                 row.Cells["CargosPermitidos"].Value = e.CargosPermitidos;
@@ -4051,9 +4784,31 @@ namespace Cotizador_animacion_Othalart
             string clave = Convert.ToString(row.Cells["Clave"].Value) ?? "";
             return new EcuacionProductivaDefinicion
             {
+                SchemaVersion = ParsearEnteroEcuacion(row.Cells["SchemaVersion"].Value, 2),
                 Activa = Convert.ToBoolean(row.Cells["Activa"].Value ?? true),
                 Clave = clave.Trim(),
+                IdProceso = Convert.ToString(row.Cells["IdProceso"].Value) ?? "",
                 NombreVisible = Convert.ToString(row.Cells["NombreVisible"].Value) ?? "",
+                TipoProceso = ParsearEnumEcuacion(
+                    Convert.ToString(row.Cells["TipoProceso"].Value),
+                    TipoProcesoProductivo.NoClasificado
+                ),
+                MetodoCalculo = ParsearEnumEcuacion(
+                    Convert.ToString(row.Cells["MetodoCalculo"].Value),
+                    MetodoCalculoProceso.NoDefinido
+                ),
+                AlcanceTemporal = ParsearEnumEcuacion(
+                    Convert.ToString(row.Cells["AlcanceTemporal"].Value),
+                    AlcanceTemporalProceso.NoDefinido
+                ),
+                EtapaId = Convert.ToString(row.Cells["EtapaId"].Value) ?? "",
+                SubEtapaId = Convert.ToString(row.Cells["SubEtapaId"].Value) ?? "",
+                FormulaId = Convert.ToString(row.Cells["FormulaId"].Value) ?? "",
+                DependenciasJson = Convert.ToString(row.Cells["DependenciasJson"].Value) ?? "",
+                PuedeEjecutarseEnParalelo = Convert.ToBoolean(row.Cells["PuedeEjecutarseEnParalelo"].Value ?? false),
+                ReglaActivacionJson = Convert.ToString(row.Cells["ReglaActivacionJson"].Value) ?? "",
+                EtapasCubiertasJson = Convert.ToString(row.Cells["EtapasCubiertasJson"].Value) ?? "",
+                WarningsMigracionJson = Convert.ToString(row.Cells["WarningsMigracionJson"].Value) ?? "",
                 TipoEcuacion = Convert.ToString(row.Cells["TipoEcuacion"].Value) ?? "Variante",
                 EcuacionBase = Convert.ToString(row.Cells["EcuacionBase"].Value) ?? "",
                 Etapa = Convert.ToString(row.Cells["Etapa"].Value) ?? "",
@@ -4068,6 +4823,27 @@ namespace Cotizador_animacion_Othalart
                 Impacto = Convert.ToString(row.Cells["Impacto"].Value) ?? "",
                 Nota = Convert.ToString(row.Cells["Nota"].Value) ?? ""
             };
+        }
+
+        private T ParsearEnumEcuacion<T>(string valor, T fallback)
+            where T : struct
+        {
+            if (Enum.TryParse(valor ?? "", true, out T resultado))
+            {
+                return resultado;
+            }
+
+            return fallback;
+        }
+
+        private int ParsearEnteroEcuacion(object valor, int fallback)
+        {
+            if (int.TryParse(Convert.ToString(valor) ?? "", out int resultado))
+            {
+                return resultado;
+            }
+
+            return fallback;
         }
 
         private void CrearBackupEcuacionesProductivas()
@@ -4103,7 +4879,20 @@ namespace Cotizador_animacion_Othalart
 
             row.Cells["Activa"].Value = true;
             row.Cells["Clave"].Value = clave;
+            row.Cells["SchemaVersion"].Value = 2;
+            row.Cells["IdProceso"].Value = "proc_" + clave.ToLowerInvariant();
             row.Cells["NombreVisible"].Value = esBase ? "Nueva ecuacion base" : "Nueva variante";
+            row.Cells["TipoProceso"].Value = TipoProcesoProductivo.ProduccionDirecta.ToString();
+            row.Cells["MetodoCalculo"].Value = MetodoCalculoProceso.PorCantidad.ToString();
+            row.Cells["AlcanceTemporal"].Value = AlcanceTemporalProceso.Item.ToString();
+            row.Cells["EtapaId"].Value = esBase ? "general" : "";
+            row.Cells["SubEtapaId"].Value = "";
+            row.Cells["FormulaId"].Value = esBase ? clave : "CALCULO_POR_CAPACIDAD";
+            row.Cells["DependenciasJson"].Value = "";
+            row.Cells["PuedeEjecutarseEnParalelo"].Value = false;
+            row.Cells["ReglaActivacionJson"].Value = "";
+            row.Cells["EtapasCubiertasJson"].Value = "";
+            row.Cells["WarningsMigracionJson"].Value = "";
             row.Cells["TipoEcuacion"].Value = esBase ? "Base" : "Variante";
             row.Cells["EcuacionBase"].Value = esBase ? "" : "CALCULO_POR_CAPACIDAD";
             row.Cells["Etapa"].Value = esBase ? "General" : "";
@@ -4163,6 +4952,8 @@ namespace Cotizador_animacion_Othalart
             }
 
             destino.Cells["Clave"].Value = nuevaClave;
+            destino.Cells["IdProceso"].Value = "proc_" + nuevaClave.ToLowerInvariant();
+            destino.Cells["SchemaVersion"].Value = 2;
             destino.Cells["NombreVisible"].Value = nuevoNombre;
             destino.Cells["Nota"].Value = (ObtenerValorFilaEcuacion(origen, "Nota") + " Copia creada desde " + claveBase + ".").Trim();
 
