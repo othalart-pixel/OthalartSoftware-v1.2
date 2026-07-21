@@ -2351,14 +2351,14 @@ namespace Cotizador_animacion_Othalart
                 // El control puede haber cerrado ya la celda.
             }
 
-            RecalcularProyectoDespuesDeEdicionV8(
+            RecalcularProyectoDespuesDeEdicionV7(
                 nodo,
                 col
             );
         }
 
-        private void RecalcularProyectoDespuesDeEdicionV8(
-            object nodoEditado,
+        private void RecalcularProyectoDespuesDeEdicionV7(
+            object nodo,
             string columna)
         {
             if (IsDisposed || Disposing)
@@ -2375,35 +2375,15 @@ namespace Cotizador_animacion_Othalart
 
                 aplicandoEdicionTablaProyecto = false;
 
-                // Guardar la selección que exista al momento real del
-                // recálculo. Puede ser distinta del nodo recién editado
-                // si el usuario ya hizo clic en otra fila.
-                object seleccionActual =
-                    nodoProyectoSeleccionado;
-
                 RecalcularProyectoProductivoActual();
 
-                // No volver a imponer el nodo antiguo ni reconstruir
-                // su inspector. Si el usuario seleccionó otro elemento,
-                // esa selección debe prevalecer.
-                if (seleccionActual != null &&
-                    !ReferenceEquals(
-                        seleccionActual,
-                        nodoEditado))
-                {
-                    nodoProyectoSeleccionado =
-                        seleccionActual;
+                // Recuperar una selección válida después de reconstruir filas.
+                nodoProyectoSeleccionado = nodo;
+                itemProyectoSeleccionado =
+                    nodo as ItemProyecto ??
+                    ObtenerItemContenedor(nodo);
 
-                    itemProyectoSeleccionado =
-                        seleccionActual as ItemProyecto ??
-                        ObtenerItemContenedor(
-                            seleccionActual
-                        );
-
-                    MostrarEditorNodoProyecto(
-                        seleccionActual
-                    );
-                }
+                MostrarEditorNodoProyecto(nodo);
 
                 if (dgvProductosProyecto != null &&
                     !dgvProductosProyecto.IsDisposed)

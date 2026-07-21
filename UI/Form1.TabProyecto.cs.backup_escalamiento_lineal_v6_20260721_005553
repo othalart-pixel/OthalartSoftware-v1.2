@@ -2269,158 +2269,41 @@ namespace Cotizador_animacion_Othalart
 
         private void AplicarEdicionTablaProductos(int rowIndex, int columnIndex)
         {
-            if (aplicandoEdicionTablaProyecto ||
-                refrescandoProyectoUI ||
-                rowIndex < 0 ||
-                columnIndex < 0)
+            if (aplicandoEdicionTablaProyecto || refrescandoProyectoUI || rowIndex < 0 || columnIndex < 0)
             {
                 return;
             }
 
-            DataGridViewRow row =
-                dgvProductosProyecto.Rows[rowIndex];
-
+            DataGridViewRow row = dgvProductosProyecto.Rows[rowIndex];
             object nodo = row.Tag;
             if (nodo == null)
             {
                 return;
             }
 
-            string col =
-                dgvProductosProyecto.Columns[columnIndex].Name;
-
+            string col = dgvProductosProyecto.Columns[columnIndex].Name;
             columnaProyectoSeleccionada = col;
-
             if (!EsColumnaEditableTablaProductosProyecto(col))
             {
                 return;
             }
 
-            string valor =
-                Convert.ToString(
-                    row.Cells[columnIndex].Value
-                ) ?? "";
-
-            bool cambio = false;
-
+            string valor = Convert.ToString(row.Cells[columnIndex].Value) ?? "";
             aplicandoEdicionTablaProyecto = true;
             try
             {
-                cambio =
-                    AplicarCambioNodoTablaProductosProyecto(
-                        nodo,
-                        col,
-                        valor.Trim()
-                    );
-
+                bool cambio = AplicarCambioNodoTablaProductosProyecto(nodo, col, valor.Trim());
                 if (cambio)
                 {
-                    MarcarNodoProyectoModificado(
-                        nodo,
-                        col,
-                        valor.Trim()
-                    );
-
+                    MarcarNodoProyectoModificado(nodo, col, valor.Trim());
                     nodoProyectoSeleccionado = nodo;
-                    itemProyectoSeleccionado =
-                        nodo as ItemProyecto ??
-                        ObtenerItemContenedor(nodo);
+                    itemProyectoSeleccionado = nodo as ItemProyecto ?? ObtenerItemContenedor(nodo);
+                    RecalcularProyectoProductivoActual();
                 }
             }
             finally
             {
                 aplicandoEdicionTablaProyecto = false;
-            }
-
-            if (!cambio)
-            {
-                return;
-            }
-
-            // Nunca reconstruir el DataGridView dentro de CellEndEdit.
-            // Primero se cierra completamente la edición actual.
-            try
-            {
-                if (dgvProductosProyecto.IsCurrentCellInEditMode)
-                {
-                    dgvProductosProyecto.EndEdit();
-                }
-            }
-            catch
-            {
-                // El control puede haber cerrado ya la celda.
-            }
-
-            RecalcularProyectoDespuesDeEdicionV8(
-                nodo,
-                col
-            );
-        }
-
-        private void RecalcularProyectoDespuesDeEdicionV8(
-            object nodoEditado,
-            string columna)
-        {
-            if (IsDisposed || Disposing)
-            {
-                return;
-            }
-
-            Action recalcular = () =>
-            {
-                if (IsDisposed || Disposing)
-                {
-                    return;
-                }
-
-                aplicandoEdicionTablaProyecto = false;
-
-                // Guardar la selección que exista al momento real del
-                // recálculo. Puede ser distinta del nodo recién editado
-                // si el usuario ya hizo clic en otra fila.
-                object seleccionActual =
-                    nodoProyectoSeleccionado;
-
-                RecalcularProyectoProductivoActual();
-
-                // No volver a imponer el nodo antiguo ni reconstruir
-                // su inspector. Si el usuario seleccionó otro elemento,
-                // esa selección debe prevalecer.
-                if (seleccionActual != null &&
-                    !ReferenceEquals(
-                        seleccionActual,
-                        nodoEditado))
-                {
-                    nodoProyectoSeleccionado =
-                        seleccionActual;
-
-                    itemProyectoSeleccionado =
-                        seleccionActual as ItemProyecto ??
-                        ObtenerItemContenedor(
-                            seleccionActual
-                        );
-
-                    MostrarEditorNodoProyecto(
-                        seleccionActual
-                    );
-                }
-
-                if (dgvProductosProyecto != null &&
-                    !dgvProductosProyecto.IsDisposed)
-                {
-                    dgvProductosProyecto.ReadOnly = false;
-                    dgvProductosProyecto.Enabled = true;
-                    dgvProductosProyecto.TabStop = true;
-                }
-            };
-
-            if (IsHandleCreated)
-            {
-                BeginInvoke(recalcular);
-            }
-            else
-            {
-                recalcular();
             }
         }
 
@@ -2813,27 +2696,8 @@ namespace Cotizador_animacion_Othalart
                     continue;
                 }
 
-                double cantidadAnterior =
-                    requerimiento.Cantidad;
-
-                double factor =
-                    cantidadAnterior > 0.0
-                        ? Convert.ToDouble(cantidad) /
-                          cantidadAnterior
-                        : 1.0;
-
                 requerimiento.Cantidad =
                     Convert.ToDouble(cantidad);
-
-                EscalarRequerimientoLinealV6(
-                    requerimiento,
-                    factor
-                );
-
-                // La cantidad es heredada del producto, no una edición
-                // manual de horas ni de rendimiento.
-                requerimiento.EditadoManualmente = false;
-                requerimiento.TieneOverrideLocalCalculo = false;
             }
 
             GuardarSnapshotCotizacionItemProyecto(
@@ -2855,20 +2719,7 @@ namespace Cotizador_animacion_Othalart
                 return;
             }
 
-            decimal cantidadAnterior =
-                proceso.Cantidad;
-
-            decimal factor =
-                cantidadAnterior > 0m
-                    ? cantidad / cantidadAnterior
-                    : 1m;
-
             proceso.Cantidad = cantidad;
-
-            EscalarResultadoProcesoLinealV6(
-                proceso,
-                factor
-            );
 
             ActualizarCantidadSnapshotProcesoProyecto(
                 item,
@@ -2877,100 +2728,6 @@ namespace Cotizador_animacion_Othalart
             );
         }
 
-        private void EscalarResultadoProcesoLinealV6(
-            ProcesoProyecto proceso,
-            decimal factor)
-        {
-            if (proceso == null ||
-                factor < 0m ||
-                proceso.MetodoCalculo ==
-                    MetodoCalculoProceso.Manual)
-            {
-                return;
-            }
-
-            proceso.Resultado =
-                proceso.Resultado ??
-                new ResultadoProcesoProyecto();
-
-            proceso.Resultado.HorasCalculadas =
-                Math.Round(
-                    proceso.Resultado.HorasCalculadas *
-                    factor,
-                    6
-                );
-
-            proceso.Resultado.CostoCalculado =
-                Math.Round(
-                    proceso.Resultado.CostoCalculado *
-                    factor,
-                    2
-                );
-
-            proceso.Resultado.DuracionSemanas =
-                Math.Round(
-                    proceso.Resultado.DuracionSemanas *
-                    factor,
-                    6
-                );
-
-            // HorasAsignadas representan una decisión manual.
-            // No se modifican.
-            foreach (AsignacionProductiva asignacion in
-                proceso.Asignaciones ??
-                new List<AsignacionProductiva>())
-            {
-                if (asignacion == null ||
-                    asignacion.OrigenHoras ==
-                        OrigenHorasProductivas.Manual)
-                {
-                    continue;
-                }
-
-                asignacion.HorasCalculadas =
-                    Math.Round(
-                        asignacion.HorasCalculadas *
-                        factor,
-                        6
-                    );
-
-                asignacion.CostoCalculado =
-                    Math.Round(
-                        asignacion.CostoCalculado *
-                        factor,
-                        2
-                    );
-            }
-        }
-
-        private void EscalarRequerimientoLinealV6(
-            RequerimientoProduccionInterna requerimiento,
-            double factor)
-        {
-            if (requerimiento == null ||
-                factor < 0.0 ||
-                ModosCalculoProductivo.EsTiempoAsignado(
-                    requerimiento.ModoCalculoProductivo
-                ))
-            {
-                return;
-            }
-
-            requerimiento.HorasEstandar *= factor;
-            requerimiento.HorasMinimas *= factor;
-            requerimiento.HorasHolgura *= factor;
-
-            requerimiento.DiasPersonaStd *= factor;
-            requerimiento.DiasPersonaMin *= factor;
-            requerimiento.DiasPersonaHolgura *= factor;
-
-            requerimiento.CostoEstandarCLP *= factor;
-            requerimiento.CostoMinimoCLP *= factor;
-            requerimiento.CostoHolguraCLP *= factor;
-
-            requerimiento.OrigenHoras =
-                "Escalado linealmente por cantidad del producto";
-        }
         private string NormalizarUnidadCantidadProyectoV4(
             string unidad)
         {

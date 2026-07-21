@@ -2269,158 +2269,41 @@ namespace Cotizador_animacion_Othalart
 
         private void AplicarEdicionTablaProductos(int rowIndex, int columnIndex)
         {
-            if (aplicandoEdicionTablaProyecto ||
-                refrescandoProyectoUI ||
-                rowIndex < 0 ||
-                columnIndex < 0)
+            if (aplicandoEdicionTablaProyecto || refrescandoProyectoUI || rowIndex < 0 || columnIndex < 0)
             {
                 return;
             }
 
-            DataGridViewRow row =
-                dgvProductosProyecto.Rows[rowIndex];
-
+            DataGridViewRow row = dgvProductosProyecto.Rows[rowIndex];
             object nodo = row.Tag;
             if (nodo == null)
             {
                 return;
             }
 
-            string col =
-                dgvProductosProyecto.Columns[columnIndex].Name;
-
+            string col = dgvProductosProyecto.Columns[columnIndex].Name;
             columnaProyectoSeleccionada = col;
-
             if (!EsColumnaEditableTablaProductosProyecto(col))
             {
                 return;
             }
 
-            string valor =
-                Convert.ToString(
-                    row.Cells[columnIndex].Value
-                ) ?? "";
-
-            bool cambio = false;
-
+            string valor = Convert.ToString(row.Cells[columnIndex].Value) ?? "";
             aplicandoEdicionTablaProyecto = true;
             try
             {
-                cambio =
-                    AplicarCambioNodoTablaProductosProyecto(
-                        nodo,
-                        col,
-                        valor.Trim()
-                    );
-
+                bool cambio = AplicarCambioNodoTablaProductosProyecto(nodo, col, valor.Trim());
                 if (cambio)
                 {
-                    MarcarNodoProyectoModificado(
-                        nodo,
-                        col,
-                        valor.Trim()
-                    );
-
+                    MarcarNodoProyectoModificado(nodo, col, valor.Trim());
                     nodoProyectoSeleccionado = nodo;
-                    itemProyectoSeleccionado =
-                        nodo as ItemProyecto ??
-                        ObtenerItemContenedor(nodo);
+                    itemProyectoSeleccionado = nodo as ItemProyecto ?? ObtenerItemContenedor(nodo);
+                    RecalcularProyectoProductivoActual();
                 }
             }
             finally
             {
                 aplicandoEdicionTablaProyecto = false;
-            }
-
-            if (!cambio)
-            {
-                return;
-            }
-
-            // Nunca reconstruir el DataGridView dentro de CellEndEdit.
-            // Primero se cierra completamente la edición actual.
-            try
-            {
-                if (dgvProductosProyecto.IsCurrentCellInEditMode)
-                {
-                    dgvProductosProyecto.EndEdit();
-                }
-            }
-            catch
-            {
-                // El control puede haber cerrado ya la celda.
-            }
-
-            RecalcularProyectoDespuesDeEdicionV8(
-                nodo,
-                col
-            );
-        }
-
-        private void RecalcularProyectoDespuesDeEdicionV8(
-            object nodoEditado,
-            string columna)
-        {
-            if (IsDisposed || Disposing)
-            {
-                return;
-            }
-
-            Action recalcular = () =>
-            {
-                if (IsDisposed || Disposing)
-                {
-                    return;
-                }
-
-                aplicandoEdicionTablaProyecto = false;
-
-                // Guardar la selección que exista al momento real del
-                // recálculo. Puede ser distinta del nodo recién editado
-                // si el usuario ya hizo clic en otra fila.
-                object seleccionActual =
-                    nodoProyectoSeleccionado;
-
-                RecalcularProyectoProductivoActual();
-
-                // No volver a imponer el nodo antiguo ni reconstruir
-                // su inspector. Si el usuario seleccionó otro elemento,
-                // esa selección debe prevalecer.
-                if (seleccionActual != null &&
-                    !ReferenceEquals(
-                        seleccionActual,
-                        nodoEditado))
-                {
-                    nodoProyectoSeleccionado =
-                        seleccionActual;
-
-                    itemProyectoSeleccionado =
-                        seleccionActual as ItemProyecto ??
-                        ObtenerItemContenedor(
-                            seleccionActual
-                        );
-
-                    MostrarEditorNodoProyecto(
-                        seleccionActual
-                    );
-                }
-
-                if (dgvProductosProyecto != null &&
-                    !dgvProductosProyecto.IsDisposed)
-                {
-                    dgvProductosProyecto.ReadOnly = false;
-                    dgvProductosProyecto.Enabled = true;
-                    dgvProductosProyecto.TabStop = true;
-                }
-            };
-
-            if (IsHandleCreated)
-            {
-                BeginInvoke(recalcular);
-            }
-            else
-            {
-                recalcular();
             }
         }
 
