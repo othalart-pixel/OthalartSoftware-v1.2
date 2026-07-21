@@ -1609,10 +1609,6 @@ namespace Cotizador_animacion_Othalart
             dgvCargosParticipantesEcuacion.Columns.Add("HorasAsignadas", "Horas asignadas");
             dgvCargosParticipantesEcuacion.Columns.Add("CostoDerivadoCLP", "Costo/h efectivo");
             dgvCargosParticipantesEcuacion.Columns.Add("CostoTotalCLP", "Costo total");
-            dgvCargosParticipantesEcuacion.Columns.Add(
-                "ComprobacionCosto",
-                "Calculo"
-            );
             dgvCargosParticipantesEcuacion.Columns.Add("ModoCalculo", "Modo de calculo");
             dgvCargosParticipantesEcuacion.Columns.Add("VariableBase", "Variable base");
             dgvCargosParticipantesEcuacion.Columns.Add("CantidadFactor", "Rendimiento/factor");
@@ -1646,7 +1642,6 @@ namespace Cotizador_animacion_Othalart
             dgvCargosParticipantesEcuacion.Columns["HorasAsignadas"].Width = 110;
             dgvCargosParticipantesEcuacion.Columns["CostoDerivadoCLP"].Width = 125;
             dgvCargosParticipantesEcuacion.Columns["CostoTotalCLP"].Width = 120;
-            dgvCargosParticipantesEcuacion.Columns["ComprobacionCosto"].Width = 245;
             dgvCargosParticipantesEcuacion.Columns["ModoCalculo"].Width = 230;
             dgvCargosParticipantesEcuacion.Columns["VariableBase"].Width = 130;
             dgvCargosParticipantesEcuacion.Columns["CantidadFactor"].Width = 105;
@@ -1660,29 +1655,9 @@ namespace Cotizador_animacion_Othalart
                 return;
             }
 
-            // MostrarPrecioHoraSiempreV17
             if (dgvCargosParticipantesEcuacion.Columns.Contains("TarifaHorariaCLP"))
             {
-                DataGridViewColumn columnaPrecioHora =
-                    dgvCargosParticipantesEcuacion.Columns["TarifaHorariaCLP"];
-
-                columnaPrecioHora.HeaderText = "Precio/hora";
-                columnaPrecioHora.Visible = true;
-                columnaPrecioHora.DisplayIndex = Math.Min(
-                    columnaPrecioHora.DisplayIndex,
-                    6
-                );
-                columnaPrecioHora.Width = 115;
-            }
-
-            if (dgvCargosParticipantesEcuacion.Columns.Contains("ComprobacionCosto"))
-            {
-                DataGridViewColumn columnaComprobacion =
-                    dgvCargosParticipantesEcuacion.Columns["ComprobacionCosto"];
-
-                columnaComprobacion.HeaderText = "Horas x precio/hora";
-                columnaComprobacion.Visible = true;
-                columnaComprobacion.Width = 245;
+                dgvCargosParticipantesEcuacion.Columns["TarifaHorariaCLP"].HeaderText = "Tarifa base/h";
             }
 
             if (dgvCargosParticipantesEcuacion.Columns.Contains("DedicacionPorcentaje"))
@@ -1819,53 +1794,6 @@ namespace Cotizador_animacion_Othalart
             EditarCargoParticipanteEcuacion();
         }
 
-        private void ActualizarComprobacionPrecioHoraV17()
-        {
-            if (dgvCargosParticipantesEcuacion == null ||
-                dgvCargosParticipantesEcuacion.IsDisposed ||
-                !dgvCargosParticipantesEcuacion.Columns.Contains("ComprobacionCosto"))
-            {
-                return;
-            }
-
-            foreach (DataGridViewRow fila in
-                dgvCargosParticipantesEcuacion.Rows)
-            {
-                if (fila == null || fila.IsNewRow)
-                {
-                    continue;
-                }
-
-                double horas =
-                    ConvertirNumeroFlexible(
-                        fila.Cells["HorasAsignadas"].Value,
-                        0.0
-                    );
-
-                double precioHora =
-                    ConvertirNumeroFlexible(
-                        fila.Cells["TarifaHorariaCLP"].Value,
-                        0.0
-                    );
-
-                double costo =
-                    ConvertirNumeroFlexible(
-                        fila.Cells["CostoTotalCLP"].Value,
-                        0.0
-                    );
-
-                string texto =
-                    horas.ToString("0.##") +
-                    " h x " +
-                    FormatearMiles(precioHora) +
-                    " CLP/h = " +
-                    FormatearMiles(costo) +
-                    " CLP";
-
-                fila.Cells["ComprobacionCosto"].Value =
-                    texto;
-            }
-        }
         private void DgvCargosParticipantesEcuacion_SelectionChanged(object sender, EventArgs e)
         {
             if (cargandoEditorEcuaciones || actualizandoCargosParticipantes)
@@ -3437,8 +3365,7 @@ namespace Cotizador_animacion_Othalart
                 rtbVistaPreviaCargosParticipantes.SelectionColor = Color.FromArgb(170, 80, 0);
                 rtbVistaPreviaCargosParticipantes.AppendText("\n\nDiagnostico\n- " + string.Join("\n- ", diagnosticos));
             }
-        
-            ActualizarComprobacionPrecioHoraV17();}
+        }
 
         private void ActualizarEstadoVacioCargosParticipantes(int cantidad)
         {

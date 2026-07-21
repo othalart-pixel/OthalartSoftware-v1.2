@@ -2773,7 +2773,6 @@ namespace Cotizador_animacion_Othalart
                 "los subproductos y procesos medidos en segundos.";
         }
 
-        // RecalculoOficialPorRendimientoV15
         private void SincronizarRequerimientosSnapshotConCantidadMaestraV5(
             ItemProyecto item,
             decimal cantidad)
@@ -2795,52 +2794,52 @@ namespace Cotizador_animacion_Othalart
                 return;
             }
 
-            double diasHabilesSemana =
-                snapshot.DiasHabilesEstudioPorSemana > 0.0
-                    ? snapshot.DiasHabilesEstudioPorSemana
-                    : 5.0;
-
             foreach (RequerimientoProduccionInterna requerimiento in
                 snapshot.DesgloseProductivo.Requerimientos
                     .Where(r => r != null))
             {
+                bool esManual =
+                    ModosCalculoProductivo.EsTiempoAsignado(
+                        requerimiento.ModoCalculoProductivo
+                    );
+
                 bool usaSegundos =
                     NormalizarUnidadCantidadProyectoV4(
                         requerimiento.Unidad
                     ) == "segundo";
 
-                if (!usaSegundos)
+                if (esManual ||
+                    !usaSegundos ||
+                    (requerimiento.EditadoManualmente &&
+                     requerimiento.TieneOverrideLocalCalculo))
                 {
                     continue;
                 }
 
-                // La cantidad cambia. Horas, días y costos NO se escalan
-                // manualmente: se vuelven a resolver desde la ecuación,
-                // el rendimiento y la tarifa oficial del requerimiento.
+                double cantidadAnterior =
+                    requerimiento.Cantidad;
+
+                double factor =
+                    cantidadAnterior > 0.0
+                        ? Convert.ToDouble(cantidad) /
+                          cantidadAnterior
+                        : 1.0;
+
                 requerimiento.Cantidad =
                     Convert.ToDouble(cantidad);
 
-                if (!ModosCalculoProductivo.EsTiempoAsignado(
-                        requerimiento.ModoCalculoProductivo))
-                {
-                    requerimiento.EditadoManualmente = false;
-                    requerimiento.TieneOverrideLocalCalculo = false;
-                }
-
-                RecalcularRequerimientoDesdeEcuacionV16(
+                EscalarRequerimientoLinealV6(
                     requerimiento,
-                    diasHabilesSemana
+                    factor
                 );
+
+                // La cantidad es heredada del producto, no una edición
+                // manual de horas ni de rendimiento.
+                requerimiento.EditadoManualmente = false;
+                requerimiento.TieneOverrideLocalCalculo = false;
             }
 
             GuardarSnapshotCotizacionItemProyecto(
-                item,
-                snapshot
-            );
-
-            // El snapshot ya fue recalculado. Ahora se actualiza el
-            // modelo local que alimenta la tabla de Productos y servicios.
-            SincronizarResultadosLocalesDesdeSnapshotV18(
                 item,
                 snapshot
             );
@@ -2898,323 +2897,16 @@ namespace Cotizador_animacion_Othalart
                     r.EditadoManualmente &&
                     r.TieneOverrideLocalCalculo);
         }
-        private bool RecalcularRequerimientoDesdeEcuacionV16(
-            RequerimientoProduccionInterna requerimiento,
-            double diasHabilesSemana)
-        {
-            if (requerimiento == null)
-            {
-                return false;
-            }
-
-            // Las horas declaradas manualmente siguen usando el resolver
-            // oficial para no tocar la decisión del usuario.
-            if (ModosCalculoProductivo.EsTiempoAsignado(
-                    requerimiento.ModoCalculoProductivo))
-            {
-                return CalculoProductivoResolverService.Aplicar(
-                    requerimiento,
-                    diasHabilesSemana
-                );
-            }
-
-            List<EcuacionProductivaDefinicion> biblioteca =
-                BibliotecaEcuacionesProductivasJsonService
-                    .CargarEcuaciones();
-
-            string clave =
-                ExtraerClaveEcuacionV16(
-                    requerimiento.EcuacionUsada
-                );
-
-            EcuacionProductivaDefinicion ecuacion =
-                biblioteca.FirstOrDefault(e =>
-                    e != null &&
-                    string.Equals(
-                        e.Clave,
-                        clave,
-                        StringComparison.OrdinalIgnoreCase
-                    ));
-
-            if (ecuacion == null)
-            {
-                ecuacion =
-                    BibliotecaEcuacionesProductivasJsonService
-                        .BuscarMejorPara(
-                            requerimiento.EtapaSugerida,
-                            requerimiento.TipoInterno,
-                            requerimiento.NombreRequerimiento,
-                            requerimiento.CargoSugerido
-                        );
-            }
-
-            if (ecuacion == null)
-            {
-                // Fallback seguro para requerimientos antiguos sin vínculo.
-                return CalculoProductivoResolverService.Aplicar(
-                    requerimiento,
-                    diasHabilesSemana
-                );
-            }
-
-            EcuacionProductivaRuntimeService.ResultadoPrueba resultado =
-                EcuacionProductivaRuntimeService.EvaluarRequerimiento(
-                    ecuacion,
-                    biblioteca,
-                    requerimiento,
-                    diasHabilesSemana
-                );
-
-            List<EcuacionProductivaRuntimeService.ResultadoCargo>
-                cargosProductivos =
-                    resultado.Cargos
-                        .Where(c =>
-                            c != null &&
-                            c.CargoExiste &&
-                            c.RendimientoExiste &&
-                            c.RequiereRendimientoProductivo)
-                        .ToList();
-
-            if (cargosProductivos.Count == 0 ||
-                resultado.DiasTecnicos <= 0.0)
-            {
-                requerimiento.DiagnosticoParametros =
-                    "La ecuacion vinculada no pudo calcular horas. " +
-                    string.Join(
-                        " | ",
-                        resultado.Advertencias
-                            .Concat(resultado.Errores)
-                    );
-
-                return false;
-            }
-
-            double horasEstandar =
-                resultado.DiasTecnicos *
-                CalculoProductivoResolverService.HorasDiaEstandar;
-
-            requerimiento.DiasPersonaStd =
-                resultado.DiasTecnicos;
-
-            requerimiento.HorasEstandar =
-                horasEstandar;
-
-            // Por ahora se conserva el estándar como referencia común.
-            // Las bandas min/holgura pueden reconstruirse después desde
-            // los valores mínimo/máximo de la biblioteca.
-            requerimiento.DiasPersonaMin =
-                resultado.DiasTecnicos;
-
-            requerimiento.DiasPersonaHolgura =
-                resultado.DiasTecnicos;
-
-            requerimiento.HorasMinimas =
-                horasEstandar;
-
-            requerimiento.HorasHolgura =
-                horasEstandar;
-
-            requerimiento.CostoEstandarCLP =
-                resultado.CostoCLP;
-
-            requerimiento.CostoMinimoCLP =
-                resultado.CostoCLP;
-
-            requerimiento.CostoHolguraCLP =
-                resultado.CostoCLP;
-
-            EcuacionProductivaRuntimeService.ResultadoCargo
-                cuelloBotella =
-                    cargosProductivos
-                        .OrderByDescending(c =>
-                            c.DiasTecnicos)
-                        .First();
-
-            requerimiento.RendimientoCantidad =
-                cuelloBotella.CapacidadPorPeriodo;
-
-            requerimiento.RendimientoPeriodo =
-                cuelloBotella.Periodo;
-
-            requerimiento.RendimientoOrigen =
-                "Ecuacion " +
-                ecuacion.Clave +
-                " / " +
-                cuelloBotella.CargoResuelto;
-
-            requerimiento.OrigenHoras =
-                "Ecuacion productiva: cantidad / rendimiento";
-
-            requerimiento.TieneOverrideLocalCalculo =
-                false;
-
-            requerimiento.EditadoManualmente =
-                false;
-
-            requerimiento.ParametrosCompletos =
-                true;
-
-            requerimiento.DiagnosticoParametros =
-                "Calculado desde la ecuacion vinculada. " +
-                "Cuello de botella: " +
-                cuelloBotella.CargoResuelto +
-                " | " +
-                cuelloBotella.CapacidadPorPeriodo
-                    .ToString("0.####") +
-                " " +
-                requerimiento.Unidad +
-                " / " +
-                cuelloBotella.Periodo +
-                ".";
-
-            return true;
-        }
-
-        private string ExtraerClaveEcuacionV16(
-            string ecuacionUsada)
-        {
-            string texto =
-                (ecuacionUsada ?? "").Trim();
-
-            if (string.IsNullOrWhiteSpace(texto))
-            {
-                return "";
-            }
-
-            int separador =
-                texto.IndexOf(
-                    '|',
-                    StringComparison.Ordinal
-                );
-
-            if (separador >= 0)
-            {
-                texto =
-                    texto.Substring(0, separador);
-            }
-
-            return texto.Trim();
-        }
-        private void SincronizarResultadosLocalesDesdeSnapshotV18(
-            ItemProyecto item,
-            Cotizacion snapshot)
-        {
-            if (item == null ||
-                snapshot?.DesgloseProductivo?.Requerimientos == null)
-            {
-                return;
-            }
-
-            List<RequerimientoProduccionInterna> requerimientos =
-                snapshot.DesgloseProductivo.Requerimientos
-                    .Where(r => r != null)
-                    .ToList();
-
-            foreach (ProcesoProyecto proceso in
-                ObtenerProcesosItemProyecto(item)
-                    .Where(p => p != null))
-            {
-                List<RequerimientoProduccionInterna> relacionados =
-                    requerimientos
-                        .Where(r =>
-                            CoincideRequerimientoConProceso(
-                                r,
-                                proceso,
-                                null
-                            ))
-                        .ToList();
-
-                if (relacionados.Count == 0)
-                {
-                    continue;
-                }
-
-                // Una fila de proceso puede tener varios cargos, pero las
-                // horas del trabajo corresponden al cuello de botella,
-                // no a la suma de las horas de todos los cargos.
-                RequerimientoProduccionInterna principal =
-                    relacionados
-                        .OrderByDescending(r =>
-                            r.HorasEstandar)
-                        .First();
-
-                decimal horas =
-                    Convert.ToDecimal(
-                        Math.Max(
-                            0.0,
-                            principal.HorasEstandar
-                        )
-                    );
-
-                decimal costo =
-                    Convert.ToDecimal(
-                        Math.Max(
-                            0.0,
-                            principal.CostoEstandarCLP
-                        )
-                    );
-
-                proceso.Resultado =
-                    proceso.Resultado ??
-                    new ResultadoProcesoProyecto();
-
-                proceso.Resultado.HorasCalculadas =
-                    horas;
-
-                proceso.Resultado.CostoCalculado =
-                    costo;
-
-                proceso.Resultado.DuracionSemanas =
-                    snapshot.DiasHabilesEstudioPorSemana > 0.0
-                        ? horas /
-                          Convert.ToDecimal(
-                              snapshot.DiasHabilesEstudioPorSemana *
-                              CalculoProductivoResolverService.HorasDiaEstandar
-                          )
-                        : 0m;
-
-                // Solo los procesos calculados automáticamente deben volver
-                // a tomar sus horas desde la ecuación y el rendimiento.
-                if (proceso.MetodoCalculo !=
-                    MetodoCalculoProceso.Manual)
-                {
-                    proceso.Resultado.HorasAsignadas = 0m;
-                }
-
-                proceso.Capacidad =
-                    Convert.ToDecimal(
-                        Math.Max(
-                            0.0,
-                            principal.RendimientoCantidad
-                        )
-                    );
-
-                proceso.Periodo =
-                    principal.RendimientoPeriodo ?? "";
-
-                foreach (AsignacionProductiva asignacion in
-                    (proceso.Asignaciones ??
-                        new List<AsignacionProductiva>())
-                    .Where(a => a != null))
-                {
-                    if (asignacion.OrigenHoras ==
-                        OrigenHorasProductivas.Manual)
-                    {
-                        continue;
-                    }
-
-                    // Las asignaciones automáticas no pueden conservar
-                    // resultados antiguos después de cambiar la cantidad.
-                    asignacion.HorasAsignadas = 0m;
-                }
-            }
-        }
         private void SincronizarCantidadProcesoV4(
             ItemProyecto item,
             ProcesoProyecto proceso,
             decimal cantidad)
         {
             if (proceso == null ||
+                ProcesoTieneCantidadManualV9(
+                    item,
+                    proceso
+                ) ||
                 proceso.MetodoCalculo ==
                     MetodoCalculoProceso.Manual ||
                 NormalizarUnidadCantidadProyectoV4(
@@ -3223,7 +2915,20 @@ namespace Cotizador_animacion_Othalart
                 return;
             }
 
+            decimal cantidadAnterior =
+                proceso.Cantidad;
+
+            decimal factor =
+                cantidadAnterior > 0m
+                    ? cantidad / cantidadAnterior
+                    : 1m;
+
             proceso.Cantidad = cantidad;
+
+            EscalarResultadoProcesoLinealV6(
+                proceso,
+                factor
+            );
 
             ActualizarCantidadSnapshotProcesoProyecto(
                 item,
@@ -3926,40 +3631,85 @@ namespace Cotizador_animacion_Othalart
                 return;
             }
 
-            double diasHabilesSemana =
-                snapshot.DiasHabilesEstudioPorSemana > 0.0
-                    ? snapshot.DiasHabilesEstudioPorSemana
-                    : 5.0;
+            double totalAnterior =
+                requerimientos.Sum(r =>
+                    Math.Max(0.0, r.Cantidad));
 
-            foreach (RequerimientoProduccionInterna req in
-                requerimientos)
+            double cantidadTotalNueva =
+                Convert.ToDouble(cantidad);
+
+            double factorTotal =
+                totalAnterior > 0.0
+                    ? cantidadTotalNueva / totalAnterior
+                    : 1.0;
+
+            double acumulado = 0.0;
+
+            for (int i = 0;
+                i < requerimientos.Count;
+                i++)
             {
-                // Cada cargo participa sobre la MISMA cantidad del proceso.
-                // No se divide la cantidad entre cargos.
-                req.Cantidad =
-                    Convert.ToDouble(cantidad);
+                RequerimientoProduccionInterna req =
+                    requerimientos[i];
 
-                // El cambio manual es sobre la cantidad, no sobre las horas.
-                // Las horas continúan derivándose del rendimiento.
-                if (!ModosCalculoProductivo.EsTiempoAsignado(
-                        req.ModoCalculoProductivo))
+                double cantidadAnteriorReq =
+                    Math.Max(0.0, req.Cantidad);
+
+                double cantidadNuevaReq;
+
+                if (i == requerimientos.Count - 1)
                 {
-                    req.EditadoManualmente = false;
-                    req.TieneOverrideLocalCalculo = false;
+                    // El ultimo absorbe cualquier diferencia de redondeo
+                    // para que la suma sea exactamente el valor ingresado.
+                    cantidadNuevaReq =
+                        Math.Max(
+                            0.0,
+                            cantidadTotalNueva - acumulado
+                        );
+                }
+                else if (totalAnterior > 0.0)
+                {
+                    cantidadNuevaReq =
+                        cantidadTotalNueva *
+                        cantidadAnteriorReq /
+                        totalAnterior;
+                }
+                else
+                {
+                    cantidadNuevaReq =
+                        cantidadTotalNueva /
+                        requerimientos.Count;
                 }
 
-                RecalcularRequerimientoDesdeEcuacionV16(
+                double factorReq =
+                    cantidadAnteriorReq > 0.0
+                        ? cantidadNuevaReq /
+                          cantidadAnteriorReq
+                        : factorTotal;
+
+                req.Cantidad = cantidadNuevaReq;
+
+                EscalarRequerimientoLinealV6(
                     req,
-                    diasHabilesSemana
+                    factorReq
                 );
+
+                // Esta cantidad fue cambiada expresamente por el usuario.
+                // Desde ahora no debe volver a heredarse del producto padre.
+                req.EditadoManualmente = true;
+                req.TieneOverrideLocalCalculo = true;
+                req.OrigenHoras =
+                    "Cantidad del proceso editada manualmente";
+
+                acumulado += cantidadNuevaReq;
             }
 
-            GuardarSnapshotCotizacionItemProyecto(
-                item,
-                snapshot
+            EscalarResultadoProcesoLinealV6(
+                proceso,
+                Convert.ToDecimal(factorTotal)
             );
 
-            SincronizarResultadosLocalesDesdeSnapshotV18(
+            GuardarSnapshotCotizacionItemProyecto(
                 item,
                 snapshot
             );

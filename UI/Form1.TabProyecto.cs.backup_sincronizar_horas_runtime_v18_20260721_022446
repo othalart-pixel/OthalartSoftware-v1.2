@@ -2837,13 +2837,6 @@ namespace Cotizador_animacion_Othalart
                 item,
                 snapshot
             );
-
-            // El snapshot ya fue recalculado. Ahora se actualiza el
-            // modelo local que alimenta la tabla de Productos y servicios.
-            SincronizarResultadosLocalesDesdeSnapshotV18(
-                item,
-                snapshot
-            );
         }
         private bool ProcesoTieneCantidadManualV9(
             ItemProyecto item,
@@ -3094,120 +3087,6 @@ namespace Cotizador_animacion_Othalart
             }
 
             return texto.Trim();
-        }
-        private void SincronizarResultadosLocalesDesdeSnapshotV18(
-            ItemProyecto item,
-            Cotizacion snapshot)
-        {
-            if (item == null ||
-                snapshot?.DesgloseProductivo?.Requerimientos == null)
-            {
-                return;
-            }
-
-            List<RequerimientoProduccionInterna> requerimientos =
-                snapshot.DesgloseProductivo.Requerimientos
-                    .Where(r => r != null)
-                    .ToList();
-
-            foreach (ProcesoProyecto proceso in
-                ObtenerProcesosItemProyecto(item)
-                    .Where(p => p != null))
-            {
-                List<RequerimientoProduccionInterna> relacionados =
-                    requerimientos
-                        .Where(r =>
-                            CoincideRequerimientoConProceso(
-                                r,
-                                proceso,
-                                null
-                            ))
-                        .ToList();
-
-                if (relacionados.Count == 0)
-                {
-                    continue;
-                }
-
-                // Una fila de proceso puede tener varios cargos, pero las
-                // horas del trabajo corresponden al cuello de botella,
-                // no a la suma de las horas de todos los cargos.
-                RequerimientoProduccionInterna principal =
-                    relacionados
-                        .OrderByDescending(r =>
-                            r.HorasEstandar)
-                        .First();
-
-                decimal horas =
-                    Convert.ToDecimal(
-                        Math.Max(
-                            0.0,
-                            principal.HorasEstandar
-                        )
-                    );
-
-                decimal costo =
-                    Convert.ToDecimal(
-                        Math.Max(
-                            0.0,
-                            principal.CostoEstandarCLP
-                        )
-                    );
-
-                proceso.Resultado =
-                    proceso.Resultado ??
-                    new ResultadoProcesoProyecto();
-
-                proceso.Resultado.HorasCalculadas =
-                    horas;
-
-                proceso.Resultado.CostoCalculado =
-                    costo;
-
-                proceso.Resultado.DuracionSemanas =
-                    snapshot.DiasHabilesEstudioPorSemana > 0.0
-                        ? horas /
-                          Convert.ToDecimal(
-                              snapshot.DiasHabilesEstudioPorSemana *
-                              CalculoProductivoResolverService.HorasDiaEstandar
-                          )
-                        : 0m;
-
-                // Solo los procesos calculados automáticamente deben volver
-                // a tomar sus horas desde la ecuación y el rendimiento.
-                if (proceso.MetodoCalculo !=
-                    MetodoCalculoProceso.Manual)
-                {
-                    proceso.Resultado.HorasAsignadas = 0m;
-                }
-
-                proceso.Capacidad =
-                    Convert.ToDecimal(
-                        Math.Max(
-                            0.0,
-                            principal.RendimientoCantidad
-                        )
-                    );
-
-                proceso.Periodo =
-                    principal.RendimientoPeriodo ?? "";
-
-                foreach (AsignacionProductiva asignacion in
-                    (proceso.Asignaciones ??
-                        new List<AsignacionProductiva>())
-                    .Where(a => a != null))
-                {
-                    if (asignacion.OrigenHoras ==
-                        OrigenHorasProductivas.Manual)
-                    {
-                        continue;
-                    }
-
-                    // Las asignaciones automáticas no pueden conservar
-                    // resultados antiguos después de cambiar la cantidad.
-                    asignacion.HorasAsignadas = 0m;
-                }
-            }
         }
         private void SincronizarCantidadProcesoV4(
             ItemProyecto item,
@@ -3955,11 +3834,6 @@ namespace Cotizador_animacion_Othalart
             }
 
             GuardarSnapshotCotizacionItemProyecto(
-                item,
-                snapshot
-            );
-
-            SincronizarResultadosLocalesDesdeSnapshotV18(
                 item,
                 snapshot
             );
