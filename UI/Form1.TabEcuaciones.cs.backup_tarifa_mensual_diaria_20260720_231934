@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
@@ -146,36 +146,7 @@ namespace Cotizador_animacion_Othalart
 
             Button btnGuardar = CrearBotonEcuacion("Guardar biblioteca");
             btnGuardar.Width = 150;
-            btnGuardar.Click += (s, e) =>
-            {
-                string idSeleccionado = ObtenerIdentidadEcuacionSeleccionada();
-                int pestañaInterna = tabsEcuacionesProductivasInternas == null
-                    ? 0
-                    : tabsEcuacionesProductivasInternas.SelectedIndex;
-
-                int primeraFilaVisible = -1;
-                if (dgvEcuacionesProductivas != null &&
-                    dgvEcuacionesProductivas.Rows.Count > 0)
-                {
-                    try
-                    {
-                        primeraFilaVisible =
-                            dgvEcuacionesProductivas.FirstDisplayedScrollingRowIndex;
-                    }
-                    catch
-                    {
-                        primeraFilaVisible = -1;
-                    }
-                }
-
-                GuardarBibliotecaEcuacionesProductivas();
-
-                RestaurarContextoEcuacionDespuesDeGuardar(
-                    idSeleccionado,
-                    pestañaInterna,
-                    primeraFilaVisible
-                );
-            };
+            btnGuardar.Click += (s, e) => GuardarBibliotecaEcuacionesProductivas();
 
             Button btnRestaurar = CrearBotonEcuacion("Restaurar base");
             btnRestaurar.Width = 130;
@@ -1180,124 +1151,6 @@ namespace Cotizador_animacion_Othalart
             return panel;
         }
 
-        private string ObtenerIdentidadEcuacionSeleccionada()
-        {
-            DataGridViewRow fila = dgvEcuacionesProductivas?.CurrentRow;
-
-            if (fila == null || fila.IsNewRow)
-            {
-                return "";
-            }
-
-            string idProceso = ObtenerValorFilaEcuacion(fila, "IdProceso");
-            if (!string.IsNullOrWhiteSpace(idProceso))
-            {
-                return "ID:" + idProceso.Trim();
-            }
-
-            string clave = ObtenerValorFilaEcuacion(fila, "Clave");
-            return string.IsNullOrWhiteSpace(clave)
-                ? ""
-                : "CLAVE:" + clave.Trim();
-        }
-
-        private void RestaurarContextoEcuacionDespuesDeGuardar(
-            string identidad,
-            int pestañaInterna,
-            int primeraFilaVisible)
-        {
-            if (dgvEcuacionesProductivas == null ||
-                dgvEcuacionesProductivas.IsDisposed)
-            {
-                return;
-            }
-
-            DataGridViewRow filaObjetivo = null;
-
-            if (!string.IsNullOrWhiteSpace(identidad))
-            {
-                bool buscarPorId = identidad.StartsWith(
-                    "ID:",
-                    StringComparison.OrdinalIgnoreCase
-                );
-
-                string valor = identidad.Substring(
-                    buscarPorId ? 3 : 6
-                );
-
-                string columna = buscarPorId
-                    ? "IdProceso"
-                    : "Clave";
-
-                filaObjetivo = dgvEcuacionesProductivas.Rows
-                    .Cast<DataGridViewRow>()
-                    .FirstOrDefault(f =>
-                        f != null &&
-                        !f.IsNewRow &&
-                        string.Equals(
-                            ObtenerValorFilaEcuacion(f, columna)?.Trim(),
-                            valor.Trim(),
-                            StringComparison.OrdinalIgnoreCase
-                        )
-                    );
-            }
-
-            if (filaObjetivo == null &&
-                dgvEcuacionesProductivas.Rows.Count > 0)
-            {
-                filaObjetivo = dgvEcuacionesProductivas.Rows
-                    .Cast<DataGridViewRow>()
-                    .FirstOrDefault(f => f != null && !f.IsNewRow);
-            }
-
-            if (filaObjetivo != null)
-            {
-                dgvEcuacionesProductivas.ClearSelection();
-                filaObjetivo.Selected = true;
-
-                if (filaObjetivo.Cells.Count > 0)
-                {
-                    dgvEcuacionesProductivas.CurrentCell =
-                        filaObjetivo.Cells
-                            .Cast<DataGridViewCell>()
-                            .FirstOrDefault(c => c.Visible) ??
-                        filaObjetivo.Cells[0];
-                }
-
-                CargarEditorEcuacionDesdeFilaSeleccionada();
-            }
-
-            if (tabsEcuacionesProductivasInternas != null &&
-                tabsEcuacionesProductivasInternas.TabPages.Count > 0)
-            {
-                tabsEcuacionesProductivasInternas.SelectedIndex =
-                    Math.Max(
-                        0,
-                        Math.Min(
-                            pestañaInterna,
-                            tabsEcuacionesProductivasInternas.TabPages.Count - 1
-                        )
-                    );
-            }
-
-            if (primeraFilaVisible >= 0 &&
-                primeraFilaVisible < dgvEcuacionesProductivas.Rows.Count)
-            {
-                try
-                {
-                    dgvEcuacionesProductivas.FirstDisplayedScrollingRowIndex =
-                        primeraFilaVisible;
-                }
-                catch
-                {
-                    // La grilla puede reajustarse por filtros o filas ocultas.
-                }
-            }
-
-            dgvEcuacionesProductivas.Focus();
-            lblEstadoEcuacionesProductivas.Text =
-                "Biblioteca guardada. Se mantiene la ecuacion seleccionada.";
-        }
         private void SetColEcuacion(string nombre, int ancho)
         {
             if (dgvEcuacionesProductivas.Columns.Contains(nombre))
@@ -2358,13 +2211,13 @@ namespace Cotizador_animacion_Othalart
             dialogo.FormBorderStyle = FormBorderStyle.FixedDialog;
             dialogo.MaximizeBox = false;
             dialogo.MinimizeBox = false;
-            dialogo.ClientSize = new Size(680, 505);
+            dialogo.ClientSize = new Size(680, 465);
 
             TableLayoutPanel tabla = new TableLayoutPanel();
             tabla.Dock = DockStyle.Fill;
             tabla.Padding = new Padding(18);
             tabla.ColumnCount = 2;
-            tabla.RowCount = 12;
+            tabla.RowCount = 10;
             tabla.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 210));
             tabla.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             dialogo.Controls.Add(tabla);
@@ -2468,135 +2321,8 @@ namespace Cotizador_animacion_Othalart
             nudDedicacion.Value = (decimal)Math.Max(0, Math.Min(500,
                 trabajo.DedicacionPorcentaje <= 0 ? 100 : trabajo.DedicacionPorcentaje));
 
-            const decimal DiasLaboralesMesTarifa = 22M;
-
-            ComboBox cmbFormaTarifa = new ComboBox();
-            cmbFormaTarifa.DropDownStyle = ComboBoxStyle.DropDownList;
-            cmbFormaTarifa.Dock = DockStyle.Fill;
-            cmbFormaTarifa.Items.Add("Sueldo mensual");
-            cmbFormaTarifa.Items.Add("Tarifa diaria");
-            cmbFormaTarifa.SelectedIndex = 0;
-
-            NumericUpDown nudSueldoMensual = CrearNumericDialogo(
-                0,
-                1000000000,
-                0,
-                10000,
-                0
-            );
-
-            NumericUpDown nudTarifa = CrearNumericDialogo(
-                0,
-                100000000,
-                0,
-                1000,
-                0
-            );
-
-            decimal tarifaDiariaInicial = (decimal)Math.Max(
-                0,
-                Math.Min(100000000, trabajo.TarifaDiariaCLP)
-            );
-
-            CategoriaTrabajador cargoTarifaInicial = obtenerCargoSeleccionado();
-            decimal sueldoMensualInicial = cargoTarifaInicial == null
-                ? tarifaDiariaInicial * DiasLaboralesMesTarifa
-                : (decimal)Math.Max(
-                    0,
-                    cargoTarifaInicial.SueldoMensualCLPTipico
-                );
-
-            if (tarifaDiariaInicial <= 0 && sueldoMensualInicial > 0)
-            {
-                tarifaDiariaInicial = Math.Round(
-                    sueldoMensualInicial / DiasLaboralesMesTarifa,
-                    0
-                );
-            }
-
-            nudSueldoMensual.Value = Math.Min(
-                nudSueldoMensual.Maximum,
-                sueldoMensualInicial
-            );
-
-            nudTarifa.Value = Math.Min(
-                nudTarifa.Maximum,
-                tarifaDiariaInicial
-            );
-
-            bool sincronizandoTarifas = false;
-
-            Action actualizarEstadoFormaTarifa = () =>
-            {
-                bool ingresoMensual =
-                    string.Equals(
-                        cmbFormaTarifa.Text,
-                        "Sueldo mensual",
-                        StringComparison.OrdinalIgnoreCase
-                    );
-
-                nudSueldoMensual.Enabled = ingresoMensual;
-                nudSueldoMensual.BackColor = ingresoMensual
-                    ? Color.White
-                    : Color.FromArgb(242, 242, 242);
-
-                nudTarifa.Enabled = !ingresoMensual;
-                nudTarifa.BackColor = ingresoMensual
-                    ? Color.FromArgb(242, 242, 242)
-                    : Color.White;
-            };
-
-            Action sincronizarDesdeMensual = () =>
-            {
-                if (sincronizandoTarifas)
-                {
-                    return;
-                }
-
-                sincronizandoTarifas = true;
-                try
-                {
-                    decimal diaria = Math.Round(
-                        nudSueldoMensual.Value / DiasLaboralesMesTarifa,
-                        0
-                    );
-
-                    nudTarifa.Value = Math.Min(
-                        nudTarifa.Maximum,
-                        diaria
-                    );
-                }
-                finally
-                {
-                    sincronizandoTarifas = false;
-                }
-            };
-
-            Action sincronizarDesdeDiaria = () =>
-            {
-                if (sincronizandoTarifas)
-                {
-                    return;
-                }
-
-                sincronizandoTarifas = true;
-                try
-                {
-                    decimal mensual = Math.Round(
-                        nudTarifa.Value * DiasLaboralesMesTarifa,
-                        0
-                    );
-
-                    nudSueldoMensual.Value = Math.Min(
-                        nudSueldoMensual.Maximum,
-                        mensual
-                    );
-                }
-                finally
-                {
-                    sincronizandoTarifas = false;
-                }
-            };
+            NumericUpDown nudTarifa = CrearNumericDialogo(0, 100000000, 0, 1000, 0);
+            nudTarifa.Value = (decimal)Math.Max(0, Math.Min(100000000, trabajo.TarifaDiariaCLP));
 
             NumericUpDown nudHorasDia = CrearNumericDialogo(0.1M, 24, 8, 0.5M, 2);
             nudHorasDia.Value = (decimal)Math.Max(0.1, Math.Min(24,
@@ -2618,6 +2344,10 @@ namespace Cotizador_animacion_Othalart
             Action actualizarPreviewDialogo = () =>
             {
                 CategoriaTrabajador cargo = obtenerCargoSeleccionado();
+                if (cargo != null && nudTarifa.Value == 0)
+                {
+                    nudTarifa.Value = (decimal)Math.Round(cargo.SueldoMensualCLPTipico / 22.0, 0);
+                }
 
                 string nombreCompleto = cargo == null
                     ? cmbCargo.Text
@@ -2690,51 +2420,8 @@ namespace Cotizador_animacion_Othalart
             cmbNivel.SelectedIndexChanged += (s, e) => actualizarPreviewDialogo();
             cmbModo.SelectedIndexChanged += (s, e) => actualizarPreviewDialogo();
             cmbVariable.TextChanged += (s, e) => actualizarPreviewDialogo();
-            cmbFormaTarifa.SelectedIndexChanged += (s, e) =>
-            {
-                actualizarEstadoFormaTarifa();
-
-                if (string.Equals(
-                    cmbFormaTarifa.Text,
-                    "Sueldo mensual",
-                    StringComparison.OrdinalIgnoreCase))
-                {
-                    sincronizarDesdeMensual();
-                }
-                else
-                {
-                    sincronizarDesdeDiaria();
-                }
-
-                actualizarPreviewDialogo();
-            };
-
             nudDedicacion.ValueChanged += (s, e) => actualizarPreviewDialogo();
-
-            nudSueldoMensual.ValueChanged += (s, e) =>
-            {
-                if (string.Equals(
-                    cmbFormaTarifa.Text,
-                    "Sueldo mensual",
-                    StringComparison.OrdinalIgnoreCase))
-                {
-                    sincronizarDesdeMensual();
-                    actualizarPreviewDialogo();
-                }
-            };
-
-            nudTarifa.ValueChanged += (s, e) =>
-            {
-                if (string.Equals(
-                    cmbFormaTarifa.Text,
-                    "Tarifa diaria",
-                    StringComparison.OrdinalIgnoreCase))
-                {
-                    sincronizarDesdeDiaria();
-                    actualizarPreviewDialogo();
-                }
-            };
-
+            nudTarifa.ValueChanged += (s, e) => actualizarPreviewDialogo();
             nudHorasDia.ValueChanged += (s, e) => actualizarPreviewDialogo();
             nudFactor.ValueChanged += (s, e) => actualizarPreviewDialogo();
             txtFormula.TextChanged += (s, e) => actualizarPreviewDialogo();
@@ -2744,13 +2431,11 @@ namespace Cotizador_animacion_Othalart
             AgregarFilaDialogoCargo(tabla, 2, "Como participa?", cmbModo);
             AgregarFilaDialogoCargo(tabla, 3, "Que variable controla su tiempo?", cmbVariable);
             AgregarFilaDialogoCargo(tabla, 4, "Que dedicacion tiene sobre el proceso? (%)", nudDedicacion);
-            AgregarFilaDialogoCargo(tabla, 5, "Como ingresas la tarifa?", cmbFormaTarifa);
-            AgregarFilaDialogoCargo(tabla, 6, "Sueldo mensual CLP", nudSueldoMensual);
-            AgregarFilaDialogoCargo(tabla, 7, "Tarifa diaria CLP", nudTarifa);
-            AgregarFilaDialogoCargo(tabla, 8, "Horas por dia", nudHorasDia);
-            AgregarFilaDialogoCargo(tabla, 9, "Rendimiento o factor base", nudFactor);
-            AgregarFilaDialogoCargo(tabla, 10, "Formula personalizada", txtFormula);
-            AgregarFilaDialogoCargo(tabla, 11, "Que costo deriva?", lblCosto);
+            AgregarFilaDialogoCargo(tabla, 5, "Tarifa diaria CLP", nudTarifa);
+            AgregarFilaDialogoCargo(tabla, 6, "Horas por dia", nudHorasDia);
+            AgregarFilaDialogoCargo(tabla, 7, "Rendimiento o factor base", nudFactor);
+            AgregarFilaDialogoCargo(tabla, 8, "Formula personalizada", txtFormula);
+            AgregarFilaDialogoCargo(tabla, 9, "Que costo deriva?", lblCosto);
 
             FlowLayoutPanel botones = new FlowLayoutPanel();
             botones.Dock = DockStyle.Bottom;
@@ -2766,9 +2451,6 @@ namespace Cotizador_animacion_Othalart
             dialogo.Controls.Add(botones);
             dialogo.AcceptButton = aceptar;
             dialogo.CancelButton = cancelar;
-
-            actualizarEstadoFormaTarifa();
-            sincronizarDesdeMensual();
             actualizarPreviewDialogo();
 
             if (dialogo.ShowDialog(this) != DialogResult.OK)
@@ -2785,281 +2467,10 @@ namespace Cotizador_animacion_Othalart
             trabajo.VariableBase = cmbVariable.Text.Trim();
             trabajo.DedicacionPorcentaje = (double)nudDedicacion.Value;
             trabajo.TarifaDiariaCLP = (double)nudTarifa.Value;
-
-            CategoriaTrabajador cargoGlobalSeleccionado = obtenerCargoSeleccionado();
-            if (cargoGlobalSeleccionado != null)
-            {
-                double sueldoMensualElegido = (double)nudSueldoMensual.Value;
-
-                if (sueldoMensualElegido <= 0.0)
-                {
-                    sueldoMensualElegido = (double)nudTarifa.Value * 22.0;
-                }
-
-                ActualizarSueldoCargoGlobalDesdeEcuacion(
-                    cargoGlobalSeleccionado.NombreCompleto,
-                    cargoGlobalSeleccionado.Nombre,
-                    cargoGlobalSeleccionado.Nivel,
-                    sueldoMensualElegido
-                );
-
-                cargoGlobalSeleccionado.SueldoMensualCLPTipico =
-                    sueldoMensualElegido;
-            }
             trabajo.HorasPorDia = (double)nudHorasDia.Value;
             trabajo.CantidadFactor = (double)nudFactor.Value;
             trabajo.FormulaPersonalizada = txtFormula.Text.Trim();
             return string.IsNullOrWhiteSpace(trabajo.Cargo) ? null : trabajo;
-        }
-        private void ActualizarSueldoCargoGlobalDesdeEcuacion(
-            string nombreCompleto,
-            string nombreBase,
-            string nivel,
-            double sueldoMensualCLP)
-        {
-            if (sueldoMensualCLP < 0.0)
-            {
-                throw new ArgumentOutOfRangeException(
-                    nameof(sueldoMensualCLP),
-                    "El sueldo mensual no puede ser negativo."
-                );
-            }
-
-            string raizBibliotecas = Path.Combine(
-                AppDomain.CurrentDomain.BaseDirectory,
-                "Bibliotecas"
-            );
-
-            List<string> candidatos = new List<string>();
-
-            if (Directory.Exists(raizBibliotecas))
-            {
-                candidatos.AddRange(
-                    Directory.GetFiles(
-                        raizBibliotecas,
-                        "cargos.json",
-                        SearchOption.AllDirectories
-                    )
-                );
-            }
-
-            string carpetaProyecto = AppDomain.CurrentDomain.BaseDirectory;
-            DirectoryInfo actual = new DirectoryInfo(carpetaProyecto);
-
-            for (int i = 0; i < 6 && actual != null; i++, actual = actual.Parent)
-            {
-                string posible = Path.Combine(
-                    actual.FullName,
-                    "Bibliotecas"
-                );
-
-                if (Directory.Exists(posible))
-                {
-                    candidatos.AddRange(
-                        Directory.GetFiles(
-                            posible,
-                            "cargos.json",
-                            SearchOption.AllDirectories
-                        )
-                    );
-                }
-            }
-
-            string rutaCargos = candidatos
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderByDescending(r =>
-                    r.IndexOf(
-                        Path.Combine("Bibliotecas", "default"),
-                        StringComparison.OrdinalIgnoreCase
-                    ) >= 0)
-                .FirstOrDefault();
-
-            if (string.IsNullOrWhiteSpace(rutaCargos) ||
-                !File.Exists(rutaCargos))
-            {
-                throw new FileNotFoundException(
-                    "No se encontro cargos.json dentro de Bibliotecas."
-                );
-            }
-
-            string json = File.ReadAllText(rutaCargos);
-            System.Text.Json.Nodes.JsonNode raiz =
-                System.Text.Json.Nodes.JsonNode.Parse(json);
-
-            if (raiz == null)
-            {
-                throw new InvalidOperationException(
-                    "cargos.json no contiene un JSON valido."
-                );
-            }
-
-            bool actualizado = ActualizarNodoCargoRecursivo(
-                raiz,
-                nombreCompleto,
-                nombreBase,
-                nivel,
-                sueldoMensualCLP
-            );
-
-            if (!actualizado)
-            {
-                throw new InvalidOperationException(
-                    "No se encontro el cargo '" +
-                    nombreCompleto +
-                    "' en cargos.json."
-                );
-            }
-
-            string backup = rutaCargos +
-                ".backup_sueldo_" +
-                DateTime.Now.ToString("yyyyMMdd_HHmmss");
-
-            File.Copy(rutaCargos, backup, true);
-
-            System.Text.Json.JsonSerializerOptions opciones =
-                new System.Text.Json.JsonSerializerOptions
-                {
-                    WriteIndented = true
-                };
-
-            File.WriteAllText(
-                rutaCargos,
-                raiz.ToJsonString(opciones),
-                new System.Text.UTF8Encoding(true)
-            );
-        }
-
-        private bool ActualizarNodoCargoRecursivo(
-            System.Text.Json.Nodes.JsonNode nodo,
-            string nombreCompleto,
-            string nombreBase,
-            string nivel,
-            double sueldoMensualCLP)
-        {
-            if (nodo is System.Text.Json.Nodes.JsonObject objeto)
-            {
-                string nombreNodo = LeerTextoNodoCargo(
-                    objeto,
-                    "NombreCompleto",
-                    "nombreCompleto",
-                    "Nombre",
-                    "nombre"
-                );
-
-                string nivelNodo = LeerTextoNodoCargo(
-                    objeto,
-                    "Nivel",
-                    "nivel"
-                );
-
-                bool coincideNombre =
-                    (!string.IsNullOrWhiteSpace(nombreCompleto) &&
-                     string.Equals(
-                         nombreNodo,
-                         nombreCompleto,
-                         StringComparison.OrdinalIgnoreCase
-                     )) ||
-                    (!string.IsNullOrWhiteSpace(nombreBase) &&
-                     !string.IsNullOrWhiteSpace(nombreNodo) &&
-                     nombreNodo.IndexOf(
-                         nombreBase,
-                         StringComparison.OrdinalIgnoreCase
-                     ) >= 0);
-
-                bool coincideNivel =
-                    string.IsNullOrWhiteSpace(nivel) ||
-                    string.IsNullOrWhiteSpace(nivelNodo) ||
-                    string.Equals(
-                        nivelNodo,
-                        nivel,
-                        StringComparison.OrdinalIgnoreCase
-                    );
-
-                if (coincideNombre && coincideNivel)
-                {
-                    string propiedadSueldo = objeto.ContainsKey(
-                        "SueldoMensualCLPTipico"
-                    )
-                        ? "SueldoMensualCLPTipico"
-                        : objeto.ContainsKey("sueldoMensualCLPTipico")
-                            ? "sueldoMensualCLPTipico"
-                            : "SueldoMensualCLPTipico";
-
-                    objeto[propiedadSueldo] = sueldoMensualCLP;
-
-                    if (objeto.ContainsKey("TarifaDiariaCLP"))
-                    {
-                        objeto["TarifaDiariaCLP"] =
-                            Math.Round(sueldoMensualCLP / 22.0, 2);
-                    }
-
-                    if (objeto.ContainsKey("tarifaDiariaCLP"))
-                    {
-                        objeto["tarifaDiariaCLP"] =
-                            Math.Round(sueldoMensualCLP / 22.0, 2);
-                    }
-
-                    return true;
-                }
-
-                foreach (KeyValuePair<string, System.Text.Json.Nodes.JsonNode> par
-                    in objeto.ToList())
-                {
-                    if (par.Value != null &&
-                        ActualizarNodoCargoRecursivo(
-                            par.Value,
-                            nombreCompleto,
-                            nombreBase,
-                            nivel,
-                            sueldoMensualCLP))
-                    {
-                        return true;
-                    }
-                }
-            }
-            else if (nodo is System.Text.Json.Nodes.JsonArray arreglo)
-            {
-                foreach (System.Text.Json.Nodes.JsonNode hijo in arreglo)
-                {
-                    if (hijo != null &&
-                        ActualizarNodoCargoRecursivo(
-                            hijo,
-                            nombreCompleto,
-                            nombreBase,
-                            nivel,
-                            sueldoMensualCLP))
-                    {
-                        return true;
-                    }
-                }
-            }
-
-            return false;
-        }
-
-        private string LeerTextoNodoCargo(
-            System.Text.Json.Nodes.JsonObject objeto,
-            params string[] propiedades)
-        {
-            foreach (string propiedad in propiedades)
-            {
-                if (!objeto.ContainsKey(propiedad) ||
-                    objeto[propiedad] == null)
-                {
-                    continue;
-                }
-
-                try
-                {
-                    return objeto[propiedad].GetValue<string>() ?? "";
-                }
-                catch
-                {
-                    return objeto[propiedad].ToString();
-                }
-            }
-
-            return "";
         }
         private NumericUpDown CrearNumericDialogo(decimal minimo, decimal maximo, decimal valor, decimal incremento, int decimales)
         {

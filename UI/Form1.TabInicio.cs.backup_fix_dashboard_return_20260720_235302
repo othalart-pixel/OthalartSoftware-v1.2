@@ -76,10 +76,9 @@ namespace Cotizador_animacion_Othalart
             panel.Controls.Add(cargar);
             panel.Controls.Add(revisar);
             panel.Controls.Add(CrearListaProyectosRecientesInicio());
-            RedisenarInicioDashboard(panel);
             return panel;
         
-
+            RedisenarInicioDashboard(tab);
 }
         private void RedisenarInicioDashboard(Control tab)
         {

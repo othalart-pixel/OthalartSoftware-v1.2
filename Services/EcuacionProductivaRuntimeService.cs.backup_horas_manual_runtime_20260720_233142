@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -149,15 +149,6 @@ namespace Cotizador_animacion_Othalart.Services
             resultado.Nombre = efectiva.NombreVisible;
             resultado.FormulaMadre = efectiva.EcuacionBase;
 
-            if (efectiva.MetodoCalculo == MetodoCalculoProceso.Manual)
-            {
-                resultado.Advertencias.Add(
-                    "Esta regla no calcula horas en la biblioteca. " +
-                    "Las horas deben declararse manualmente dentro del proyecto."
-                );
-                return resultado;
-            }
-
             DeterminarEntradaPrueba(efectiva, out double cantidad, out string unidad);
             resultado.CantidadPrueba = cantidad;
             resultado.UnidadPrueba = unidad;
@@ -249,15 +240,6 @@ namespace Cotizador_animacion_Othalart.Services
             resultado.FormulaMadre = efectiva.EcuacionBase;
             resultado.CantidadPrueba = requerimiento.Cantidad;
             resultado.UnidadPrueba = requerimiento.Unidad ?? "";
-
-            if (efectiva.MetodoCalculo == MetodoCalculoProceso.Manual)
-            {
-                return EvaluarHorasDeclaradasManualmente(
-                    efectiva,
-                    requerimiento,
-                    resultado
-                );
-            }
 
             if (resultado.CantidadPrueba <= 0.0)
             {
@@ -456,13 +438,9 @@ namespace Cotizador_animacion_Othalart.Services
                     diagnostico.Advertencias.Add(clave + ": variables de entrada no definidas.");
                 }
 
-                if (e.Activa &&
-                    e.MetodoCalculo != MetodoCalculoProceso.Manual &&
-                    string.IsNullOrWhiteSpace(e.FormulaReferencia))
+                if (e.Activa && string.IsNullOrWhiteSpace(e.FormulaReferencia))
                 {
-                    diagnostico.Advertencias.Add(
-                        clave + ": formula/calculo visible no definido."
-                    );
+                    diagnostico.Advertencias.Add(clave + ": formula/calculo visible no definido.");
                 }
 
                 foreach (CargoVector cargo in ObtenerVectorCargos(e))
@@ -510,104 +488,6 @@ namespace Cotizador_animacion_Othalart.Services
             return diagnostico;
         }
 
-        private static ResultadoPrueba EvaluarHorasDeclaradasManualmente(
-            EcuacionProductivaDefinicion ecuacion,
-            RequerimientoProduccionInterna requerimiento,
-            ResultadoPrueba resultado)
-        {
-            double horasDeclaradas = requerimiento.HorasEstandar > 0.0
-                ? requerimiento.HorasEstandar
-                : requerimiento.HorasMinimas > 0.0
-                    ? requerimiento.HorasMinimas
-                    : requerimiento.HorasHolgura;
-
-            if (horasDeclaradas <= 0.0)
-            {
-                resultado.Advertencias.Add(
-                    "Pendiente: ingresa las horas destinadas al equipo en el proyecto."
-                );
-                resultado.DiasTecnicos = 0.0;
-                resultado.CostoCLP = 0.0;
-                return resultado;
-            }
-
-            List<CargoVector> vector = ObtenerVectorCargos(ecuacion);
-
-            if (vector.Count == 0 && !string.IsNullOrWhiteSpace(requerimiento.CargoSugerido))
-            {
-                vector = ParsearVectorCargos(requerimiento.CargoSugerido);
-            }
-
-            if (vector.Count == 0)
-            {
-                resultado.Errores.Add(
-                    "No hay cargos participantes definidos para distribuir las horas manuales."
-                );
-                return resultado;
-            }
-
-            List<CategoriaTrabajador> cargos = Cargos.CrearBibliotecaCompleta();
-
-            foreach (CargoVector cargoVector in vector)
-            {
-                ResultadoCargo item = new ResultadoCargo
-                {
-                    CargoSolicitado = cargoVector.Cargo,
-                    Dedicacion = cargoVector.Dedicacion,
-                    CantidadPrueba = horasDeclaradas,
-                    UnidadPrueba = "horas",
-                    RequiereRendimientoProductivo = false,
-                    RendimientoExiste = true
-                };
-
-                CategoriaTrabajador cargo = BuscarCargo(cargos, cargoVector.Cargo);
-                if (cargo == null)
-                {
-                    item.CargoExiste = false;
-                    item.Diagnostico = "Cargo no encontrado en biblioteca de cargos.";
-                    resultado.Cargos.Add(item);
-                    resultado.Errores.Add(
-                        ecuacion.Clave + ": cargo no encontrado: " + cargoVector.Cargo
-                    );
-                    continue;
-                }
-
-                item.CargoExiste = true;
-                item.CargoResuelto = cargo.NombreCompleto;
-                item.TarifaDiaCLP = cargo.SueldoMensualCLPTipico / 22.0;
-                item.HorasPorDia = 8.0;
-                item.TarifaHoraCLP = item.TarifaDiaCLP / item.HorasPorDia;
-
-                // La dedicacion representa qué fracción de las horas declaradas
-                // corresponde a este cargo.
-                item.HorasTecnicas = horasDeclaradas * cargoVector.Dedicacion;
-                item.DiasTecnicos = item.HorasTecnicas / item.HorasPorDia;
-                item.TarifaDiaPonderadaCLP =
-                    item.TarifaDiaCLP * cargoVector.Dedicacion;
-                item.TarifaHoraPonderadaCLP =
-                    item.TarifaHoraCLP * cargoVector.Dedicacion;
-
-                // No se vuelve a ponderar la tarifa: las horas ya fueron
-                // distribuidas mediante Dedicacion.
-                item.CostoCLP = item.HorasTecnicas * item.TarifaHoraCLP;
-                item.Diagnostico =
-                    "Horas declaradas manualmente en el proyecto.";
-
-                resultado.Cargos.Add(item);
-            }
-
-            resultado.DiasTecnicos = resultado.Cargos
-                .Where(c => c.CargoExiste)
-                .Select(c => c.DiasTecnicos)
-                .DefaultIfEmpty(0.0)
-                .Max();
-
-            resultado.CostoCLP = resultado.Cargos.Sum(c => c.CostoCLP);
-            resultado.CantidadPrueba = horasDeclaradas;
-            resultado.UnidadPrueba = "horas";
-
-            return resultado;
-        }
         private static ResultadoCargo EvaluarCargo(
             EcuacionProductivaDefinicion ecuacion,
             CargoVector cargoVector,

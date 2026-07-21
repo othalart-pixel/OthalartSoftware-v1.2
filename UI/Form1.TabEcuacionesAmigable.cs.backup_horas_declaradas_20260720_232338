@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
@@ -291,21 +291,17 @@ namespace Cotizador_animacion_Othalart
 
             cmbMetodoCalculoSimpleEcuacion.Items.AddRange(new object[]
             {
-                new OpcionMetodoSimpleEcuacion
-                {
-                    Metodo = MetodoCalculoProceso.PorCapacidad,
-                    Nombre = "Cantidad según capacidad del cargo"
-                },
-                new OpcionMetodoSimpleEcuacion
-                {
-                    Metodo = MetodoCalculoProceso.Manual,
-                    Nombre = "Horas declaradas manualmente en el proyecto"
-                },
-                new OpcionMetodoSimpleEcuacion
-                {
-                    Metodo = MetodoCalculoProceso.NoDefinido,
-                    Nombre = "Sin definir"
-                }
+                new OpcionMetodoSimpleEcuacion { Metodo = MetodoCalculoProceso.PorCantidad, Nombre = "Horas por cantidad" },
+                new OpcionMetodoSimpleEcuacion { Metodo = MetodoCalculoProceso.PorCapacidad, Nombre = "Cantidad según capacidad del cargo" },
+                new OpcionMetodoSimpleEcuacion { Metodo = MetodoCalculoProceso.PorPorcentajeProduccion, Nombre = "Porcentaje de otro trabajo" },
+                new OpcionMetodoSimpleEcuacion { Metodo = MetodoCalculoProceso.PorDuracionEntregable, Nombre = "Según duración del entregable" },
+                new OpcionMetodoSimpleEcuacion { Metodo = MetodoCalculoProceso.PorDuracionEtapa, Nombre = "Horas por semana de la etapa" },
+                new OpcionMetodoSimpleEcuacion { Metodo = MetodoCalculoProceso.PorDuracionProyecto, Nombre = "Horas por semana del proyecto" },
+                new OpcionMetodoSimpleEcuacion { Metodo = MetodoCalculoProceso.PorEvento, Nombre = "Horas por evento" },
+                new OpcionMetodoSimpleEcuacion { Metodo = MetodoCalculoProceso.PorRevision, Nombre = "Horas por revisión" },
+                new OpcionMetodoSimpleEcuacion { Metodo = MetodoCalculoProceso.Fijo, Nombre = "Horas fijas" },
+                new OpcionMetodoSimpleEcuacion { Metodo = MetodoCalculoProceso.Manual, Nombre = "Manual / fórmula avanzada" },
+                new OpcionMetodoSimpleEcuacion { Metodo = MetodoCalculoProceso.NoDefinido, Nombre = "Sin definir" }
             });
         }
 
@@ -499,24 +495,17 @@ namespace Cotizador_animacion_Othalart
                     lblValorSimpleEcuacion.Text = "Capacidad";
                     nudValorSimpleEcuacion.Enabled = false;
                     break;
-                case MetodoCalculoProceso.Manual:
-                    lblValorSimpleEcuacion.Text = "Horas";
-                    nudValorSimpleEcuacion.Enabled = false;
-                    cmbDependenciaSimpleEcuacion.Enabled = false;
-                    break;
                 default:
                     lblValorSimpleEcuacion.Text = "Valor";
                     nudValorSimpleEcuacion.Enabled = false;
                     break;
             }
 
-            if (metodo == MetodoCalculoProceso.Manual)
+            if (metodo == MetodoCalculoProceso.Manual && !pnlAvanzadoEcuacion.Visible)
             {
-                lblExplicacionSimpleEcuacion.Text =
-                    "Regla: el sistema no calcula horas automáticamente. " +
-                    "Las horas deben declararse manualmente dentro del proyecto.";
-
-                nudValorSimpleEcuacion.Value = 0;
+                pnlAvanzadoEcuacion.Visible = true;
+                btnAlternarAvanzadoEcuacion.Text = "▾ Ocultar opciones avanzadas";
+                btnAlternarAvanzadoEcuacion.Width = 230;
             }
         }
 
@@ -558,10 +547,6 @@ namespace Cotizador_animacion_Othalart
                     txtEcuacionFormula.Text = destino + " = cantidad / capacidad_por_periodo[cargo]";
                     break;
                 case MetodoCalculoProceso.Manual:
-                    txtEcuacionFormula.Text = "";
-                    cmbDependenciaSimpleEcuacion.SelectedIndex =
-                        cmbDependenciaSimpleEcuacion.Items.Count > 0 ? 0 : -1;
-                    break;
                 case MetodoCalculoProceso.NoDefinido:
                     break;
             }
@@ -585,22 +570,9 @@ namespace Cotizador_animacion_Othalart
             MetodoCalculoProceso metodo = ObtenerMetodoSimpleEcuacion();
             fila.Cells["MetodoCalculo"].Value = metodo.ToString();
             fila.Cells["TipoProceso"].Value = ObtenerTipoTrabajoSimpleEcuacion().ToString();
-
-            string dependencia = metodo == MetodoCalculoProceso.Manual
-                ? ""
-                : ObtenerDependenciaSimpleEcuacion();
-
+            string dependencia = ObtenerDependenciaSimpleEcuacion();
             fila.Cells["DependenciasJson"].Value =
-                ReglaCalculoProcesoService.CrearDependenciasJson(
-                    string.IsNullOrWhiteSpace(dependencia)
-                        ? Array.Empty<string>()
-                        : new[] { dependencia }
-                );
-
-            if (metodo == MetodoCalculoProceso.Manual)
-            {
-                fila.Cells["FormulaReferencia"].Value = "";
-            }
+                ReglaCalculoProcesoService.CrearDependenciasJson(new[] { dependencia });
         }
 
         private string LeerPrimeraDependenciaSimpleEcuacion(string json)
@@ -678,11 +650,10 @@ namespace Cotizador_animacion_Othalart
                     ejemplo = "La capacidad se obtiene desde Rendimientos y el cargo seleccionado";
                     break;
                 case MetodoCalculoProceso.Manual:
-                    regla = "Horas declaradas manualmente en el proyecto";
-                    ejemplo =
-                        "Esta regla no calcula horas desde segundos, cantidades, " +
-                        "capacidades ni fórmulas. El resultado queda pendiente hasta " +
-                        "que se ingresen las horas destinadas al equipo.";
+                    regla = "Fórmula configurada manualmente";
+                    ejemplo = string.IsNullOrWhiteSpace(txtEcuacionFormula.Text)
+                        ? "Abre Opciones avanzadas para escribir la fórmula"
+                        : txtEcuacionFormula.Text;
                     break;
                 case MetodoCalculoProceso.NoDefinido:
                     regla = "Todavía no se ha definido una regla";
@@ -713,14 +684,6 @@ namespace Cotizador_animacion_Othalart
             {
                 avisos.Add("⚠ Selecciona el trabajo del que depende.");
             }
-
-            if (metodo == MetodoCalculoProceso.Manual)
-            {
-                avisos.Add(
-                    "Pendiente: las horas deberán ingresarse manualmente en el proyecto."
-                );
-            }
-
             if (cargos == 0)
             {
                 avisos.Add("⚠ Falta agregar al menos un cargo.");

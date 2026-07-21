@@ -291,21 +291,17 @@ namespace Cotizador_animacion_Othalart
 
             cmbMetodoCalculoSimpleEcuacion.Items.AddRange(new object[]
             {
-                new OpcionMetodoSimpleEcuacion
-                {
-                    Metodo = MetodoCalculoProceso.PorCapacidad,
-                    Nombre = "Cantidad según capacidad del cargo"
-                },
-                new OpcionMetodoSimpleEcuacion
-                {
-                    Metodo = MetodoCalculoProceso.Manual,
-                    Nombre = "Horas declaradas manualmente en el proyecto"
-                },
-                new OpcionMetodoSimpleEcuacion
-                {
-                    Metodo = MetodoCalculoProceso.NoDefinido,
-                    Nombre = "Sin definir"
-                }
+                new OpcionMetodoSimpleEcuacion { Metodo = MetodoCalculoProceso.PorCantidad, Nombre = "Horas por cantidad" },
+                new OpcionMetodoSimpleEcuacion { Metodo = MetodoCalculoProceso.PorCapacidad, Nombre = "Cantidad según capacidad del cargo" },
+                new OpcionMetodoSimpleEcuacion { Metodo = MetodoCalculoProceso.PorPorcentajeProduccion, Nombre = "Porcentaje de otro trabajo" },
+                new OpcionMetodoSimpleEcuacion { Metodo = MetodoCalculoProceso.PorDuracionEntregable, Nombre = "Según duración del entregable" },
+                new OpcionMetodoSimpleEcuacion { Metodo = MetodoCalculoProceso.PorDuracionEtapa, Nombre = "Horas por semana de la etapa" },
+                new OpcionMetodoSimpleEcuacion { Metodo = MetodoCalculoProceso.PorDuracionProyecto, Nombre = "Horas por semana del proyecto" },
+                new OpcionMetodoSimpleEcuacion { Metodo = MetodoCalculoProceso.PorEvento, Nombre = "Horas por evento" },
+                new OpcionMetodoSimpleEcuacion { Metodo = MetodoCalculoProceso.PorRevision, Nombre = "Horas por revisión" },
+                new OpcionMetodoSimpleEcuacion { Metodo = MetodoCalculoProceso.Fijo, Nombre = "Horas fijas" },
+                new OpcionMetodoSimpleEcuacion { Metodo = MetodoCalculoProceso.Manual, Nombre = "Horas declaradas manualmente en el proyecto" },
+                new OpcionMetodoSimpleEcuacion { Metodo = MetodoCalculoProceso.NoDefinido, Nombre = "Sin definir" }
             });
         }
 
