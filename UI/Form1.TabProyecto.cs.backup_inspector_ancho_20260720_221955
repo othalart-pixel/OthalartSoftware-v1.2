@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -38,13 +38,12 @@ namespace Cotizador_animacion_Othalart
         private Button btnQuitarSeleccionProyecto = new Button();
         private Button btnExpandirEstructuraProyecto = new Button();
         private SplitContainer splitProyectoEstructuraInspector = new SplitContainer();
-        private bool inspectorProyectoVisible = true;
+        private bool inspectorProyectoVisible = false;
         private bool estructuraProyectoExpandida = false;
-        private const int AnchoInicialInspectorProyecto = 520;
+        private const int AnchoInicialInspectorProyecto = 380;
         private int anchoInspectorProyecto = AnchoInicialInspectorProyecto;
         private bool moviendoSplitterInspectorProyecto = false;
         private bool ajustandoSplitterInspectorProyecto = false;
-        private bool anchoInicialInspectorProyectoAplicado = false;
         private readonly HashSet<string> nodosProyectoExpandidos = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private List<ProjectStructureNode> nodosProyectoPresentacion = new List<ProjectStructureNode>();
         private ProyectoProductivoExpandido expandidoProyectoPresentacion = null;
@@ -115,104 +114,41 @@ namespace Cotizador_animacion_Othalart
             split.Panel1MinSize = 80;
             split.Panel2MinSize = 80;
             split.Panel2Collapsed = !inspectorProyectoVisible;
-
-            split.HandleCreated -= SplitProyecto_HandleCreated;
-            split.HandleCreated += SplitProyecto_HandleCreated;
-            split.VisibleChanged -= SplitProyecto_VisibleChanged;
-            split.VisibleChanged += SplitProyecto_VisibleChanged;
-            split.SizeChanged -= SplitProyecto_SizeChangedInicial;
-            split.SizeChanged += SplitProyecto_SizeChangedInicial;
-if (inspectorProyectoVisible)
-            {
-                BeginInvoke(new Action(() =>
-                {
-                    if (split.IsDisposed || split.Panel2Collapsed)
-                    {
-                        return;
-                    }
-
-                    int anchoDisponible = split.ClientSize.Width - split.SplitterWidth;
-                    if (anchoDisponible <= 0)
-                    {
-                        return;
-                    }
-
-                    int anchoDeseado = Math.Max(460, anchoInspectorProyecto);
-                    anchoDeseado = Math.Min(anchoDeseado, Math.Max(460, anchoDisponible - 620));
-
-                    if (anchoDeseado > 0)
-                    {
-                        split.SplitterDistance = Math.Max(
-                            split.Panel1MinSize,
-                            anchoDisponible - anchoDeseado
-                        );
-                    }
-                }));
-            }
             split.SizeChanged += (s, e) =>
             {
-                if (split.Panel2Collapsed ||
-                    ajustandoSplitterInspectorProyecto ||
-                    moviendoSplitterInspectorProyecto)
+                if (split.Panel2Collapsed)
                 {
                     return;
                 }
 
-                int anchoDisponible = split.ClientSize.Width - split.SplitterWidth;
-                if (anchoDisponible < 900)
+                const int minPanel1Deseado = 820;
+                const int minPanel2Deseado = 320;
+                int anchoDisponible = split.Width - split.SplitterWidth;
+                if (anchoDisponible <= 160)
                 {
                     return;
                 }
 
-                // El inspector debe ser util desde que se abre.
-                // Conserva el ancho ajustado manualmente, pero nunca permite
-                // que arranque como una franja ilegible.
-                const int anchoMinimoInspector = 480;
-                const int anchoMinimoEstructura = 700;
+                int minPanel2Real = Math.Min(minPanel2Deseado, Math.Max(80, anchoDisponible / 3));
+                int minPanel1Real = Math.Min(minPanel1Deseado, Math.Max(80, anchoDisponible - minPanel2Real));
+                split.Panel1MinSize = minPanel1Real;
+                split.Panel2MinSize = minPanel2Real;
 
-                if (anchoInspectorProyecto < anchoMinimoInspector)
-                {
-                    anchoInspectorProyecto = 520;
-                }
+                int inspectorMaximo = Math.Max(minPanel2Real, anchoDisponible - minPanel1Real);
+                int inspector = Math.Min(Math.Max(minPanel2Real, anchoInspectorProyecto), inspectorMaximo);
+                int distancia = anchoDisponible - inspector;
+                distancia = Math.Max(split.Panel1MinSize, Math.Min(distancia, split.Width - split.SplitterWidth - split.Panel2MinSize));
 
-                int anchoMaximoInspector = Math.Max(
-                    anchoMinimoInspector,
-                    anchoDisponible - anchoMinimoEstructura
-                );
-
-                int anchoDeseadoInspector = Math.Min(
-                    Math.Max(anchoMinimoInspector, anchoInspectorProyecto),
-                    anchoMaximoInspector
-                );
-
-                int distanciaDeseada = anchoDisponible - anchoDeseadoInspector;
-                distanciaDeseada = Math.Max(
-                    anchoMinimoEstructura,
-                    Math.Min(
-                        distanciaDeseada,
-                        anchoDisponible - anchoMinimoInspector
-                    )
-                );
-
-                split.Panel1MinSize = Math.Min(
-                    anchoMinimoEstructura,
-                    Math.Max(200, anchoDisponible - anchoMinimoInspector)
-                );
-                split.Panel2MinSize = Math.Min(
-                    anchoMinimoInspector,
-                    Math.Max(160, anchoDisponible - split.Panel1MinSize)
-                );
-
-                if (split.SplitterDistance != distanciaDeseada)
+                if (distancia > 0 && distancia < split.Width && split.SplitterDistance != distancia)
                 {
                     ajustandoSplitterInspectorProyecto = true;
                     try
                     {
-                        split.SplitterDistance = distanciaDeseada;
+                        split.SplitterDistance = distancia;
                     }
                     catch (InvalidOperationException)
                     {
-                        // WinForms puede medir el SplitContainer antes de estabilizarlo.
+                        // El control puede disparar SizeChanged antes de estabilizar sus medidas.
                     }
                     finally
                     {
@@ -220,6 +156,7 @@ if (inspectorProyectoVisible)
                     }
                 }
             };
+
             split.SplitterMoving += (s, e) =>
             {
                 moviendoSplitterInspectorProyecto = true;
@@ -236,10 +173,7 @@ if (inspectorProyectoVisible)
                     !split.Panel2Collapsed &&
                     split.Width > split.SplitterWidth)
                 {
-                    anchoInspectorProyecto = Math.Max(
-                        480,
-                        split.Width - split.SplitterDistance - split.SplitterWidth
-                    );
+                    anchoInspectorProyecto = Math.Max(split.Panel2MinSize, split.Width - split.SplitterDistance - split.SplitterWidth);
                 }
             };
 
@@ -264,152 +198,6 @@ if (inspectorProyectoVisible)
             RefrescarProyectoUI();
         }
 
-        private void ForzarAnchoInicialInspectorProyecto(SplitContainer split)
-        {
-            if (split == null ||
-                split.IsDisposed ||
-                split.Panel2Collapsed)
-            {
-                return;
-            }
-
-            int anchoDisponible = split.ClientSize.Width - split.SplitterWidth;
-            if (anchoDisponible < 900)
-            {
-                return;
-            }
-
-            const int anchoInspector = 520;
-            const int anchoMinimoEstructura = 700;
-
-            split.Panel1MinSize = Math.Min(
-                anchoMinimoEstructura,
-                Math.Max(200, anchoDisponible - 480)
-            );
-            split.Panel2MinSize = Math.Min(
-                480,
-                Math.Max(160, anchoDisponible - split.Panel1MinSize)
-            );
-
-            int distancia = anchoDisponible - anchoInspector;
-            distancia = Math.Max(
-                split.Panel1MinSize,
-                Math.Min(distancia, anchoDisponible - split.Panel2MinSize)
-            );
-
-            ajustandoSplitterInspectorProyecto = true;
-            try
-            {
-                split.SplitterDistance = distancia;
-                anchoInspectorProyecto = anchoInspector;
-            }
-            catch (InvalidOperationException)
-            {
-            }
-            finally
-            {
-                ajustandoSplitterInspectorProyecto = false;
-            }
-        }
-        private void AplicarAnchoInicialInspectorCuandoEsteVisible()
-        {
-            if (anchoInicialInspectorProyectoAplicado ||
-                splitProyectoEstructuraInspector == null ||
-                splitProyectoEstructuraInspector.IsDisposed ||
-                splitProyectoEstructuraInspector.Panel2Collapsed ||
-                !splitProyectoEstructuraInspector.Visible)
-            {
-                return;
-            }
-
-            SplitContainer split = splitProyectoEstructuraInspector;
-            int anchoDisponible = split.ClientSize.Width - split.SplitterWidth;
-
-            if (anchoDisponible < 900)
-            {
-                return;
-            }
-
-            const int anchoInspectorDeseado = 520;
-            const int anchoInspectorMinimo = 480;
-            const int anchoEstructuraMinimo = 650;
-
-            split.Panel1MinSize = Math.Min(
-                anchoEstructuraMinimo,
-                Math.Max(200, anchoDisponible - anchoInspectorMinimo)
-            );
-
-            split.Panel2MinSize = Math.Min(
-                anchoInspectorMinimo,
-                Math.Max(160, anchoDisponible - split.Panel1MinSize)
-            );
-
-            int distancia = anchoDisponible - anchoInspectorDeseado;
-            distancia = Math.Max(
-                split.Panel1MinSize,
-                Math.Min(
-                    distancia,
-                    anchoDisponible - split.Panel2MinSize
-                )
-            );
-
-            ajustandoSplitterInspectorProyecto = true;
-            try
-            {
-                split.SplitterDistance = distancia;
-                anchoInspectorProyecto = anchoInspectorDeseado;
-                anchoInicialInspectorProyectoAplicado = true;
-            }
-            catch (InvalidOperationException)
-            {
-                // La pestaña todavía puede estar terminando de medir.
-            }
-            finally
-            {
-                ajustandoSplitterInspectorProyecto = false;
-            }
-        }
-        private void SplitProyecto_HandleCreated(object sender, EventArgs e)
-        {
-            if (sender is not SplitContainer split ||
-                split.IsDisposed ||
-                split.Panel2Collapsed ||
-                !split.IsHandleCreated)
-            {
-                return;
-            }
-
-        }
-        private void SplitProyecto_VisibleChanged(object sender, EventArgs e)
-        {
-            if (sender is not SplitContainer split ||
-                !split.IsHandleCreated ||
-                !split.Visible ||
-                split.Panel2Collapsed ||
-                anchoInicialInspectorProyectoAplicado)
-            {
-                return;
-            }
-
-            BeginInvoke(new Action(() =>
-            {
-                AplicarAnchoInicialInspectorCuandoEsteVisible();
-
-                // Segundo intento después del primer ciclo de layout.
-                BeginInvoke(new Action(AplicarAnchoInicialInspectorCuandoEsteVisible));
-            }));
-        }
-
-        private void SplitProyecto_SizeChangedInicial(object sender, EventArgs e)
-        {
-            if (!anchoInicialInspectorProyectoAplicado &&
-                inspectorProyectoVisible &&
-                splitProyectoEstructuraInspector != null &&
-                !splitProyectoEstructuraInspector.Panel2Collapsed)
-            {
-                AplicarAnchoInicialInspectorCuandoEsteVisible();
-            }
-        }
         private Control CrearHeaderProductosServicios()
         {
             TableLayoutPanel header = new TableLayoutPanel();
@@ -623,10 +411,6 @@ if (inspectorProyectoVisible)
         {
             bool abriendo = !inspectorProyectoVisible;
             inspectorProyectoVisible = !inspectorProyectoVisible;
-            if (inspectorProyectoVisible)
-            {
-                anchoInicialInspectorProyectoAplicado = false; // reaplicar al abrir
-            }
             if (abriendo)
             {
                 anchoInspectorProyecto = AnchoInicialInspectorProyecto;

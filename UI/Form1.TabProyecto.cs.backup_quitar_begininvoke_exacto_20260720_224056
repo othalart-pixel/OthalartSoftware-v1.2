@@ -379,6 +379,13 @@ if (inspectorProyectoVisible)
                 return;
             }
 
+            split.BeginInvoke(new Action(() =>
+            {
+                if (!split.IsDisposed && split.IsHandleCreated)
+                {
+                    AplicarAnchoInicialInspectorCuandoEsteVisible();
+                }
+            }));
         }
         private void SplitProyecto_VisibleChanged(object sender, EventArgs e)
         {

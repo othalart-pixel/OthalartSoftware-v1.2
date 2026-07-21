@@ -507,7 +507,7 @@ namespace Cotizador_animacion_Othalart
             layout.RowCount = 1;
             layout.Margin = new Padding(0);
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 300));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 252));
             layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
             TableLayoutPanel bloqueTexto = new TableLayoutPanel();
@@ -545,43 +545,40 @@ namespace Cotizador_animacion_Othalart
 
             FlowLayoutPanel acciones = new FlowLayoutPanel();
             acciones.AutoSize = false;
-            acciones.Width = 270;
+            acciones.Width = 248;
             acciones.Height = 38;
             acciones.Dock = DockStyle.Fill;
             acciones.FlowDirection = FlowDirection.LeftToRight;
             acciones.WrapContents = false;
-            acciones.MinimumSize = new Size(270, 38);
-            acciones.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+            acciones.MinimumSize = new Size(248, 38);
+            acciones.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             acciones.Margin = new Padding(0, 4, 0, 0);
             acciones.Padding = new Padding(0);
 
-            Button editar = CrearBotonAccionAlcanceDatos("Editar", 78);
+            Button editar = CrearBotonAccionAlcanceDatos("Editar", 70);
             editar.AutoSize = true;
             editar.AutoSize = false;
-            editar.Width = 78;
-            editar.MinimumSize = new Size(78, 32);
-            editar.Margin = new Padding(0, 0, 7, 5);
-            editar.Padding = new Padding(0);
+            editar.Width = 70;
+            editar.MinimumSize = new Size(70, 32);
+            editar.Margin = new Padding(0, 0, 5, 5);
             editar.Cursor = Cursors.Hand;
             editar.Click += (s, e) => EditarProductoProyectoDesdeDatos(item);
 
-            Button pipeline = CrearBotonAccionAlcanceDatos("Pipeline", 88);
+            Button pipeline = CrearBotonAccionAlcanceDatos("Pipeline", 82);
             pipeline.AutoSize = true;
             pipeline.AutoSize = false;
-            pipeline.Width = 88;
-            pipeline.MinimumSize = new Size(88, 32);
-            pipeline.Margin = new Padding(0, 0, 7, 5);
-            pipeline.Padding = new Padding(0);
+            pipeline.Width = 82;
+            pipeline.MinimumSize = new Size(82, 32);
+            pipeline.Margin = new Padding(0, 0, 5, 5);
             pipeline.Cursor = Cursors.Hand;
             pipeline.Click += (s, e) => AbrirPipelineProductoProyectoDesdeDatos(item);
 
-            Button quitar = CrearBotonAccionAlcanceDatos("Quitar", 78);
+            Button quitar = CrearBotonAccionAlcanceDatos("Quitar", 70);
             quitar.AutoSize = true;
             quitar.AutoSize = false;
-            quitar.Width = 78;
-            quitar.MinimumSize = new Size(78, 32);
+            quitar.Width = 70;
+            quitar.MinimumSize = new Size(70, 32);
             quitar.Margin = new Padding(0, 0, 0, 5);
-            quitar.Padding = new Padding(0);
             quitar.Cursor = Cursors.Hand;
             quitar.Click += (s, e) => QuitarItemProyecto(item);
 

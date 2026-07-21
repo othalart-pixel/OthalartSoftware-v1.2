@@ -1,4 +1,4 @@
-﻿using Cotizador_animacion_Othalart.Data;
+using Cotizador_animacion_Othalart.Data;
 using Cotizador_animacion_Othalart.Models;
 using System.Drawing;
 using System.Windows.Forms;
@@ -154,23 +154,22 @@ namespace Cotizador_animacion_Othalart
             contenedor.ColumnCount = 1;
             contenedor.RowCount = 1;
             contenedor.BackColor = Color.FromArgb(246, 247, 249);
-            contenedor.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            contenedor.MinimumSize = new Size(860, 0);
+            contenedor.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 1060));
             contenedor.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
             Label titulo = new Label();
             titulo.Text = "Datos del cliente / proyecto";
-            titulo.Font = new Font("Segoe UI", 20.5f, FontStyle.Bold);
-            titulo.ForeColor = Color.FromArgb(24, 28, 32);
+            titulo.Font = new Font("Segoe UI", 19, FontStyle.Bold);
+            titulo.ForeColor = Color.FromArgb(20, 20, 20);
             titulo.AutoSize = true;
-            titulo.Margin = new Padding(2, 0, 0, 5);
+            titulo.Margin = new Padding(0, 0, 0, 4);
 
             Label bajada = new Label();
             bajada.Text = "Completa el brief base para generar una cotización productiva consistente.";
-            bajada.Font = new Font("Segoe UI", 10f, FontStyle.Regular);
-            bajada.ForeColor = Color.FromArgb(100, 106, 114);
+            bajada.Font = new Font("Segoe UI", 9.5f, FontStyle.Regular);
+            bajada.ForeColor = Color.FromArgb(95, 100, 108);
             bajada.AutoSize = true;
-            bajada.Margin = new Padding(2, 0, 0, 20);
+            bajada.Margin = new Padding(0, 0, 0, 18);
 
             DatosConfigurarCalendariosCliente();
             DatosConfigurarComboProductosServicios();
@@ -204,13 +203,10 @@ namespace Cotizador_animacion_Othalart
 
             Button btnAplicarDatos = new Button();
             btnAplicarDatos.Text = "Aplicar datos y actualizar";
-            btnAplicarDatos.AutoSize = true;
-            btnAplicarDatos.MinimumSize = new Size(230, 40);
-            btnAplicarDatos.Height = 40;
+            btnAplicarDatos.Width = 250;
+            btnAplicarDatos.Height = 38;
             btnAplicarDatos.Font = new Font("Segoe UI", 10, FontStyle.Bold);
-            btnAplicarDatos.Margin = new Padding(0, 2, 0, 9);
-            btnAplicarDatos.Padding = new Padding(18, 0, 18, 0);
-            btnAplicarDatos.Cursor = Cursors.Hand;
+            btnAplicarDatos.Margin = new Padding(0, 0, 0, 8);
             btnAplicarDatos.BackColor = Color.FromArgb(83, 192, 166);
             btnAplicarDatos.ForeColor = Color.White;
             btnAplicarDatos.FlatStyle = FlatStyle.Flat;
@@ -269,10 +265,9 @@ namespace Cotizador_animacion_Othalart
             card.AutoSize = true;
             card.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             card.BackColor = Color.White;
-            card.Padding = new Padding(22, 18, 22, 20);
-            card.Margin = new Padding(0, 0, 0, 16);
-            card.BorderStyle = BorderStyle.None;
-            card.MinimumSize = new Size(0, 72);
+            card.Padding = new Padding(18, 16, 18, 18);
+            card.Margin = new Padding(0, 0, 0, 14);
+            card.BorderStyle = BorderStyle.FixedSingle;
 
             TableLayoutPanel layout = new TableLayoutPanel();
             layout.Dock = DockStyle.Top;
@@ -288,9 +283,9 @@ namespace Cotizador_animacion_Othalart
             Label lblTitulo = new Label();
             lblTitulo.Text = titulo;
             lblTitulo.AutoSize = true;
-            lblTitulo.Font = new Font("Segoe UI", 12.8f, FontStyle.Bold);
+            lblTitulo.Font = new Font("Segoe UI", 12.2f, FontStyle.Bold);
             lblTitulo.ForeColor = Color.FromArgb(28, 32, 36);
-            lblTitulo.Margin = new Padding(0, 0, 0, 14);
+            lblTitulo.Margin = new Padding(0, 0, 0, 12);
 
             layout.Controls.Add(lblTitulo, 0, 0);
             card.Controls.Add(layout);
@@ -410,16 +405,12 @@ namespace Cotizador_animacion_Othalart
         {
             Button boton = new Button();
             boton.Text = texto;
-            boton.AutoSize = true;
-            boton.MinimumSize = new Size(ancho, 34);
+            boton.Width = ancho;
             boton.Height = 34;
             boton.Font = new Font("Segoe UI", 9.2f, FontStyle.Bold);
             boton.FlatStyle = FlatStyle.Flat;
-            boton.FlatAppearance.BorderColor = Color.FromArgb(184, 190, 196);
             boton.BackColor = Color.White;
-            boton.Margin = new Padding(0, 0, 8, 5);
-            boton.Padding = new Padding(12, 0, 12, 0);
-            boton.Cursor = Cursors.Hand;
+            boton.Margin = new Padding(0, 0, 8, 0);
             boton.UseVisualStyleBackColor = false;
             return boton;
         }
@@ -428,176 +419,97 @@ namespace Cotizador_animacion_Othalart
         {
             SincronizarProyectoProductivoActualDesdeCotizacion();
 
-            // TableLayoutPanel en vez de FlowLayoutPanel:
-            // ocupa todo el ancho disponible y evita que las filas
-            // responsive colapsen a un rectangulo angosto.
-            TableLayoutPanel lista = new TableLayoutPanel();
+            FlowLayoutPanel lista = new FlowLayoutPanel();
             lista.Dock = DockStyle.Top;
             lista.AutoSize = true;
-            lista.AutoSizeMode = AutoSizeMode.GrowAndShrink;
-            lista.ColumnCount = 1;
-            lista.RowCount = 0;
+            lista.FlowDirection = FlowDirection.TopDown;
+            lista.WrapContents = false;
             lista.Margin = new Padding(0);
-            lista.Padding = new Padding(0);
-            lista.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
 
             List<ItemProyecto> items = ObtenerItemsProyectoParaDatos();
-
             if (items.Count == 0)
             {
                 Label vacio = new Label();
                 vacio.Text = "No hay productos ni servicios agregados al proyecto.";
-                vacio.Dock = DockStyle.Top;
                 vacio.AutoSize = true;
                 vacio.Font = new Font("Segoe UI", 10f, FontStyle.Regular);
                 vacio.ForeColor = Color.FromArgb(90, 90, 90);
-                vacio.Margin = new Padding(0, 2, 0, 8);
-
-                lista.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-                lista.Controls.Add(vacio, 0, 0);
-                lista.RowCount = 1;
+                vacio.Margin = new Padding(0, 0, 0, 8);
+                lista.Controls.Add(vacio);
                 return lista;
             }
 
             ProyectoConsolidado consolidado = ObtenerConsolidadoProyectoActualParaDatos();
-
             foreach (ItemProyecto item in items)
             {
-                Control fila = CrearFilaProductoProyectoEnDatos(item, consolidado);
-                fila.Dock = DockStyle.Top;
-                fila.Margin = new Padding(0, 0, 0, 9);
-
-                int indiceFila = lista.RowCount;
-                lista.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-                lista.Controls.Add(fila, 0, indiceFila);
-                lista.RowCount++;
+                lista.Controls.Add(CrearFilaProductoProyectoEnDatos(item, consolidado));
             }
 
             return lista;
         }
+
         private Control CrearFilaProductoProyectoEnDatos(ItemProyecto item, ProyectoConsolidado consolidado)
         {
             Panel fila = new Panel();
-            fila.Dock = DockStyle.Top;
-            fila.AutoSize = true;
-            fila.AutoSizeMode = AutoSizeMode.GrowAndShrink;
-            fila.MinimumSize = new Size(760, 72);
-            fila.Margin = new Padding(0, 0, 0, 9);
-            fila.Padding = new Padding(14, 10, 14, 12);
-            fila.BackColor = Color.FromArgb(252, 253, 253);
+            fila.Width = 900;
+            fila.Height = 78;
+            fila.Margin = new Padding(0, 0, 0, 8);
+            fila.Padding = new Padding(12, 8, 12, 8);
+            fila.BackColor = Color.White;
             fila.BorderStyle = BorderStyle.FixedSingle;
 
             ResumenConsolidado resumen = consolidado == null
                 ? null
-                : consolidado.PorProducto.FirstOrDefault(p =>
-                    string.Equals(p.Id, item.Id, StringComparison.OrdinalIgnoreCase));
+                : consolidado.PorProducto.FirstOrDefault(p => string.Equals(p.Id, item.Id, StringComparison.OrdinalIgnoreCase));
 
-            int subproductos = item.Subproductos == null
-                ? 0
-                : item.Subproductos.Count(s => s != null && s.Activo);
+            int subproductos = item.Subproductos == null ? 0 : item.Subproductos.Count(s => s != null && s.Activo);
             decimal horas = resumen == null ? 0m : resumen.Horas;
             decimal costo = resumen == null ? 0m : resumen.Costo;
             string cantidad = FormatearCantidadProyectoDatos(item.Cantidad, item.Unidad);
 
-            TableLayoutPanel layout = new TableLayoutPanel();
-            layout.Dock = DockStyle.Top;
-            layout.AutoSize = true;
-            layout.AutoSizeMode = AutoSizeMode.GrowAndShrink;
-            layout.ColumnCount = 2;
-            layout.RowCount = 1;
-            layout.Margin = new Padding(0);
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 300));
-            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-
-            TableLayoutPanel bloqueTexto = new TableLayoutPanel();
-            bloqueTexto.Dock = DockStyle.Fill;
-            bloqueTexto.AutoSize = true;
-            bloqueTexto.AutoSizeMode = AutoSizeMode.GrowAndShrink;
-            bloqueTexto.ColumnCount = 1;
-            bloqueTexto.RowCount = 2;
-            bloqueTexto.Margin = new Padding(0, 0, 16, 0);
-            bloqueTexto.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            bloqueTexto.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-
             Label titulo = new Label();
-            titulo.Text = string.IsNullOrWhiteSpace(item.Nombre)
-                ? "Producto o servicio sin nombre"
-                : item.Nombre;
-            titulo.Dock = DockStyle.Top;
-            titulo.AutoSize = true;
-            titulo.MaximumSize = new Size(620, 0);
-            titulo.Font = new Font("Segoe UI", 10.7f, FontStyle.Bold);
-            titulo.ForeColor = Color.FromArgb(27, 31, 35);
-            titulo.Margin = new Padding(0, 0, 0, 4);
+            titulo.Text = string.IsNullOrWhiteSpace(item.Nombre) ? "Producto o servicio sin nombre" : item.Nombre;
+            titulo.Left = 10;
+            titulo.Top = 8;
+            titulo.Width = 500;
+            titulo.Height = 22;
+            titulo.Font = new Font("Segoe UI", 10.5f, FontStyle.Bold);
 
             Label detalle = new Label();
-            detalle.Text = cantidad + "  ·  " +
-                subproductos.ToString("0") + " subproductos  ·  " +
-                horas.ToString("0.##") + " h  ·  " +
+            detalle.Text = cantidad + " | " +
+                subproductos.ToString("0") + " subproductos | " +
+                horas.ToString("0.##") + " h | " +
                 FormatearValorVisual((double)costo);
-            detalle.Dock = DockStyle.Top;
-            detalle.AutoSize = true;
-            detalle.MaximumSize = new Size(650, 0);
+            detalle.Left = 10;
+            detalle.Top = 34;
+            detalle.Width = 570;
+            detalle.Height = 22;
             detalle.Font = new Font("Segoe UI", 9f);
-            detalle.ForeColor = Color.FromArgb(95, 100, 108);
-            detalle.Margin = new Padding(0);
-
-            FlowLayoutPanel acciones = new FlowLayoutPanel();
-            acciones.AutoSize = false;
-            acciones.Width = 270;
-            acciones.Height = 38;
-            acciones.Dock = DockStyle.Fill;
-            acciones.FlowDirection = FlowDirection.LeftToRight;
-            acciones.WrapContents = false;
-            acciones.MinimumSize = new Size(270, 38);
-            acciones.Anchor = AnchorStyles.Top | AnchorStyles.Left;
-            acciones.Margin = new Padding(0, 4, 0, 0);
-            acciones.Padding = new Padding(0);
+            detalle.ForeColor = Color.FromArgb(80, 80, 80);
 
             Button editar = CrearBotonAccionAlcanceDatos("Editar", 78);
-            editar.AutoSize = true;
-            editar.AutoSize = false;
-            editar.Width = 78;
-            editar.MinimumSize = new Size(78, 32);
-            editar.Margin = new Padding(0, 0, 7, 5);
-            editar.Padding = new Padding(0);
-            editar.Cursor = Cursors.Hand;
+            editar.Left = 610;
+            editar.Top = 20;
             editar.Click += (s, e) => EditarProductoProyectoDesdeDatos(item);
 
             Button pipeline = CrearBotonAccionAlcanceDatos("Pipeline", 88);
-            pipeline.AutoSize = true;
-            pipeline.AutoSize = false;
-            pipeline.Width = 88;
-            pipeline.MinimumSize = new Size(88, 32);
-            pipeline.Margin = new Padding(0, 0, 7, 5);
-            pipeline.Padding = new Padding(0);
-            pipeline.Cursor = Cursors.Hand;
+            pipeline.Left = 696;
+            pipeline.Top = 20;
             pipeline.Click += (s, e) => AbrirPipelineProductoProyectoDesdeDatos(item);
 
             Button quitar = CrearBotonAccionAlcanceDatos("Quitar", 78);
-            quitar.AutoSize = true;
-            quitar.AutoSize = false;
-            quitar.Width = 78;
-            quitar.MinimumSize = new Size(78, 32);
-            quitar.Margin = new Padding(0, 0, 0, 5);
-            quitar.Padding = new Padding(0);
-            quitar.Cursor = Cursors.Hand;
+            quitar.Left = 792;
+            quitar.Top = 20;
             quitar.Click += (s, e) => QuitarItemProyecto(item);
 
-            bloqueTexto.Controls.Add(titulo, 0, 0);
-            bloqueTexto.Controls.Add(detalle, 0, 1);
-
-            acciones.Controls.Add(editar);
-            acciones.Controls.Add(pipeline);
-            acciones.Controls.Add(quitar);
-
-            layout.Controls.Add(bloqueTexto, 0, 0);
-            layout.Controls.Add(acciones, 1, 0);
-
-            fila.Controls.Add(layout);
+            fila.Controls.Add(titulo);
+            fila.Controls.Add(detalle);
+            fila.Controls.Add(editar);
+            fila.Controls.Add(pipeline);
+            fila.Controls.Add(quitar);
             return fila;
         }
+
         private void SincronizarProyectoProductivoActualDesdeCotizacion()
         {
             if (cotizacion == null || cotizacion.ProyectoProductivo == null)
@@ -762,8 +674,7 @@ namespace Cotizador_animacion_Othalart
             formulario.RowCount = filas;
             formulario.Margin = new Padding(0);
             formulario.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, anchoEtiqueta));
-            formulario.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            formulario.MinimumSize = new Size(anchoEtiqueta + Math.Min(anchoControl, 520), 0);
+            formulario.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, anchoControl));
 
             for (int i = 0; i < filas; i++)
             {

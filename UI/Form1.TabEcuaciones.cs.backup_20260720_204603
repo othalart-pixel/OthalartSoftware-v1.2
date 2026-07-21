@@ -31,7 +31,6 @@ namespace Cotizador_animacion_Othalart
         private TextBox txtNuevoTokenEcuacion = new TextBox();
         private ListBox lstEcuacionCargosPermitidos = new ListBox();
         private ComboBox cmbCargoPermitidoEcuacion = new ComboBox();
-        private ComboBox cmbNivelCargoPermitidoEcuacion = new ComboBox();
         private Label lblEstadoCargosParticipantesEcuacion = new Label();
         private const string TextoSeleccionarCargoEcuacion = "Selecciona un cargo...";
         private NumericUpDown nudPonderadorCargoEcuacion = new NumericUpDown();
@@ -1330,30 +1329,18 @@ namespace Cotizador_animacion_Othalart
             TableLayoutPanel selector = new TableLayoutPanel();
             selector.Dock = DockStyle.Top;
             selector.AutoSize = true;
-            selector.ColumnCount = 5;
+            selector.ColumnCount = 4;
             selector.RowCount = 1;
             selector.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            selector.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 135));
             selector.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             selector.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             selector.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             selector.Margin = new Padding(0, 0, 0, 8);
 
             RefrescarComboCargosPermitidosEcuacion();
-            cmbCargoPermitidoEcuacion.Width = 300;
+            cmbCargoPermitidoEcuacion.Width = 320;
             cmbCargoPermitidoEcuacion.Dock = DockStyle.Fill;
             cmbCargoPermitidoEcuacion.Margin = new Padding(0, 2, 8, 2);
-            cmbCargoPermitidoEcuacion.SelectedIndexChanged -= CmbCargoPermitidoEcuacion_SelectedIndexChanged;
-            cmbCargoPermitidoEcuacion.SelectedIndexChanged += CmbCargoPermitidoEcuacion_SelectedIndexChanged;
-            cmbCargoPermitidoEcuacion.TextUpdate -= CmbCargoPermitidoEcuacion_TextUpdate;
-            cmbCargoPermitidoEcuacion.TextUpdate += CmbCargoPermitidoEcuacion_TextUpdate;
-            cmbCargoPermitidoEcuacion.Leave -= CmbCargoPermitidoEcuacion_Leave;
-            cmbCargoPermitidoEcuacion.Leave += CmbCargoPermitidoEcuacion_Leave;
-
-            cmbNivelCargoPermitidoEcuacion.Width = 125;
-            cmbNivelCargoPermitidoEcuacion.Dock = DockStyle.Fill;
-            cmbNivelCargoPermitidoEcuacion.DropDownStyle = ComboBoxStyle.DropDownList;
-            cmbNivelCargoPermitidoEcuacion.Margin = new Padding(0, 2, 8, 2);
 
             Button agregar = CrearBotonEcuacion("Agregar cargo");
             agregar.Width = 126;
@@ -1378,10 +1365,9 @@ namespace Cotizador_animacion_Othalart
             };
 
             selector.Controls.Add(cmbCargoPermitidoEcuacion, 0, 0);
-            selector.Controls.Add(cmbNivelCargoPermitidoEcuacion, 1, 0);
-            selector.Controls.Add(agregar, 2, 0);
-            selector.Controls.Add(revisarCargos, 3, 0);
-            selector.Controls.Add(detalle, 4, 0);
+            selector.Controls.Add(agregar, 1, 0);
+            selector.Controls.Add(revisarCargos, 2, 0);
+            selector.Controls.Add(detalle, 3, 0);
 
             lblEstadoCargosParticipantesEcuacion.AutoSize = true;
             lblEstadoCargosParticipantesEcuacion.Dock = DockStyle.Top;
@@ -1654,10 +1640,7 @@ namespace Cotizador_animacion_Othalart
                 return;
             }
 
-            // Cambiar la selecciÃ³n no modifica los datos.
-            // No reconstruir la grilla aquÃ­: SelectionChanged ocurre antes
-            // de CellContentClick al pulsar Editar o Quitar.
-            ActualizarVistaPreviaCargosParticipantes(false);
+            ActualizarVistaPreviaCargosParticipantes();
         }
 
         private void DgvCargosParticipantesEcuacion_CellEndEdit(object sender, DataGridViewCellEventArgs e)
@@ -1682,10 +1665,7 @@ namespace Cotizador_animacion_Othalart
 
         private void DgvCargosParticipantesEcuacion_CellContentClick(object sender, DataGridViewCellEventArgs e)
         {
-            if (cargandoEditorEcuaciones ||
-                actualizandoCargosParticipantes ||
-                e.RowIndex < 0 ||
-                e.ColumnIndex < 0)
+            if (cargandoEditorEcuaciones || actualizandoCargosParticipantes || e.RowIndex < 0)
             {
                 return;
             }
@@ -1831,170 +1811,36 @@ namespace Cotizador_animacion_Othalart
 
         private void RefrescarComboCargosPermitidosEcuacion()
         {
-            string seleccionActual = ObtenerNombreCompletoCargoSeleccionadoEcuacion();
-            List<CategoriaTrabajador> biblioteca = Cargos.CrearBibliotecaCompleta()
-                .Where(c => c != null && !string.IsNullOrWhiteSpace(c.Nombre))
-                .ToList();
-
-            CategoriaTrabajador actual = BuscarCargoRenderizadoEcuacion(
-                biblioteca,
-                seleccionActual
-            );
-
-            cmbCargoPermitidoEcuacion.SelectedIndexChanged -= CmbCargoPermitidoEcuacion_SelectedIndexChanged;
-            try
+            string actual = Convert.ToString(cmbCargoPermitidoEcuacion.Text) ?? "";
+            if (string.Equals(actual, TextoSeleccionarCargoEcuacion, StringComparison.OrdinalIgnoreCase))
             {
-                cmbCargoPermitidoEcuacion.DropDownStyle = ComboBoxStyle.DropDown;
-                cmbCargoPermitidoEcuacion.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
-                cmbCargoPermitidoEcuacion.AutoCompleteSource = AutoCompleteSource.ListItems;
-                cmbCargoPermitidoEcuacion.Items.Clear();
-                cmbCargoPermitidoEcuacion.Items.Add(TextoSeleccionarCargoEcuacion);
-
-                foreach (string nombre in biblioteca
-                    .Select(c => c.Nombre.Trim())
-                    .Where(n => !string.IsNullOrWhiteSpace(n))
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .OrderBy(n => n))
-                {
-                    cmbCargoPermitidoEcuacion.Items.Add(nombre);
-                }
-
-                string nombreActual = actual?.Nombre;
-                int indice = string.IsNullOrWhiteSpace(nombreActual)
-                    ? 0
-                    : cmbCargoPermitidoEcuacion.FindStringExact(nombreActual);
-
-                cmbCargoPermitidoEcuacion.SelectedIndex = indice >= 0 ? indice : 0;
-                RefrescarNivelesCargoPermitidoEcuacion(actual?.Nivel);
-            }
-            finally
-            {
-                cmbCargoPermitidoEcuacion.SelectedIndexChanged += CmbCargoPermitidoEcuacion_SelectedIndexChanged;
-            }
-        }
-
-        private void CmbCargoPermitidoEcuacion_SelectedIndexChanged(object sender, EventArgs e)
-        {
-            RefrescarNivelesCargoPermitidoEcuacion();
-        }
-
-        private void CmbCargoPermitidoEcuacion_TextUpdate(object sender, EventArgs e)
-        {
-            string texto = (cmbCargoPermitidoEcuacion.Text ?? "").Trim();
-            bool existe = Cargos.CrearBibliotecaCompleta()
-                .Any(c => c != null &&
-                    string.Equals(c.Nombre, texto, StringComparison.OrdinalIgnoreCase));
-
-            if (existe)
-            {
-                RefrescarNivelesCargoPermitidoEcuacion();
-            }
-            else
-            {
-                cmbNivelCargoPermitidoEcuacion.Items.Clear();
-                cmbNivelCargoPermitidoEcuacion.Enabled = false;
-            }
-        }
-
-        private void CmbCargoPermitidoEcuacion_Leave(object sender, EventArgs e)
-        {
-            string texto = (cmbCargoPermitidoEcuacion.Text ?? "").Trim();
-            CategoriaTrabajador coincidencia = Cargos.CrearBibliotecaCompleta()
-                .FirstOrDefault(c => c != null &&
-                    string.Equals(c.Nombre, texto, StringComparison.OrdinalIgnoreCase));
-
-            if (coincidencia != null)
-            {
-                cmbCargoPermitidoEcuacion.Text = coincidencia.Nombre;
-                RefrescarNivelesCargoPermitidoEcuacion();
-            }
-        }
-
-        private void RefrescarNivelesCargoPermitidoEcuacion(string nivelPreferido = "")
-        {
-            string nombre = (cmbCargoPermitidoEcuacion.Text ?? "").Trim();
-            cmbNivelCargoPermitidoEcuacion.Items.Clear();
-
-            if (string.IsNullOrWhiteSpace(nombre) ||
-                string.Equals(nombre, TextoSeleccionarCargoEcuacion, StringComparison.OrdinalIgnoreCase))
-            {
-                cmbNivelCargoPermitidoEcuacion.Enabled = false;
-                return;
+                actual = "";
             }
 
-            List<string> niveles = Cargos.CrearBibliotecaCompleta()
-                .Where(c => c != null &&
-                    string.Equals(c.Nombre, nombre, StringComparison.OrdinalIgnoreCase))
-                .Select(c => (c.Nivel ?? "").Trim())
+            cmbCargoPermitidoEcuacion.DropDownStyle = ComboBoxStyle.DropDownList;
+            cmbCargoPermitidoEcuacion.AutoCompleteSource = AutoCompleteSource.ListItems;
+            cmbCargoPermitidoEcuacion.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
+            cmbCargoPermitidoEcuacion.Items.Clear();
+            cmbCargoPermitidoEcuacion.Items.Add(TextoSeleccionarCargoEcuacion);
+
+            foreach (string cargo in Cargos.CrearBibliotecaCompleta()
+                .Where(c => c != null && !string.IsNullOrWhiteSpace(c.NombreCompleto))
+                .Select(c => c.NombreCompleto)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(NivelCargoOrden)
-                .ThenBy(n => n)
-                .ToList();
-
-            if (niveles.Count == 0)
+                .OrderBy(c => c))
             {
-                niveles.Add("");
+                cmbCargoPermitidoEcuacion.Items.Add(cargo);
             }
 
-            foreach (string nivel in niveles)
-            {
-                cmbNivelCargoPermitidoEcuacion.Items.Add(
-                    string.IsNullOrWhiteSpace(nivel) ? "Sin nivel" : nivel
-                );
-            }
-
-            cmbNivelCargoPermitidoEcuacion.Enabled = true;
-            int indice = string.IsNullOrWhiteSpace(nivelPreferido)
-                ? -1
-                : cmbNivelCargoPermitidoEcuacion.FindStringExact(nivelPreferido);
-
-            if (indice < 0)
-            {
-                indice = niveles.FindIndex(n =>
-                    string.Equals(n, "tÃ­pico", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(n, "tipico", StringComparison.OrdinalIgnoreCase));
-            }
-
-            cmbNivelCargoPermitidoEcuacion.SelectedIndex = indice >= 0 ? indice : 0;
+            int indiceActual = string.IsNullOrWhiteSpace(actual)
+                ? 0
+                : cmbCargoPermitidoEcuacion.FindStringExact(actual);
+            cmbCargoPermitidoEcuacion.SelectedIndex = indiceActual >= 0 ? indiceActual : 0;
         }
 
-        private static int NivelCargoOrden(string nivel)
-        {
-            string normalizado = (nivel ?? "").Trim().ToLowerInvariant();
-            if (normalizado == "junior") return 0;
-            if (normalizado == "tÃ­pico" || normalizado == "tipico") return 1;
-            if (normalizado == "senior") return 2;
-            if (string.IsNullOrWhiteSpace(normalizado)) return 3;
-            return 4;
-        }
-
-        private string ObtenerNombreCompletoCargoSeleccionadoEcuacion()
-        {
-            string nombre = (cmbCargoPermitidoEcuacion.Text ?? "").Trim();
-            if (string.IsNullOrWhiteSpace(nombre) ||
-                string.Equals(nombre, TextoSeleccionarCargoEcuacion, StringComparison.OrdinalIgnoreCase))
-            {
-                return "";
-            }
-
-            string nivel = (cmbNivelCargoPermitidoEcuacion.Text ?? "").Trim();
-            if (string.Equals(nivel, "Sin nivel", StringComparison.OrdinalIgnoreCase))
-            {
-                nivel = "";
-            }
-
-            CategoriaTrabajador cargo = Cargos.CrearBibliotecaCompleta()
-                .FirstOrDefault(c => c != null &&
-                    string.Equals(c.Nombre, nombre, StringComparison.OrdinalIgnoreCase) &&
-                    string.Equals((c.Nivel ?? "").Trim(), nivel, StringComparison.OrdinalIgnoreCase));
-
-            return cargo == null
-                ? (string.IsNullOrWhiteSpace(nivel) ? nombre : nombre + " (" + nivel + ")")
-                : cargo.NombreCompleto;
-        }
         private void AgregarCargoPermitidoEcuacion()
         {
-            string valor = ObtenerNombreCompletoCargoSeleccionadoEcuacion();
+            string valor = (cmbCargoPermitidoEcuacion.Text ?? "").Trim();
             if (string.IsNullOrWhiteSpace(valor) ||
                 string.Equals(valor, TextoSeleccionarCargoEcuacion, StringComparison.OrdinalIgnoreCase))
             {
@@ -2053,7 +1899,7 @@ namespace Cotizador_animacion_Othalart
 
             if (!string.IsNullOrWhiteSpace(cmbCargoPermitidoEcuacion.Text))
             {
-                cargo.Cargo = ObtenerNombreCompletoCargoSeleccionadoEcuacion();
+                cargo.Cargo = cmbCargoPermitidoEcuacion.Text.Trim();
             }
 
             cargo.Ponderador = (double)nudPonderadorCargoEcuacion.Value;
@@ -2076,7 +1922,7 @@ namespace Cotizador_animacion_Othalart
 
         private void AgregarCargoParticipanteEcuacion()
         {
-            string cargo = ObtenerNombreCompletoCargoSeleccionadoEcuacion();
+            string cargo = (cmbCargoPermitidoEcuacion.Text ?? "").Trim();
             if (string.IsNullOrWhiteSpace(cargo) ||
                 string.Equals(cargo, TextoSeleccionarCargoEcuacion, StringComparison.OrdinalIgnoreCase))
             {
@@ -2199,138 +2045,68 @@ namespace Cotizador_animacion_Othalart
                     FormulaPersonalizada = participante.FormulaPersonalizada
                 };
 
-            List<CategoriaTrabajador> bibliotecaCargos = Cargos.CrearBibliotecaCompleta()
-                .Where(c => c != null && !string.IsNullOrWhiteSpace(c.Nombre))
-                .ToList();
-            CategoriaTrabajador cargoInicial =
-                BuscarCargoRenderizadoEcuacion(bibliotecaCargos, trabajo.Cargo);
-
             Form dialogo = new Form();
             dialogo.Text = "Configurar dedicacion del cargo";
             dialogo.StartPosition = FormStartPosition.CenterParent;
             dialogo.FormBorderStyle = FormBorderStyle.FixedDialog;
             dialogo.MaximizeBox = false;
             dialogo.MinimizeBox = false;
-            dialogo.ClientSize = new Size(680, 465);
+            dialogo.ClientSize = new Size(640, 420);
 
             TableLayoutPanel tabla = new TableLayoutPanel();
             tabla.Dock = DockStyle.Fill;
             tabla.Padding = new Padding(18);
             tabla.ColumnCount = 2;
-            tabla.RowCount = 10;
+            tabla.RowCount = 9;
             tabla.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 210));
             tabla.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             dialogo.Controls.Add(tabla);
 
             ComboBox cmbCargo = new ComboBox();
             cmbCargo.DropDownStyle = ComboBoxStyle.DropDown;
-            cmbCargo.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
-            cmbCargo.AutoCompleteSource = AutoCompleteSource.ListItems;
             cmbCargo.Dock = DockStyle.Fill;
-            foreach (string nombre in bibliotecaCargos
-                .Select(c => c.Nombre.Trim())
+            foreach (string cargo in Cargos.CrearBibliotecaCompleta()
+                .Where(c => c != null && !string.IsNullOrWhiteSpace(c.NombreCompleto))
+                .Select(c => c.NombreCompleto)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(n => n))
+                .OrderBy(c => c))
             {
-                cmbCargo.Items.Add(nombre);
+                cmbCargo.Items.Add(cargo);
             }
-
-            ComboBox cmbNivel = new ComboBox();
-            cmbNivel.DropDownStyle = ComboBoxStyle.DropDownList;
-            cmbNivel.Dock = DockStyle.Fill;
-
-            Action<string> cargarNiveles = nivelPreferido =>
-            {
-                string nombre = (cmbCargo.Text ?? "").Trim();
-                cmbNivel.Items.Clear();
-
-                List<string> niveles = bibliotecaCargos
-                    .Where(c => string.Equals(c.Nombre, nombre, StringComparison.OrdinalIgnoreCase))
-                    .Select(c => (c.Nivel ?? "").Trim())
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .OrderBy(NivelCargoOrden)
-                    .ThenBy(n => n)
-                    .ToList();
-
-                if (niveles.Count == 0)
-                {
-                    niveles.Add("");
-                }
-
-                foreach (string nivel in niveles)
-                {
-                    cmbNivel.Items.Add(string.IsNullOrWhiteSpace(nivel) ? "Sin nivel" : nivel);
-                }
-
-                int indice = string.IsNullOrWhiteSpace(nivelPreferido)
-                    ? -1
-                    : cmbNivel.FindStringExact(nivelPreferido);
-
-                if (indice < 0)
-                {
-                    indice = niveles.FindIndex(n =>
-                        string.Equals(n, "tÃ­pico", StringComparison.OrdinalIgnoreCase) ||
-                        string.Equals(n, "tipico", StringComparison.OrdinalIgnoreCase));
-                }
-
-                cmbNivel.SelectedIndex = indice >= 0 ? indice : 0;
-            };
-
-            if (cargoInicial != null)
-            {
-                int indiceCargo = cmbCargo.FindStringExact(cargoInicial.Nombre);
-                cmbCargo.SelectedIndex = indiceCargo >= 0 ? indiceCargo : 0;
-                cargarNiveles(cargoInicial.Nivel);
-            }
-            else if (cmbCargo.Items.Count > 0)
-            {
-                cmbCargo.SelectedIndex = 0;
-                cargarNiveles("");
-            }
-
-            Func<CategoriaTrabajador> obtenerCargoSeleccionado = () =>
-            {
-                string nivel = (cmbNivel.Text ?? "").Trim();
-                if (string.Equals(nivel, "Sin nivel", StringComparison.OrdinalIgnoreCase))
-                {
-                    nivel = "";
-                }
-
-                return bibliotecaCargos.FirstOrDefault(c =>
-                    string.Equals(c.Nombre, cmbCargo.Text, StringComparison.OrdinalIgnoreCase) &&
-                    string.Equals((c.Nivel ?? "").Trim(), nivel, StringComparison.OrdinalIgnoreCase));
-            };
+            cmbCargo.Text = trabajo.Cargo ?? "";
 
             ComboBox cmbModo = new ComboBox();
             cmbModo.DropDownStyle = ComboBoxStyle.DropDownList;
             cmbModo.Dock = DockStyle.Fill;
             cmbModo.Items.AddRange(ModosCalculoCargoParticipante);
-            int indiceModo = cmbModo.FindStringExact(trabajo.ModoCalculo);
-            cmbModo.SelectedIndex = indiceModo >= 0 ? indiceModo : 0;
+            SeleccionarComboSeguro(cmbModo, string.IsNullOrWhiteSpace(trabajo.ModoCalculo)
+                ? ModosCalculoCargoParticipante[0]
+                : trabajo.ModoCalculo);
 
             ComboBox cmbVariable = new ComboBox();
             cmbVariable.DropDownStyle = ComboBoxStyle.DropDown;
             cmbVariable.Dock = DockStyle.Fill;
-            foreach (object variable in lstEcuacionVariables.Items)
+            foreach (object item in lstEcuacionVariables.Items)
             {
-                cmbVariable.Items.Add(Convert.ToString(variable) ?? "");
+                string variable = Convert.ToString(item) ?? "";
+                if (!string.IsNullOrWhiteSpace(variable) && !cmbVariable.Items.Contains(variable))
+                {
+                    cmbVariable.Items.Add(variable);
+                }
             }
             cmbVariable.Text = trabajo.VariableBase ?? "";
 
-            NumericUpDown nudDedicacion = CrearNumericDialogo(0, 500, 100, 5, 2);
-            nudDedicacion.Value = (decimal)Math.Max(0, Math.Min(500,
-                trabajo.DedicacionPorcentaje <= 0 ? 100 : trabajo.DedicacionPorcentaje));
+            NumericUpDown nudDedicacion = CrearNumericDialogo(0, 500, 100, 1, 2);
+            nudDedicacion.Value = (decimal)Math.Max(0, Math.Min(500, trabajo.DedicacionPorcentaje <= 0 ? 100 : trabajo.DedicacionPorcentaje));
 
             NumericUpDown nudTarifa = CrearNumericDialogo(0, 100000000, 0, 1000, 0);
             nudTarifa.Value = (decimal)Math.Max(0, Math.Min(100000000, trabajo.TarifaDiariaCLP));
 
             NumericUpDown nudHorasDia = CrearNumericDialogo(0.1M, 24, 8, 0.5M, 2);
-            nudHorasDia.Value = (decimal)Math.Max(0.1, Math.Min(24,
-                trabajo.HorasPorDia <= 0 ? 8 : trabajo.HorasPorDia));
+            nudHorasDia.Value = (decimal)Math.Max(0.1, Math.Min(24, trabajo.HorasPorDia <= 0 ? 8 : trabajo.HorasPorDia));
 
             NumericUpDown nudFactor = CrearNumericDialogo(0, 1000000, 1, 0.25M, 2);
-            nudFactor.Value = (decimal)Math.Max(0, Math.Min(1000000,
-                trabajo.CantidadFactor <= 0 ? 1 : trabajo.CantidadFactor));
+            nudFactor.Value = (decimal)Math.Max(0, Math.Min(1000000, trabajo.CantidadFactor <= 0 ? 1 : trabajo.CantidadFactor));
 
             TextBox txtFormula = new TextBox();
             txtFormula.Dock = DockStyle.Fill;
@@ -2343,19 +2119,15 @@ namespace Cotizador_animacion_Othalart
 
             Action actualizarPreviewDialogo = () =>
             {
-                CategoriaTrabajador cargo = obtenerCargoSeleccionado();
+                CategoriaTrabajador cargo = BuscarCargoRenderizadoEcuacion(Cargos.CrearBibliotecaCompleta(), cmbCargo.Text);
                 if (cargo != null && nudTarifa.Value == 0)
                 {
                     nudTarifa.Value = (decimal)Math.Round(cargo.SueldoMensualCLPTipico / 22.0, 0);
                 }
 
-                string nombreCompleto = cargo == null
-                    ? cmbCargo.Text
-                    : cargo.NombreCompleto;
-
                 CargoParticipanteFormula prueba = new CargoParticipanteFormula
                 {
-                    Cargo = nombreCompleto.Trim(),
+                    Cargo = cmbCargo.Text.Trim(),
                     TarifaDiariaCLP = (double)nudTarifa.Value,
                     HorasPorDia = (double)nudHorasDia.Value,
                     DedicacionPorcentaje = (double)nudDedicacion.Value,
@@ -2368,11 +2140,8 @@ namespace Cotizador_animacion_Othalart
                 List<string> advertencias = new List<string>();
                 double horasBase = ObtenerHorasProcesoBaseParticipante(prueba, advertencias);
                 CalcularParticipantePreview(prueba, advertencias);
-                double tarifaHora = prueba.HorasPorDia <= 0.0
-                    ? 0.0
-                    : prueba.TarifaDiariaCLP / prueba.HorasPorDia;
-                double tarifaHoraEfectiva =
-                    tarifaHora * Math.Max(0.0, prueba.DedicacionPorcentaje) / 100.0;
+                double tarifaHora = prueba.HorasPorDia <= 0.0 ? 0.0 : prueba.TarifaDiariaCLP / prueba.HorasPorDia;
+                double tarifaHoraEfectiva = tarifaHora * Math.Max(0.0, prueba.DedicacionPorcentaje) / 100.0;
 
                 lblCosto.Text =
                     "Tarifa/h base: " + (tarifaHora <= 0.0 ? "No definida" : FormatearMiles(tarifaHora) + " CLP/h") +
@@ -2383,41 +2152,8 @@ namespace Cotizador_animacion_Othalart
                     (advertencias.Count == 0 ? "" : " | " + string.Join("; ", advertencias.Distinct()));
             };
 
-            cmbCargo.SelectedIndexChanged += (s, e) =>
-            {
-                cargarNiveles("");
-                actualizarPreviewDialogo();
-            };
-            cmbCargo.TextUpdate += (s, e) =>
-            {
-                bool existe = bibliotecaCargos.Any(c =>
-                    string.Equals(c.Nombre, cmbCargo.Text.Trim(), StringComparison.OrdinalIgnoreCase));
-
-                if (existe)
-                {
-                    cargarNiveles("");
-                    actualizarPreviewDialogo();
-                }
-                else
-                {
-                    cmbNivel.Items.Clear();
-                    cmbNivel.Enabled = false;
-                }
-            };
-            cmbCargo.Leave += (s, e) =>
-            {
-                CategoriaTrabajador coincidencia = bibliotecaCargos.FirstOrDefault(c =>
-                    string.Equals(c.Nombre, cmbCargo.Text.Trim(), StringComparison.OrdinalIgnoreCase));
-
-                if (coincidencia != null)
-                {
-                    cmbCargo.Text = coincidencia.Nombre;
-                    cmbNivel.Enabled = true;
-                    cargarNiveles(coincidencia.Nivel);
-                    actualizarPreviewDialogo();
-                }
-            };
-            cmbNivel.SelectedIndexChanged += (s, e) => actualizarPreviewDialogo();
+            cmbCargo.SelectedIndexChanged += (s, e) => actualizarPreviewDialogo();
+            cmbCargo.TextChanged += (s, e) => actualizarPreviewDialogo();
             cmbModo.SelectedIndexChanged += (s, e) => actualizarPreviewDialogo();
             cmbVariable.TextChanged += (s, e) => actualizarPreviewDialogo();
             nudDedicacion.ValueChanged += (s, e) => actualizarPreviewDialogo();
@@ -2427,15 +2163,14 @@ namespace Cotizador_animacion_Othalart
             txtFormula.TextChanged += (s, e) => actualizarPreviewDialogo();
 
             AgregarFilaDialogoCargo(tabla, 0, "Que cargo participa?", cmbCargo);
-            AgregarFilaDialogoCargo(tabla, 1, "Nivel", cmbNivel);
-            AgregarFilaDialogoCargo(tabla, 2, "Como participa?", cmbModo);
-            AgregarFilaDialogoCargo(tabla, 3, "Que variable controla su tiempo?", cmbVariable);
-            AgregarFilaDialogoCargo(tabla, 4, "Que dedicacion tiene sobre el proceso? (%)", nudDedicacion);
-            AgregarFilaDialogoCargo(tabla, 5, "Tarifa diaria CLP", nudTarifa);
-            AgregarFilaDialogoCargo(tabla, 6, "Horas por dia", nudHorasDia);
-            AgregarFilaDialogoCargo(tabla, 7, "Rendimiento o factor base", nudFactor);
-            AgregarFilaDialogoCargo(tabla, 8, "Formula personalizada", txtFormula);
-            AgregarFilaDialogoCargo(tabla, 9, "Que costo deriva?", lblCosto);
+            AgregarFilaDialogoCargo(tabla, 1, "Como participa?", cmbModo);
+            AgregarFilaDialogoCargo(tabla, 2, "Que variable controla su tiempo?", cmbVariable);
+            AgregarFilaDialogoCargo(tabla, 3, "Que dedicacion tiene sobre el proceso? (%)", nudDedicacion);
+            AgregarFilaDialogoCargo(tabla, 4, "Tarifa diaria CLP", nudTarifa);
+            AgregarFilaDialogoCargo(tabla, 5, "Horas por dia", nudHorasDia);
+            AgregarFilaDialogoCargo(tabla, 6, "Rendimiento o factor base", nudFactor);
+            AgregarFilaDialogoCargo(tabla, 7, "Formula personalizada", txtFormula);
+            AgregarFilaDialogoCargo(tabla, 8, "Que costo deriva?", lblCosto);
 
             FlowLayoutPanel botones = new FlowLayoutPanel();
             botones.Dock = DockStyle.Bottom;
@@ -2458,12 +2193,8 @@ namespace Cotizador_animacion_Othalart
                 return null;
             }
 
-            CategoriaTrabajador cargoFinal = obtenerCargoSeleccionado();
-            trabajo.Cargo = cargoFinal == null
-                ? cmbCargo.Text.Trim()
-                : cargoFinal.NombreCompleto;
-            trabajo.ModoCalculo =
-                Convert.ToString(cmbModo.SelectedItem) ?? ModosCalculoCargoParticipante[0];
+            trabajo.Cargo = cmbCargo.Text.Trim();
+            trabajo.ModoCalculo = Convert.ToString(cmbModo.SelectedItem) ?? ModosCalculoCargoParticipante[0];
             trabajo.VariableBase = cmbVariable.Text.Trim();
             trabajo.DedicacionPorcentaje = (double)nudDedicacion.Value;
             trabajo.TarifaDiariaCLP = (double)nudTarifa.Value;
@@ -2472,6 +2203,7 @@ namespace Cotizador_animacion_Othalart
             trabajo.FormulaPersonalizada = txtFormula.Text.Trim();
             return string.IsNullOrWhiteSpace(trabajo.Cargo) ? null : trabajo;
         }
+
         private NumericUpDown CrearNumericDialogo(decimal minimo, decimal maximo, decimal valor, decimal incremento, int decimales)
         {
             NumericUpDown nud = new NumericUpDown();
@@ -2692,7 +2424,7 @@ namespace Cotizador_animacion_Othalart
             }
         }
 
-        private void ActualizarVistaPreviaCargosParticipantes(bool reconstruirGrilla = true)
+        private void ActualizarVistaPreviaCargosParticipantes()
         {
             if (rtbVistaPreviaCargosParticipantes == null)
             {
@@ -2723,10 +2455,7 @@ namespace Cotizador_animacion_Othalart
                 EcuacionProductivaRuntimeService.ProbarEcuacion(ecuacion, biblioteca, diasHabilesSemana);
 
             AplicarResultadosRuntimeAParticipantes(participantes, prueba);
-            if (reconstruirGrilla)
-            {
-                CargarParticipantesEnGrillaSinRecalcular(participantes);
-            }
+            CargarParticipantesEnGrillaSinRecalcular(participantes);
 
             rtbVistaPreviaCargosParticipantes.SelectionFont = new Font("Segoe UI", 9.5f, FontStyle.Bold);
             rtbVistaPreviaCargosParticipantes.SelectionColor = Color.FromArgb(20, 65, 120);

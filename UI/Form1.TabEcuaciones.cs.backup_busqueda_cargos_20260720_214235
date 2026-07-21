@@ -1345,10 +1345,6 @@ namespace Cotizador_animacion_Othalart
             cmbCargoPermitidoEcuacion.Margin = new Padding(0, 2, 8, 2);
             cmbCargoPermitidoEcuacion.SelectedIndexChanged -= CmbCargoPermitidoEcuacion_SelectedIndexChanged;
             cmbCargoPermitidoEcuacion.SelectedIndexChanged += CmbCargoPermitidoEcuacion_SelectedIndexChanged;
-            cmbCargoPermitidoEcuacion.TextUpdate -= CmbCargoPermitidoEcuacion_TextUpdate;
-            cmbCargoPermitidoEcuacion.TextUpdate += CmbCargoPermitidoEcuacion_TextUpdate;
-            cmbCargoPermitidoEcuacion.Leave -= CmbCargoPermitidoEcuacion_Leave;
-            cmbCargoPermitidoEcuacion.Leave += CmbCargoPermitidoEcuacion_Leave;
 
             cmbNivelCargoPermitidoEcuacion.Width = 125;
             cmbNivelCargoPermitidoEcuacion.Dock = DockStyle.Fill;
@@ -1844,9 +1840,7 @@ namespace Cotizador_animacion_Othalart
             cmbCargoPermitidoEcuacion.SelectedIndexChanged -= CmbCargoPermitidoEcuacion_SelectedIndexChanged;
             try
             {
-                cmbCargoPermitidoEcuacion.DropDownStyle = ComboBoxStyle.DropDown;
-                cmbCargoPermitidoEcuacion.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
-                cmbCargoPermitidoEcuacion.AutoCompleteSource = AutoCompleteSource.ListItems;
+                cmbCargoPermitidoEcuacion.DropDownStyle = ComboBoxStyle.DropDownList;
                 cmbCargoPermitidoEcuacion.Items.Clear();
                 cmbCargoPermitidoEcuacion.Items.Add(TextoSeleccionarCargoEcuacion);
 
@@ -1876,38 +1870,6 @@ namespace Cotizador_animacion_Othalart
         private void CmbCargoPermitidoEcuacion_SelectedIndexChanged(object sender, EventArgs e)
         {
             RefrescarNivelesCargoPermitidoEcuacion();
-        }
-
-        private void CmbCargoPermitidoEcuacion_TextUpdate(object sender, EventArgs e)
-        {
-            string texto = (cmbCargoPermitidoEcuacion.Text ?? "").Trim();
-            bool existe = Cargos.CrearBibliotecaCompleta()
-                .Any(c => c != null &&
-                    string.Equals(c.Nombre, texto, StringComparison.OrdinalIgnoreCase));
-
-            if (existe)
-            {
-                RefrescarNivelesCargoPermitidoEcuacion();
-            }
-            else
-            {
-                cmbNivelCargoPermitidoEcuacion.Items.Clear();
-                cmbNivelCargoPermitidoEcuacion.Enabled = false;
-            }
-        }
-
-        private void CmbCargoPermitidoEcuacion_Leave(object sender, EventArgs e)
-        {
-            string texto = (cmbCargoPermitidoEcuacion.Text ?? "").Trim();
-            CategoriaTrabajador coincidencia = Cargos.CrearBibliotecaCompleta()
-                .FirstOrDefault(c => c != null &&
-                    string.Equals(c.Nombre, texto, StringComparison.OrdinalIgnoreCase));
-
-            if (coincidencia != null)
-            {
-                cmbCargoPermitidoEcuacion.Text = coincidencia.Nombre;
-                RefrescarNivelesCargoPermitidoEcuacion();
-            }
         }
 
         private void RefrescarNivelesCargoPermitidoEcuacion(string nivelPreferido = "")
@@ -2223,9 +2185,7 @@ namespace Cotizador_animacion_Othalart
             dialogo.Controls.Add(tabla);
 
             ComboBox cmbCargo = new ComboBox();
-            cmbCargo.DropDownStyle = ComboBoxStyle.DropDown;
-            cmbCargo.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
-            cmbCargo.AutoCompleteSource = AutoCompleteSource.ListItems;
+            cmbCargo.DropDownStyle = ComboBoxStyle.DropDownList;
             cmbCargo.Dock = DockStyle.Fill;
             foreach (string nombre in bibliotecaCargos
                 .Select(c => c.Nombre.Trim())
@@ -2387,35 +2347,6 @@ namespace Cotizador_animacion_Othalart
             {
                 cargarNiveles("");
                 actualizarPreviewDialogo();
-            };
-            cmbCargo.TextUpdate += (s, e) =>
-            {
-                bool existe = bibliotecaCargos.Any(c =>
-                    string.Equals(c.Nombre, cmbCargo.Text.Trim(), StringComparison.OrdinalIgnoreCase));
-
-                if (existe)
-                {
-                    cargarNiveles("");
-                    actualizarPreviewDialogo();
-                }
-                else
-                {
-                    cmbNivel.Items.Clear();
-                    cmbNivel.Enabled = false;
-                }
-            };
-            cmbCargo.Leave += (s, e) =>
-            {
-                CategoriaTrabajador coincidencia = bibliotecaCargos.FirstOrDefault(c =>
-                    string.Equals(c.Nombre, cmbCargo.Text.Trim(), StringComparison.OrdinalIgnoreCase));
-
-                if (coincidencia != null)
-                {
-                    cmbCargo.Text = coincidencia.Nombre;
-                    cmbNivel.Enabled = true;
-                    cargarNiveles(coincidencia.Nivel);
-                    actualizarPreviewDialogo();
-                }
             };
             cmbNivel.SelectedIndexChanged += (s, e) => actualizarPreviewDialogo();
             cmbModo.SelectedIndexChanged += (s, e) => actualizarPreviewDialogo();
