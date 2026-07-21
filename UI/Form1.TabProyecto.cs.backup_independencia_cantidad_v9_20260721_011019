@@ -2808,10 +2808,7 @@ namespace Cotizador_animacion_Othalart
                         requerimiento.Unidad
                     ) == "segundo";
 
-                if (esManual ||
-                    !usaSegundos ||
-                    (requerimiento.EditadoManualmente &&
-                     requerimiento.TieneOverrideLocalCalculo))
+                if (esManual || !usaSegundos)
                 {
                     continue;
                 }
@@ -2844,69 +2841,12 @@ namespace Cotizador_animacion_Othalart
                 snapshot
             );
         }
-        private bool ProcesoTieneCantidadManualV9(
-            ItemProyecto item,
-            ProcesoProyecto proceso)
-        {
-            if (item == null || proceso == null)
-            {
-                return false;
-            }
-
-            string ruta =
-                "proceso/" + (proceso.Id ?? "");
-
-            bool tieneOverrideRegistrado =
-                (item.Overrides ??
-                    new List<OverrideProductivo>())
-                .Any(o =>
-                    o != null &&
-                    string.Equals(
-                        o.Campo,
-                        "Cantidad",
-                        StringComparison.OrdinalIgnoreCase
-                    ) &&
-                    string.Equals(
-                        o.RutaElemento,
-                        ruta,
-                        StringComparison.OrdinalIgnoreCase
-                    ));
-
-            if (tieneOverrideRegistrado)
-            {
-                return true;
-            }
-
-            Cotizacion snapshot =
-                CargarSnapshotCotizacionItemProyecto(item);
-
-            if (snapshot?.DesgloseProductivo?.Requerimientos == null)
-            {
-                return false;
-            }
-
-            return snapshot.DesgloseProductivo.Requerimientos
-                .Where(r =>
-                    r != null &&
-                    CoincideRequerimientoConProceso(
-                        r,
-                        proceso,
-                        null
-                    ))
-                .Any(r =>
-                    r.EditadoManualmente &&
-                    r.TieneOverrideLocalCalculo);
-        }
         private void SincronizarCantidadProcesoV4(
             ItemProyecto item,
             ProcesoProyecto proceso,
             decimal cantidad)
         {
             if (proceso == null ||
-                ProcesoTieneCantidadManualV9(
-                    item,
-                    proceso
-                ) ||
                 proceso.MetodoCalculo ==
                     MetodoCalculoProceso.Manual ||
                 NormalizarUnidadCantidadProyectoV4(
@@ -2937,7 +2877,6 @@ namespace Cotizador_animacion_Othalart
             );
         }
 
-        // CostosDerivadosDesdeTarifasV11
         private void EscalarResultadoProcesoLinealV6(
             ProcesoProyecto proceso,
             decimal factor)
@@ -2961,9 +2900,12 @@ namespace Cotizador_animacion_Othalart
                     6
                 );
 
-            // El costo nunca se hereda ni se escala directamente.
-            // Debe reconstruirse desde horas actuales y tarifa/hora.
-            proceso.Resultado.CostoCalculado = 0m;
+            proceso.Resultado.CostoCalculado =
+                Math.Round(
+                    proceso.Resultado.CostoCalculado *
+                    factor,
+                    2
+                );
 
             proceso.Resultado.DuracionSemanas =
                 Math.Round(
@@ -2992,9 +2934,12 @@ namespace Cotizador_animacion_Othalart
                         6
                     );
 
-                // Se invalida para que el motor lo derive nuevamente
-                // desde HorasCalculadas y la tarifa vigente del cargo.
-                asignacion.CostoCalculado = 0m;
+                asignacion.CostoCalculado =
+                    Math.Round(
+                        asignacion.CostoCalculado *
+                        factor,
+                        2
+                    );
             }
         }
 
@@ -3019,79 +2964,12 @@ namespace Cotizador_animacion_Othalart
             requerimiento.DiasPersonaMin *= factor;
             requerimiento.DiasPersonaHolgura *= factor;
 
-            // Los costos son resultados derivados. Se reconstruyen
-            // inmediatamente desde las horas actuales y la tarifa
-            // vigente del cargo asociado al requerimiento.
-            RecalcularCostosRequerimientoDesdeTarifaV12(
-                requerimiento
-            );
-
-            requerimiento.TieneOverrideLocalCalculo = false;
+            requerimiento.CostoEstandarCLP *= factor;
+            requerimiento.CostoMinimoCLP *= factor;
+            requerimiento.CostoHolguraCLP *= factor;
 
             requerimiento.OrigenHoras =
                 "Escalado linealmente por cantidad del producto";
-        }
-        private void RecalcularCostosRequerimientoDesdeTarifaV12(
-            RequerimientoProduccionInterna requerimiento)
-        {
-            if (requerimiento == null)
-            {
-                return;
-            }
-
-            double tarifaHora = 0.0;
-
-            if (requerimiento.TarifaDiaCargoCLP > 0.0)
-            {
-                tarifaHora =
-                    requerimiento.TarifaDiaCargoCLP / 8.0;
-            }
-            else if (requerimiento.SueldoMensualCargoCLP > 0.0)
-            {
-                // Convención usada por la biblioteca:
-                // 22 días laborales por mes y 8 horas por día.
-                tarifaHora =
-                    requerimiento.SueldoMensualCargoCLP /
-                    22.0 /
-                    8.0;
-            }
-
-            if (tarifaHora <= 0.0)
-            {
-                requerimiento.CostoEstandarCLP = 0.0;
-                requerimiento.CostoMinimoCLP = 0.0;
-                requerimiento.CostoHolguraCLP = 0.0;
-
-                requerimiento.DiagnosticoParametros =
-                    string.IsNullOrWhiteSpace(
-                        requerimiento.DiagnosticoParametros)
-                        ? "No existe tarifa diaria ni sueldo mensual para calcular el costo."
-                        : requerimiento.DiagnosticoParametros +
-                          " | No existe tarifa para recalcular costo.";
-
-                return;
-            }
-
-            requerimiento.CostoEstandarCLP =
-                Math.Round(
-                    requerimiento.HorasEstandar *
-                    tarifaHora,
-                    2
-                );
-
-            requerimiento.CostoMinimoCLP =
-                Math.Round(
-                    requerimiento.HorasMinimas *
-                    tarifaHora,
-                    2
-                );
-
-            requerimiento.CostoHolguraCLP =
-                Math.Round(
-                    requerimiento.HorasHolgura *
-                    tarifaHora,
-                    2
-                );
         }
         private string NormalizarUnidadCantidadProyectoV4(
             string unidad)
@@ -3426,124 +3304,22 @@ namespace Cotizador_animacion_Othalart
             GuardarSnapshotCotizacionItemProyecto(item, snapshot);
         }
 
-        private void ActualizarCantidadSnapshotProcesoProyecto(
-            ItemProyecto item,
-            ProcesoProyecto proceso,
-            decimal cantidad)
+        private void ActualizarCantidadSnapshotProcesoProyecto(ItemProyecto item, ProcesoProyecto proceso, decimal cantidad)
         {
-            if (item == null ||
-                proceso == null ||
-                cantidad < 0m)
+            Cotizacion snapshot = CargarSnapshotCotizacionItemProyecto(item);
+            if (item == null || proceso == null || snapshot?.DesgloseProductivo?.Requerimientos == null)
             {
                 return;
             }
 
-            Cotizacion snapshot =
-                CargarSnapshotCotizacionItemProyecto(item);
-
-            if (snapshot?.DesgloseProductivo?.Requerimientos == null)
+            foreach (RequerimientoProduccionInterna req in snapshot.DesgloseProductivo.Requerimientos.Where(r => r != null && CoincideRequerimientoConProceso(r, proceso, null)))
             {
-                return;
-            }
-
-            List<RequerimientoProduccionInterna> requerimientos =
-                snapshot.DesgloseProductivo.Requerimientos
-                    .Where(r =>
-                        r != null &&
-                        CoincideRequerimientoConProceso(
-                            r,
-                            proceso,
-                            null
-                        ))
-                    .ToList();
-
-            if (requerimientos.Count == 0)
-            {
-                return;
-            }
-
-            double totalAnterior =
-                requerimientos.Sum(r =>
-                    Math.Max(0.0, r.Cantidad));
-
-            double cantidadTotalNueva =
-                Convert.ToDouble(cantidad);
-
-            double factorTotal =
-                totalAnterior > 0.0
-                    ? cantidadTotalNueva / totalAnterior
-                    : 1.0;
-
-            double acumulado = 0.0;
-
-            for (int i = 0;
-                i < requerimientos.Count;
-                i++)
-            {
-                RequerimientoProduccionInterna req =
-                    requerimientos[i];
-
-                double cantidadAnteriorReq =
-                    Math.Max(0.0, req.Cantidad);
-
-                double cantidadNuevaReq;
-
-                if (i == requerimientos.Count - 1)
-                {
-                    // El ultimo absorbe cualquier diferencia de redondeo
-                    // para que la suma sea exactamente el valor ingresado.
-                    cantidadNuevaReq =
-                        Math.Max(
-                            0.0,
-                            cantidadTotalNueva - acumulado
-                        );
-                }
-                else if (totalAnterior > 0.0)
-                {
-                    cantidadNuevaReq =
-                        cantidadTotalNueva *
-                        cantidadAnteriorReq /
-                        totalAnterior;
-                }
-                else
-                {
-                    cantidadNuevaReq =
-                        cantidadTotalNueva /
-                        requerimientos.Count;
-                }
-
-                double factorReq =
-                    cantidadAnteriorReq > 0.0
-                        ? cantidadNuevaReq /
-                          cantidadAnteriorReq
-                        : factorTotal;
-
-                req.Cantidad = cantidadNuevaReq;
-
-                EscalarRequerimientoLinealV6(
-                    req,
-                    factorReq
-                );
-
-                // Esta cantidad fue cambiada expresamente por el usuario.
-                // Desde ahora no debe volver a heredarse del producto padre.
+                req.Cantidad = Convert.ToDouble(cantidad);
                 req.EditadoManualmente = true;
                 req.TieneOverrideLocalCalculo = true;
-                req.OrigenHoras =
-                    "Cantidad del proceso editada manualmente";
-
-                acumulado += cantidadNuevaReq;
             }
 
-            EscalarResultadoProcesoLinealV6(
-                proceso,
-                Convert.ToDecimal(factorTotal)
-            );
-
-            GuardarSnapshotCotizacionItemProyecto(
-                item,
-                snapshot
-            );
+            GuardarSnapshotCotizacionItemProyecto(item, snapshot);
         }
 
         private void ActualizarRendimientoSnapshotItemProyecto(ItemProyecto item, decimal? capacidad, string periodo)

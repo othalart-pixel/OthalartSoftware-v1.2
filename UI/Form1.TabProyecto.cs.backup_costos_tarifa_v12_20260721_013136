@@ -3019,79 +3019,16 @@ namespace Cotizador_animacion_Othalart
             requerimiento.DiasPersonaMin *= factor;
             requerimiento.DiasPersonaHolgura *= factor;
 
-            // Los costos son resultados derivados. Se reconstruyen
-            // inmediatamente desde las horas actuales y la tarifa
-            // vigente del cargo asociado al requerimiento.
-            RecalcularCostosRequerimientoDesdeTarifaV12(
-                requerimiento
-            );
-
+            // Los costos son resultados derivados, no cantidades escalables.
+            // Se limpian para que el motor los recalcule usando las horas
+            // actuales y las tarifas vigentes de cada cargo.
+            requerimiento.CostoEstandarCLP = 0.0;
+            requerimiento.CostoMinimoCLP = 0.0;
+            requerimiento.CostoHolguraCLP = 0.0;
             requerimiento.TieneOverrideLocalCalculo = false;
 
             requerimiento.OrigenHoras =
                 "Escalado linealmente por cantidad del producto";
-        }
-        private void RecalcularCostosRequerimientoDesdeTarifaV12(
-            RequerimientoProduccionInterna requerimiento)
-        {
-            if (requerimiento == null)
-            {
-                return;
-            }
-
-            double tarifaHora = 0.0;
-
-            if (requerimiento.TarifaDiaCargoCLP > 0.0)
-            {
-                tarifaHora =
-                    requerimiento.TarifaDiaCargoCLP / 8.0;
-            }
-            else if (requerimiento.SueldoMensualCargoCLP > 0.0)
-            {
-                // Convención usada por la biblioteca:
-                // 22 días laborales por mes y 8 horas por día.
-                tarifaHora =
-                    requerimiento.SueldoMensualCargoCLP /
-                    22.0 /
-                    8.0;
-            }
-
-            if (tarifaHora <= 0.0)
-            {
-                requerimiento.CostoEstandarCLP = 0.0;
-                requerimiento.CostoMinimoCLP = 0.0;
-                requerimiento.CostoHolguraCLP = 0.0;
-
-                requerimiento.DiagnosticoParametros =
-                    string.IsNullOrWhiteSpace(
-                        requerimiento.DiagnosticoParametros)
-                        ? "No existe tarifa diaria ni sueldo mensual para calcular el costo."
-                        : requerimiento.DiagnosticoParametros +
-                          " | No existe tarifa para recalcular costo.";
-
-                return;
-            }
-
-            requerimiento.CostoEstandarCLP =
-                Math.Round(
-                    requerimiento.HorasEstandar *
-                    tarifaHora,
-                    2
-                );
-
-            requerimiento.CostoMinimoCLP =
-                Math.Round(
-                    requerimiento.HorasMinimas *
-                    tarifaHora,
-                    2
-                );
-
-            requerimiento.CostoHolguraCLP =
-                Math.Round(
-                    requerimiento.HorasHolgura *
-                    tarifaHora,
-                    2
-                );
         }
         private string NormalizarUnidadCantidadProyectoV4(
             string unidad)

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Cotizador_animacion_Othalart.Models;
@@ -123,14 +123,6 @@ namespace Cotizador_animacion_Othalart.Services
             List<RequerimientoProduccionInterna> requerimientos =
                 cotizacionItem?.DesgloseProductivo?.Requerimientos ?? new List<RequerimientoProduccionInterna>();
 
-            // CantidadPortadaUnaVezPorProcesoV10:
-            // un proceso puede generar varias filas por sus cargos,
-            // pero la cantidad del trabajo no se suma por cargo.
-            HashSet<string> clavesCantidadRegistradas =
-                new HashSet<string>(
-                    StringComparer.OrdinalIgnoreCase
-                );
-
             if (requerimientos.Count == 0)
             {
                 expandido.Diagnosticos.Add("El item '" + item.Nombre + "' tiene snapshot, pero no tiene desglose productivo.");
@@ -147,28 +139,13 @@ namespace Cotizador_animacion_Othalart.Services
                     ? CrearIdSnapshot(item.Id, req.NombreRequerimiento, req.TipoInterno)
                     : req.ProcesoId;
 
-                string subproductoId =
-                    ResolverSubproductoSnapshot(item, req);
-
-                string claveCantidad =
-                    (item.Id ?? "") + "|" +
-                    (subproductoId ?? "") + "|" +
-                    (req.InstanciaId ?? "") + "|" +
-                    (procesoId ?? "") + "|" +
-                    (req.Unidad ?? "");
-
-                bool portarCantidad =
-                    clavesCantidadRegistradas.Add(
-                        claveCantidad
-                    );
-
                 expandido.Filas.Add(new FilaProductivaProyecto
                 {
                     ProyectoId = proyecto.Id,
                     GrupoId = grupo == null ? "" : grupo.Id,
                     ItemId = item.Id,
                     ProductoProyectoId = item.Tipo == TipoItemProyecto.Producto ? item.Id : "",
-                    SubproductoProyectoId = subproductoId,
+                    SubproductoProyectoId = ResolverSubproductoSnapshot(item, req),
                     InstanciaId = req.InstanciaId,
                     ProcesoProyectoId = procesoId,
                     ProcesoBibliotecaId = req.EcuacionUsada,
@@ -180,7 +157,7 @@ namespace Cotizador_animacion_Othalart.Services
                     EtapaId = req.EtapaSugerida,
                     CargoId = string.IsNullOrWhiteSpace(req.CargoId) ? req.CargoSugerido : req.CargoId,
                     PersonaId = req.PersonaId,
-                    Cantidad = portarCantidad ? Convert.ToDecimal(req.Cantidad) : 0m,
+                    Cantidad = Convert.ToDecimal(req.Cantidad),
                     Unidad = req.Unidad ?? "",
                     Capacidad = Convert.ToDecimal(req.RendimientoCantidadOverride > 0.0
                         ? req.RendimientoCantidadOverride
@@ -329,17 +306,8 @@ namespace Cotizador_animacion_Othalart.Services
                 yield break;
             }
 
-            bool cantidadYaPortada = false;
-
             foreach (AsignacionProductiva asignacion in asignaciones)
             {
-                decimal cantidadFila =
-                    cantidadYaPortada
-                        ? 0m
-                        : cantidadProceso;
-
-                cantidadYaPortada = true;
-
                 yield return CrearFilaBase(
                     proyecto,
                     grupo,
@@ -348,7 +316,7 @@ namespace Cotizador_animacion_Othalart.Services
                     instancia,
                     proceso,
                     asignacion,
-                    cantidadFila,
+                    cantidadProceso,
                     unidadProceso,
                     transversal,
                     ""
