@@ -7418,124 +7418,49 @@ namespace Cotizador_animacion_Othalart
             item.Descripcion = cotizacionItem.Descripcion ?? item.Descripcion;
         }
 
-        // RecalculoAutoritativoBotonV22
         private void RecalcularProyectoProductivoActual()
         {
             if (proyectoCotizacionActual == null)
             {
-                lblEstadoProyecto.Text =
-                    "No hay un proyecto cargado para recalcular.";
                 return;
             }
 
-            List<ItemProyecto> items =
-                (proyectoCotizacionActual.Grupos ??
-                    new List<GrupoProyecto>())
-                .Where(g => g != null && g.Activo)
-                .SelectMany(g =>
-                    g.Items ??
-                    new List<ItemProyecto>())
-                .Where(i => i != null && i.Activo)
-                .ToList();
-
-            if (items.Count == 0)
+            if (lblEstadoProyecto != null)
             {
-                lblEstadoProyecto.Text =
-                    "El proyecto no contiene productos activos.";
-                return;
+                lblEstadoProyecto.Text = "Recalculando...";
+                lblEstadoProyecto.Refresh();
             }
 
-            object seleccionAnterior =
-                nodoProyectoSeleccionado;
+            ProyectoProductivoExpandido expandido = ProyectoProductivoExpansionService.Expandir(proyectoCotizacionActual);
+            ProyectoConsolidado consolidado = ProyectoConsolidacionService.Consolidar(proyectoCotizacionActual, expandido);
 
-            ItemProyecto itemAnterior =
-                itemProyectoSeleccionado;
-
-            int recalculados = 0;
-            List<string> errores =
-                new List<string>();
-
-            Cursor cursorAnterior = Cursor;
-
-            try
+            if (cotizacion == null)
             {
-                Cursor = Cursors.WaitCursor;
-                Enabled = false;
-
-                foreach (ItemProyecto item in items)
-                {
-                    try
-                    {
-                        decimal cantidadActual =
-                            Math.Max(
-                                0m,
-                                item.Cantidad
-                            );
-
-                        // Esta llamada vuelve a ejecutar el flujo completo:
-                        // cantidad actual -> ecuacion vigente -> capacidad
-                        // -> horas -> costos -> proceso local -> tabla.
-                        SincronizarCantidadProductoYDescendientesV4(
-                            item,
-                            cantidadActual
-                        );
-
-                        recalculados++;
-                    }
-                    catch (Exception ex)
-                    {
-                        errores.Add(
-                            (item.Nombre ?? "Producto sin nombre") +
-                            ": " +
-                            ex.Message
-                        );
-                    }
-                }
-            }
-            finally
-            {
-                Enabled = true;
-                Cursor = cursorAnterior;
+                cotizacion = new Cotizacion();
             }
 
-            itemProyectoSeleccionado =
-                itemAnterior;
-
-            nodoProyectoSeleccionado =
-                seleccionAnterior;
-
+            cotizacion.ProyectoProductivo = proyectoCotizacionActual;
+            cotizacion.HorasProyectoProductivo = Convert.ToDouble(
+                consolidado.HorasProductivas +
+                consolidado.HorasRevision +
+                consolidado.HorasCorreccion +
+                consolidado.HorasSupervision +
+                consolidado.HorasDireccion +
+                consolidado.HorasGestion);
+            cotizacion.CostoProyectoProductivoCLP = Convert.ToDouble(consolidado.CostoTotal);
+            ServicioCotizacion.RecalcularCotizacion(cotizacion);
             RefrescarProyectoUI();
+            CargarCostosEnPantalla();
+            RefrescarResumen();
+            RefrescarDatosDesdeProyectoProductivo();
+            RefrescarResultadosDetalle();
 
-            if (errores.Count == 0)
+            if (lblEstadoProyecto != null)
             {
-                lblEstadoProyecto.Text =
-                    "Recalculo completo: " +
-                    recalculados +
-                    " producto(s) reconstruidos desde las " +
-                    "ecuaciones y rendimientos vigentes.";
-                return;
+                lblEstadoProyecto.Text = consolidado.Diagnosticos.Count == 0
+                    ? "Cotizacion actualizada"
+                    : "Cotizacion actualizada con datos faltantes: " + string.Join("; ", consolidado.Diagnosticos.Take(3));
             }
-
-            lblEstadoProyecto.Text =
-                "Recalculo parcial: " +
-                recalculados +
-                " producto(s) actualizados y " +
-                errores.Count +
-                " con errores.";
-
-            MessageBox.Show(
-                this,
-                "El proyecto se recalculo parcialmente." +
-                Environment.NewLine +
-                Environment.NewLine +
-                string.Join(
-                    Environment.NewLine,
-                    errores
-                ),
-                "Recalcular proyecto",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Warning
-            );
         }
     }
 

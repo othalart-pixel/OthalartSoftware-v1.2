@@ -2668,72 +2668,6 @@ namespace Cotizador_animacion_Othalart
             return false;
         }
 
-        private void LimpiarOverridesHorasAutomaticasV20(
-            ItemProyecto item)
-        {
-            if (item == null)
-            {
-                return;
-            }
-
-            List<ProcesoProyecto> procesos =
-                ObtenerProcesosItemProyecto(item)
-                    .Where(p => p != null)
-                    .ToList();
-
-            HashSet<string> rutasProcesosManuales =
-                new HashSet<string>(
-                    procesos
-                        .Where(p =>
-                            p.MetodoCalculo ==
-                                MetodoCalculoProceso.Manual)
-                        .Select(p =>
-                            "proceso/" + (p.Id ?? "")),
-                    StringComparer.OrdinalIgnoreCase
-                );
-
-            // Las horas del item y subproductos son agregados derivados.
-            // Los overrides de horas solo se conservan cuando pertenecen
-            // exactamente a un proceso cuya ecuación es manual.
-            if (item.Overrides != null)
-            {
-                item.Overrides.RemoveAll(o =>
-                    o != null &&
-                    string.Equals(
-                        o.Campo,
-                        "Horas",
-                        StringComparison.OrdinalIgnoreCase
-                    ) &&
-                    !rutasProcesosManuales.Contains(
-                        o.RutaElemento ?? ""
-                    ));
-            }
-
-            foreach (ProcesoProyecto proceso in procesos)
-            {
-                if (proceso.MetodoCalculo ==
-                    MetodoCalculoProceso.Manual)
-                {
-                    continue;
-                }
-
-                proceso.Resultado =
-                    proceso.Resultado ??
-                    new ResultadoProcesoProyecto();
-
-                proceso.Resultado.HorasAsignadas = 0m;
-
-                foreach (AsignacionProductiva asignacion in
-                    (proceso.Asignaciones ??
-                        new List<AsignacionProductiva>())
-                    .Where(a => a != null))
-                {
-                    // Borra la imposición manual anterior. V19 reemplazará
-                    // HorasCalculadas y CostoCalculado con el runtime.
-                    asignacion.HorasAsignadas = 0m;
-                }
-            }
-        }
         private void SincronizarCantidadProductoYDescendientesV4(
             ItemProyecto item,
             decimal cantidad)
@@ -2742,11 +2676,6 @@ namespace Cotizador_animacion_Othalart
             {
                 return;
             }
-
-            // Al cambiar la cantidad maestra, los procesos calculados por
-            // capacidad deben volver a depender de sus ecuaciones.
-            // Se eliminan únicamente overrides de horas automáticas.
-            LimpiarOverridesHorasAutomaticasV20(item);
 
             string unidadProducto =
                 NormalizarUnidadCantidadProyectoV4(
@@ -2969,7 +2898,6 @@ namespace Cotizador_animacion_Othalart
                     r.EditadoManualmente &&
                     r.TieneOverrideLocalCalculo);
         }
-        // EcuacionAutoritativaV21
         private bool RecalcularRequerimientoDesdeEcuacionV16(
             RequerimientoProduccionInterna requerimiento,
             double diasHabilesSemana)
@@ -2979,18 +2907,50 @@ namespace Cotizador_animacion_Othalart
                 return false;
             }
 
+            // Las horas declaradas manualmente siguen usando el resolver
+            // oficial para no tocar la decisión del usuario.
+            if (ModosCalculoProductivo.EsTiempoAsignado(
+                    requerimiento.ModoCalculoProductivo))
+            {
+                return CalculoProductivoResolverService.Aplicar(
+                    requerimiento,
+                    diasHabilesSemana
+                );
+            }
+
             List<EcuacionProductivaDefinicion> biblioteca =
                 BibliotecaEcuacionesProductivasJsonService
                     .CargarEcuaciones();
 
-            EcuacionProductivaDefinicion ecuacion =
-                ResolverEcuacionVigenteV21(
-                    requerimiento,
-                    biblioteca
+            string clave =
+                ExtraerClaveEcuacionV16(
+                    requerimiento.EcuacionUsada
                 );
+
+            EcuacionProductivaDefinicion ecuacion =
+                biblioteca.FirstOrDefault(e =>
+                    e != null &&
+                    string.Equals(
+                        e.Clave,
+                        clave,
+                        StringComparison.OrdinalIgnoreCase
+                    ));
 
             if (ecuacion == null)
             {
+                ecuacion =
+                    BibliotecaEcuacionesProductivasJsonService
+                        .BuscarMejorPara(
+                            requerimiento.EtapaSugerida,
+                            requerimiento.TipoInterno,
+                            requerimiento.NombreRequerimiento,
+                            requerimiento.CargoSugerido
+                        );
+            }
+
+            if (ecuacion == null)
+            {
+                // Fallback seguro para requerimientos antiguos sin vínculo.
                 return CalculoProductivoResolverService.Aplicar(
                     requerimiento,
                     diasHabilesSemana
@@ -3004,43 +2964,6 @@ namespace Cotizador_animacion_Othalart
                     requerimiento,
                     diasHabilesSemana
                 );
-
-            bool esManual =
-                ecuacion.MetodoCalculo ==
-                    MetodoCalculoProceso.Manual;
-
-            if (esManual)
-            {
-                requerimiento.CostoEstandarCLP =
-                    resultado.CostoCLP;
-
-                requerimiento.CostoMinimoCLP =
-                    resultado.CostoCLP;
-
-                requerimiento.CostoHolguraCLP =
-                    resultado.CostoCLP;
-
-                requerimiento.DiasPersonaStd =
-                    resultado.DiasTecnicos;
-
-                requerimiento.DiasPersonaMin =
-                    resultado.DiasTecnicos;
-
-                requerimiento.DiasPersonaHolgura =
-                    resultado.DiasTecnicos;
-
-                requerimiento.OrigenHoras =
-                    "Horas declaradas manualmente por la ecuacion vigente";
-
-                requerimiento.DiagnosticoParametros =
-                    string.Join(
-                        " | ",
-                        resultado.Advertencias
-                            .Concat(resultado.Errores)
-                    );
-
-                return resultado.Errores.Count == 0;
-            }
 
             List<EcuacionProductivaRuntimeService.ResultadoCargo>
                 cargosProductivos =
@@ -3056,7 +2979,7 @@ namespace Cotizador_animacion_Othalart
                 resultado.DiasTecnicos <= 0.0)
             {
                 requerimiento.DiagnosticoParametros =
-                    "La ecuacion vigente no pudo calcular horas. " +
+                    "La ecuacion vinculada no pudo calcular horas. " +
                     string.Join(
                         " | ",
                         resultado.Advertencias
@@ -3073,14 +2996,17 @@ namespace Cotizador_animacion_Othalart
             requerimiento.DiasPersonaStd =
                 resultado.DiasTecnicos;
 
+            requerimiento.HorasEstandar =
+                horasEstandar;
+
+            // Por ahora se conserva el estándar como referencia común.
+            // Las bandas min/holgura pueden reconstruirse después desde
+            // los valores mínimo/máximo de la biblioteca.
             requerimiento.DiasPersonaMin =
                 resultado.DiasTecnicos;
 
             requerimiento.DiasPersonaHolgura =
                 resultado.DiasTecnicos;
-
-            requerimiento.HorasEstandar =
-                horasEstandar;
 
             requerimiento.HorasMinimas =
                 horasEstandar;
@@ -3111,13 +3037,13 @@ namespace Cotizador_animacion_Othalart
                 cuelloBotella.Periodo;
 
             requerimiento.RendimientoOrigen =
-                "Ecuacion vigente " +
+                "Ecuacion " +
                 ecuacion.Clave +
                 " / " +
                 cuelloBotella.CargoResuelto;
 
             requerimiento.OrigenHoras =
-                "Cantidad actual / capacidad de la ecuacion vigente";
+                "Ecuacion productiva: cantidad / rendimiento";
 
             requerimiento.TieneOverrideLocalCalculo =
                 false;
@@ -3129,19 +3055,16 @@ namespace Cotizador_animacion_Othalart
                 true;
 
             requerimiento.DiagnosticoParametros =
-                "Cantidad=" +
-                requerimiento.Cantidad.ToString("0.####") +
-                " " +
-                requerimiento.Unidad +
-                " | Ecuacion=" +
-                ecuacion.Clave +
-                " | Capacidad=" +
+                "Calculado desde la ecuacion vinculada. " +
+                "Cuello de botella: " +
+                cuelloBotella.CargoResuelto +
+                " | " +
                 cuelloBotella.CapacidadPorPeriodo
                     .ToString("0.####") +
+                " " +
+                requerimiento.Unidad +
                 " / " +
                 cuelloBotella.Periodo +
-                " | Horas=" +
-                horasEstandar.ToString("0.####") +
                 ".";
 
             return true;
@@ -3187,10 +3110,6 @@ namespace Cotizador_animacion_Othalart
                     .Where(r => r != null)
                     .ToList();
 
-            List<EcuacionProductivaDefinicion> biblioteca =
-                BibliotecaEcuacionesProductivasJsonService
-                    .CargarEcuaciones();
-
             foreach (ProcesoProyecto proceso in
                 ObtenerProcesosItemProyecto(item)
                     .Where(p => p != null))
@@ -3210,22 +3129,14 @@ namespace Cotizador_animacion_Othalart
                     continue;
                 }
 
+                // Una fila de proceso puede tener varios cargos, pero las
+                // horas del trabajo corresponden al cuello de botella,
+                // no a la suma de las horas de todos los cargos.
                 RequerimientoProduccionInterna principal =
                     relacionados
                         .OrderByDescending(r =>
                             r.HorasEstandar)
                         .First();
-
-                EcuacionProductivaDefinicion ecuacion =
-                    ResolverEcuacionVigenteV21(
-                        principal,
-                        biblioteca
-                    );
-
-                bool esManualVigente =
-                    ecuacion != null &&
-                    ecuacion.MetodoCalculo ==
-                        MetodoCalculoProceso.Manual;
 
                 decimal horas =
                     Convert.ToDecimal(
@@ -3262,15 +3173,12 @@ namespace Cotizador_animacion_Othalart
                           )
                         : 0m;
 
-                if (!esManualVigente)
+                // Solo los procesos calculados automáticamente deben volver
+                // a tomar sus horas desde la ecuación y el rendimiento.
+                if (proceso.MetodoCalculo !=
+                    MetodoCalculoProceso.Manual)
                 {
                     proceso.Resultado.HorasAsignadas = 0m;
-
-                    SincronizarAsignacionesAutomaticasV21(
-                        proceso,
-                        horas,
-                        costo
-                    );
                 }
 
                 proceso.Capacidad =
@@ -3283,52 +3191,15 @@ namespace Cotizador_animacion_Othalart
 
                 proceso.Periodo =
                     principal.RendimientoPeriodo ?? "";
+
+                SincronizarAsignacionesCalculadasV19(
+                    proceso,
+                    horas,
+                    costo
+                );
             }
         }
-
-        private EcuacionProductivaDefinicion
-            ResolverEcuacionVigenteV21(
-                RequerimientoProduccionInterna requerimiento,
-                List<EcuacionProductivaDefinicion> biblioteca)
-        {
-            if (requerimiento == null)
-            {
-                return null;
-            }
-
-            biblioteca =
-                biblioteca ??
-                new List<EcuacionProductivaDefinicion>();
-
-            string clave =
-                ExtraerClaveEcuacionV16(
-                    requerimiento.EcuacionUsada
-                );
-
-            EcuacionProductivaDefinicion ecuacion =
-                biblioteca.FirstOrDefault(e =>
-                    e != null &&
-                    string.Equals(
-                        e.Clave,
-                        clave,
-                        StringComparison.OrdinalIgnoreCase
-                    ));
-
-            if (ecuacion != null)
-            {
-                return ecuacion;
-            }
-
-            return BibliotecaEcuacionesProductivasJsonService
-                .BuscarMejorPara(
-                    requerimiento.EtapaSugerida,
-                    requerimiento.TipoInterno,
-                    requerimiento.NombreRequerimiento,
-                    requerimiento.CargoSugerido
-                );
-        }
-
-        private void SincronizarAsignacionesAutomaticasV21(
+        private void SincronizarAsignacionesCalculadasV19(
             ProcesoProyecto proceso,
             decimal horasTotales,
             decimal costoTotal)
@@ -3338,26 +3209,29 @@ namespace Cotizador_animacion_Othalart
                 return;
             }
 
-            List<AsignacionProductiva> asignaciones =
+            List<AsignacionProductiva> automaticas =
                 (proceso.Asignaciones ??
                     new List<AsignacionProductiva>())
-                .Where(a => a != null)
+                .Where(a =>
+                    a != null &&
+                    a.OrigenHoras !=
+                        OrigenHorasProductivas.Manual)
                 .ToList();
 
-            if (asignaciones.Count == 0)
+            if (automaticas.Count == 0)
             {
                 return;
             }
 
-            decimal horasBase =
-                asignaciones.Sum(a =>
+            decimal sumaHorasAnteriores =
+                automaticas.Sum(a =>
                     Math.Max(
                         0m,
                         a.HorasCalculadas
                     ));
 
-            decimal costoBase =
-                asignaciones.Sum(a =>
+            decimal sumaCostosAnteriores =
+                automaticas.Sum(a =>
                     Math.Max(
                         0m,
                         a.CostoCalculado
@@ -3370,30 +3244,48 @@ namespace Cotizador_animacion_Othalart
                 Math.Max(0m, costoTotal);
 
             for (int i = 0;
-                i < asignaciones.Count;
+                i < automaticas.Count;
                 i++)
             {
                 AsignacionProductiva asignacion =
-                    asignaciones[i];
+                    automaticas[i];
 
-                decimal proporcionHoras =
-                    horasBase > 0m
-                        ? Math.Max(
+                decimal proporcionHoras;
+
+                if (sumaHorasAnteriores > 0m)
+                {
+                    proporcionHoras =
+                        Math.Max(
                             0m,
                             asignacion.HorasCalculadas
-                          ) / horasBase
-                        : 1m / asignaciones.Count;
+                        ) /
+                        sumaHorasAnteriores;
+                }
+                else
+                {
+                    proporcionHoras =
+                        1m / automaticas.Count;
+                }
 
-                decimal proporcionCosto =
-                    costoBase > 0m
-                        ? Math.Max(
+                decimal proporcionCosto;
+
+                if (sumaCostosAnteriores > 0m)
+                {
+                    proporcionCosto =
+                        Math.Max(
                             0m,
                             asignacion.CostoCalculado
-                          ) / costoBase
-                        : proporcionHoras;
+                        ) /
+                        sumaCostosAnteriores;
+                }
+                else
+                {
+                    proporcionCosto =
+                        proporcionHoras;
+                }
 
                 decimal horasNuevas =
-                    i == asignaciones.Count - 1
+                    i == automaticas.Count - 1
                         ? horasRestantes
                         : Math.Round(
                             horasTotales *
@@ -3402,7 +3294,7 @@ namespace Cotizador_animacion_Othalart
                         );
 
                 decimal costoNuevo =
-                    i == asignaciones.Count - 1
+                    i == automaticas.Count - 1
                         ? costoRestante
                         : Math.Round(
                             costoTotal *
@@ -3419,6 +3311,9 @@ namespace Cotizador_animacion_Othalart
 
                 asignacion.CostoCalculado =
                     Math.Max(0m, costoNuevo);
+
+                asignacion.OrigenHoras =
+                    OrigenHorasProductivas.Calculada;
             }
         }
         private void SincronizarCantidadProcesoV4(
@@ -3427,6 +3322,8 @@ namespace Cotizador_animacion_Othalart
             decimal cantidad)
         {
             if (proceso == null ||
+                proceso.MetodoCalculo ==
+                    MetodoCalculoProceso.Manual ||
                 NormalizarUnidadCantidadProyectoV4(
                     proceso.Unidad) != "segundo")
             {
@@ -7418,124 +7315,49 @@ namespace Cotizador_animacion_Othalart
             item.Descripcion = cotizacionItem.Descripcion ?? item.Descripcion;
         }
 
-        // RecalculoAutoritativoBotonV22
         private void RecalcularProyectoProductivoActual()
         {
             if (proyectoCotizacionActual == null)
             {
-                lblEstadoProyecto.Text =
-                    "No hay un proyecto cargado para recalcular.";
                 return;
             }
 
-            List<ItemProyecto> items =
-                (proyectoCotizacionActual.Grupos ??
-                    new List<GrupoProyecto>())
-                .Where(g => g != null && g.Activo)
-                .SelectMany(g =>
-                    g.Items ??
-                    new List<ItemProyecto>())
-                .Where(i => i != null && i.Activo)
-                .ToList();
-
-            if (items.Count == 0)
+            if (lblEstadoProyecto != null)
             {
-                lblEstadoProyecto.Text =
-                    "El proyecto no contiene productos activos.";
-                return;
+                lblEstadoProyecto.Text = "Recalculando...";
+                lblEstadoProyecto.Refresh();
             }
 
-            object seleccionAnterior =
-                nodoProyectoSeleccionado;
+            ProyectoProductivoExpandido expandido = ProyectoProductivoExpansionService.Expandir(proyectoCotizacionActual);
+            ProyectoConsolidado consolidado = ProyectoConsolidacionService.Consolidar(proyectoCotizacionActual, expandido);
 
-            ItemProyecto itemAnterior =
-                itemProyectoSeleccionado;
-
-            int recalculados = 0;
-            List<string> errores =
-                new List<string>();
-
-            Cursor cursorAnterior = Cursor;
-
-            try
+            if (cotizacion == null)
             {
-                Cursor = Cursors.WaitCursor;
-                Enabled = false;
-
-                foreach (ItemProyecto item in items)
-                {
-                    try
-                    {
-                        decimal cantidadActual =
-                            Math.Max(
-                                0m,
-                                item.Cantidad
-                            );
-
-                        // Esta llamada vuelve a ejecutar el flujo completo:
-                        // cantidad actual -> ecuacion vigente -> capacidad
-                        // -> horas -> costos -> proceso local -> tabla.
-                        SincronizarCantidadProductoYDescendientesV4(
-                            item,
-                            cantidadActual
-                        );
-
-                        recalculados++;
-                    }
-                    catch (Exception ex)
-                    {
-                        errores.Add(
-                            (item.Nombre ?? "Producto sin nombre") +
-                            ": " +
-                            ex.Message
-                        );
-                    }
-                }
-            }
-            finally
-            {
-                Enabled = true;
-                Cursor = cursorAnterior;
+                cotizacion = new Cotizacion();
             }
 
-            itemProyectoSeleccionado =
-                itemAnterior;
-
-            nodoProyectoSeleccionado =
-                seleccionAnterior;
-
+            cotizacion.ProyectoProductivo = proyectoCotizacionActual;
+            cotizacion.HorasProyectoProductivo = Convert.ToDouble(
+                consolidado.HorasProductivas +
+                consolidado.HorasRevision +
+                consolidado.HorasCorreccion +
+                consolidado.HorasSupervision +
+                consolidado.HorasDireccion +
+                consolidado.HorasGestion);
+            cotizacion.CostoProyectoProductivoCLP = Convert.ToDouble(consolidado.CostoTotal);
+            ServicioCotizacion.RecalcularCotizacion(cotizacion);
             RefrescarProyectoUI();
+            CargarCostosEnPantalla();
+            RefrescarResumen();
+            RefrescarDatosDesdeProyectoProductivo();
+            RefrescarResultadosDetalle();
 
-            if (errores.Count == 0)
+            if (lblEstadoProyecto != null)
             {
-                lblEstadoProyecto.Text =
-                    "Recalculo completo: " +
-                    recalculados +
-                    " producto(s) reconstruidos desde las " +
-                    "ecuaciones y rendimientos vigentes.";
-                return;
+                lblEstadoProyecto.Text = consolidado.Diagnosticos.Count == 0
+                    ? "Cotizacion actualizada"
+                    : "Cotizacion actualizada con datos faltantes: " + string.Join("; ", consolidado.Diagnosticos.Take(3));
             }
-
-            lblEstadoProyecto.Text =
-                "Recalculo parcial: " +
-                recalculados +
-                " producto(s) actualizados y " +
-                errores.Count +
-                " con errores.";
-
-            MessageBox.Show(
-                this,
-                "El proyecto se recalculo parcialmente." +
-                Environment.NewLine +
-                Environment.NewLine +
-                string.Join(
-                    Environment.NewLine,
-                    errores
-                ),
-                "Recalcular proyecto",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Warning
-            );
         }
     }
 
