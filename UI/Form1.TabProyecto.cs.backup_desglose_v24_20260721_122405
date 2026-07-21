@@ -7461,204 +7461,13 @@ namespace Cotizador_animacion_Othalart
             }
         }
         // DiagnosticoRecalculoHorasV23
-        // RecalculoDesdeDesgloseProductivoV24
-        // ReconstruirSnapshotFaltanteV25
-        private Cotizacion ReconstruirSnapshotFaltanteV25(
-            ItemProyecto item)
-        {
-            if (item == null ||
-                cotizacion == null)
-            {
-                return null;
-            }
-
-            try
-            {
-                JsonSerializerOptions opciones =
-                    new JsonSerializerOptions
-                    {
-                        PropertyNameCaseInsensitive = true,
-                        IncludeFields = true
-                    };
-
-                string json =
-                    JsonSerializer.Serialize(
-                        cotizacion,
-                        opciones
-                    );
-
-                Cotizacion copia =
-                    JsonSerializer.Deserialize<Cotizacion>(
-                        json,
-                        opciones
-                    );
-
-                if (copia == null)
-                {
-                    return null;
-                }
-
-                copia.NombreProyecto =
-                    string.IsNullOrWhiteSpace(item.Nombre)
-                        ? copia.NombreProyecto
-                        : item.Nombre;
-
-                if (copia.BriefProducto == null)
-                {
-                    copia.BriefProducto =
-                        new BriefProducto();
-                }
-
-                if (copia.BriefProducto
-                        .EntregablesSeleccionados == null)
-                {
-                    copia.BriefProducto
-                        .EntregablesSeleccionados =
-                            new List<EntregableBrief>();
-                }
-
-                // Si la cotización global no contiene entregables,
-                // se intenta reconstruir uno mínimo a partir del item.
-                if (copia.BriefProducto
-                        .EntregablesSeleccionados.Count == 0)
-                {
-                    copia.BriefProducto
-                        .EntregablesSeleccionados.Add(
-                            new EntregableBrief
-                            {
-                                Nombre =
-                                    item.Nombre ??
-                                    "Producto del proyecto",
-
-                                Categoria =
-                                    item.Tipo.ToString(),
-
-                                Cantidad = 1,
-
-                                DuracionPorUnidad =
-                                    Convert.ToDouble(
-                                        Math.Max(
-                                            0m,
-                                            item.Cantidad
-                                        )
-                                    ),
-
-                                UnidadDuracion =
-                                    NormalizarUnidadCantidadProyectoV4(
-                                        ObtenerUnidadVisibleItem(item)
-                                    ) == "segundo"
-                                        ? "segundos"
-                                        : ObtenerUnidadVisibleItem(item),
-
-                                UnidadCantidad =
-                                    ObtenerUnidadVisibleItem(item)
-                            }
-                        );
-                }
-
-                AplicarCantidadActualAlBriefV24(
-                    item,
-                    copia
-                );
-
-                copia.DesgloseProductivo =
-                    DesgloseProductivoService.Generar(
-                        copia
-                    );
-
-                GuardarSnapshotCotizacionItemProyecto(
-                    item,
-                    copia
-                );
-
-                return copia;
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine(
-                    "[V25] No se pudo reconstruir snapshot: " +
-                    ex
-                );
-
-                return null;
-            }
-        }
-        private void AplicarCantidadActualAlBriefV24(
-            ItemProyecto item,
-            Cotizacion snapshot)
-        {
-            if (item == null ||
-                snapshot?.BriefProducto?
-                    .EntregablesSeleccionados == null)
-            {
-                return;
-            }
-
-            decimal cantidadProducto =
-                Math.Max(
-                    0m,
-                    item.Cantidad
-                );
-
-            string unidadProducto =
-                NormalizarUnidadCantidadProyectoV4(
-                    ObtenerUnidadVisibleItem(item)
-                );
-
-            foreach (EntregableBrief entregable in
-                snapshot.BriefProducto
-                    .EntregablesSeleccionados
-                    .Where(e => e != null))
-            {
-                string unidadDuracion =
-                    NormalizarUnidadCantidadProyectoV4(
-                        entregable.UnidadDuracion
-                    );
-
-                bool seMideEnSegundos =
-                    unidadProducto == "segundo" ||
-                    unidadDuracion == "segundo";
-
-                if (!seMideEnSegundos)
-                {
-                    continue;
-                }
-
-                // DesgloseProductivoService calcula:
-                // DuracionPorUnidad * Cantidad.
-                // Para que el total productivo sea exactamente la
-                // cantidad actual del producto, se expresa como una sola
-                // unidad de esa duración.
-                entregable.Cantidad = 1;
-                entregable.DuracionPorUnidad =
-                    Convert.ToDouble(
-                        cantidadProducto
-                    );
-                entregable.UnidadDuracion =
-                    "segundos";
-
-                if (entregable.SegundosAnimadosEfectivos.HasValue)
-                {
-                    entregable.SegundosAnimadosEfectivos =
-                        Convert.ToDouble(
-                            cantidadProducto
-                        );
-                }
-
-                // Las horas automáticas deben volver a ser derivadas
-                // desde rendimiento. Solo se conservan horas cuando el
-                // entregable está declarado explícitamente como manual.
-                if (!ModosCalculoProductivo.EsTiempoAsignado(
-                        entregable.ModoCalculoProductivo))
-                {
-                    entregable.HorasAsignadasMin = 0.0;
-                    entregable.HorasAsignadasStd = 0.0;
-                    entregable.HorasAsignadasHolgura = 0.0;
-                }
-            }
-        }
         private void RecalcularProyectoProductivoActual()
         {
+            LimpiarDiagnosticoRecalculoHorasV23();
+
+            EscribirDiagnosticoRecalculoHorasV23(
+                "Inicio del recálculo autoritativo."
+            );
             if (proyectoCotizacionActual == null)
             {
                 lblEstadoProyecto.Text =
@@ -7704,51 +7513,138 @@ namespace Cotizador_animacion_Othalart
                 {
                     try
                     {
-                        Cotizacion snapshot =
+                        decimal cantidadActual =
+                            Math.Max(
+                                0m,
+                                item.Cantidad
+                            );
+
+                        // Esta llamada vuelve a ejecutar el flujo completo:
+                        // cantidad actual -> ecuacion vigente -> capacidad
+                        // -> horas -> costos -> proceso local -> tabla.
+                        EscribirDiagnosticoRecalculoHorasV23(
+                            "ITEM: " +
+                            (item.Nombre ?? "(sin nombre)") +
+                            " | Cantidad actual: " +
+                            cantidadActual.ToString("0.####") +
+                            " | Unidad: " +
+                            (item.Unidad ?? "")
+                        );
+
+                        SincronizarCantidadProductoYDescendientesV4(
+                            item,
+                            cantidadActual
+                        );
+
+                        Cotizacion snapshotDiagnostico =
                             CargarSnapshotCotizacionItemProyecto(item);
 
-                        if (snapshot == null)
+                        List<RequerimientoProduccionInterna>
+                            requerimientosDiagnostico =
+                                snapshotDiagnostico?
+                                    .DesgloseProductivo?
+                                    .Requerimientos?
+                                    .Where(r => r != null)
+                                    .ToList() ??
+                                new List<RequerimientoProduccionInterna>();
+
+                        foreach (
+                            RequerimientoProduccionInterna reqDiag
+                            in requerimientosDiagnostico)
                         {
-                            snapshot =
-                                ReconstruirSnapshotFaltanteV25(
-                                    item
+                            EscribirDiagnosticoRecalculoHorasV23(
+                                "  REQ: " +
+                                (reqDiag.NombreRequerimiento ?? "(sin nombre)") +
+                                " | ProcesoId: " +
+                                (reqDiag.ProcesoId ?? "") +
+                                " | Cantidad: " +
+                                reqDiag.Cantidad.ToString("0.####") +
+                                " " +
+                                (reqDiag.Unidad ?? "") +
+                                " | Ecuacion: " +
+                                (reqDiag.EcuacionUsada ?? "") +
+                                " | Modo: " +
+                                (reqDiag.ModoCalculoProductivo ?? "") +
+                                " | Capacidad: " +
+                                reqDiag.RendimientoCantidad.ToString("0.####") +
+                                " / " +
+                                (reqDiag.RendimientoPeriodo ?? "") +
+                                " | Horas: " +
+                                reqDiag.HorasEstandar.ToString("0.####") +
+                                " | Costo: " +
+                                reqDiag.CostoEstandarCLP.ToString("0.##") +
+                                " | Override: " +
+                                reqDiag.TieneOverrideLocalCalculo +
+                                " | Editado: " +
+                                reqDiag.EditadoManualmente +
+                                " | Origen: " +
+                                (reqDiag.OrigenHoras ?? "") +
+                                " | Diagnostico: " +
+                                (reqDiag.DiagnosticoParametros ?? "")
+                            );
+                        }
+
+                        foreach (
+                            ProcesoProyecto procDiag
+                            in ObtenerProcesosItemProyecto(item)
+                                .Where(p => p != null))
+                        {
+                            EscribirDiagnosticoRecalculoHorasV23(
+                                "  PROC LOCAL: " +
+                                (procDiag.Nombre ?? "(sin nombre)") +
+                                " | Id: " +
+                                (procDiag.Id ?? "") +
+                                " | Cantidad: " +
+                                procDiag.Cantidad.ToString("0.####") +
+                                " " +
+                                (procDiag.Unidad ?? "") +
+                                " | Metodo local: " +
+                                procDiag.MetodoCalculo +
+                                " | Capacidad: " +
+                                procDiag.Capacidad.ToString("0.####") +
+                                " / " +
+                                (procDiag.Periodo ?? "") +
+                                " | Horas resultado: " +
+                                (procDiag.Resultado?
+                                    .HorasCalculadas ?? 0m)
+                                    .ToString("0.####") +
+                                " | Horas asignadas: " +
+                                (procDiag.Resultado?
+                                    .HorasAsignadas ?? 0m)
+                                    .ToString("0.####") +
+                                " | Costo: " +
+                                (procDiag.Resultado?
+                                    .CostoCalculado ?? 0m)
+                                    .ToString("0.##")
+                            );
+
+                            foreach (
+                                AsignacionProductiva asigDiag
+                                in (procDiag.Asignaciones ??
+                                    new List<AsignacionProductiva>())
+                                    .Where(a => a != null))
+                            {
+                                EscribirDiagnosticoRecalculoHorasV23(
+                                    "    ASIG: " +
+                                    (asigDiag.CargoId ?? "") +
+                                    " | Origen: " +
+                                    asigDiag.OrigenHoras +
+                                    " | Horas calc: " +
+                                    asigDiag.HorasCalculadas
+                                        .ToString("0.####") +
+                                    " | Horas asignadas: " +
+                                    asigDiag.HorasAsignadas
+                                        .ToString("0.####") +
+                                    " | Costo: " +
+                                    asigDiag.CostoCalculado
+                                        .ToString("0.##")
                                 );
+                            }
                         }
 
-                        if (snapshot == null)
-                        {
-                            errores.Add(
-                                (item.Nombre ?? "Producto sin nombre") +
-                                ": no se pudo cargar ni reconstruir el snapshot."
-                            );
-                            continue;
-                        }
-
-                        AplicarCantidadActualAlBriefV24(
-                            item,
-                            snapshot
+                        EscribirDiagnosticoRecalculoHorasV23(
+                            "--------------------------------------------------"
                         );
-
-                        // Se descarta el desglose derivado anterior y se
-                        // reconstruye con el mismo motor que funciona en
-                        // la pestaña Desglose productivo.
-                        snapshot.DesgloseProductivo =
-                            DesgloseProductivoService.Generar(
-                                snapshot
-                            );
-
-                        GuardarSnapshotCotizacionItemProyecto(
-                            item,
-                            snapshot
-                        );
-
-                        SincronizarResultadosLocalesDesdeSnapshotV18(
-                            item,
-                            snapshot
-                        );
-
-                        item.FechaEdicionSnapshot =
-                            DateTime.Now;
 
                         recalculados++;
                     }
@@ -7779,9 +7675,25 @@ namespace Cotizador_animacion_Othalart
             if (errores.Count == 0)
             {
                 lblEstadoProyecto.Text =
-                    "Recalculo completo desde Desglose productivo: " +
+                    "Recalculo completo: " +
                     recalculados +
-                    " producto(s).";
+                    " producto(s). Log: diagnostico-recalculo-horas.log";
+
+                EscribirDiagnosticoRecalculoHorasV23(
+                    "FIN CORRECTO. Productos recalculados: " +
+                    recalculados
+                );
+
+                MessageBox.Show(
+                    this,
+                    "Se genero el diagnostico en:" +
+                    Environment.NewLine +
+                    RutaDiagnosticoRecalculoHorasV23(),
+                    "Diagnostico de recálculo",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information
+                );
+
                 return;
             }
 

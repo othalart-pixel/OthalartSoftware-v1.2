@@ -7462,127 +7462,6 @@ namespace Cotizador_animacion_Othalart
         }
         // DiagnosticoRecalculoHorasV23
         // RecalculoDesdeDesgloseProductivoV24
-        // ReconstruirSnapshotFaltanteV25
-        private Cotizacion ReconstruirSnapshotFaltanteV25(
-            ItemProyecto item)
-        {
-            if (item == null ||
-                cotizacion == null)
-            {
-                return null;
-            }
-
-            try
-            {
-                JsonSerializerOptions opciones =
-                    new JsonSerializerOptions
-                    {
-                        PropertyNameCaseInsensitive = true,
-                        IncludeFields = true
-                    };
-
-                string json =
-                    JsonSerializer.Serialize(
-                        cotizacion,
-                        opciones
-                    );
-
-                Cotizacion copia =
-                    JsonSerializer.Deserialize<Cotizacion>(
-                        json,
-                        opciones
-                    );
-
-                if (copia == null)
-                {
-                    return null;
-                }
-
-                copia.NombreProyecto =
-                    string.IsNullOrWhiteSpace(item.Nombre)
-                        ? copia.NombreProyecto
-                        : item.Nombre;
-
-                if (copia.BriefProducto == null)
-                {
-                    copia.BriefProducto =
-                        new BriefProducto();
-                }
-
-                if (copia.BriefProducto
-                        .EntregablesSeleccionados == null)
-                {
-                    copia.BriefProducto
-                        .EntregablesSeleccionados =
-                            new List<EntregableBrief>();
-                }
-
-                // Si la cotización global no contiene entregables,
-                // se intenta reconstruir uno mínimo a partir del item.
-                if (copia.BriefProducto
-                        .EntregablesSeleccionados.Count == 0)
-                {
-                    copia.BriefProducto
-                        .EntregablesSeleccionados.Add(
-                            new EntregableBrief
-                            {
-                                Nombre =
-                                    item.Nombre ??
-                                    "Producto del proyecto",
-
-                                Categoria =
-                                    item.Tipo.ToString(),
-
-                                Cantidad = 1,
-
-                                DuracionPorUnidad =
-                                    Convert.ToDouble(
-                                        Math.Max(
-                                            0m,
-                                            item.Cantidad
-                                        )
-                                    ),
-
-                                UnidadDuracion =
-                                    NormalizarUnidadCantidadProyectoV4(
-                                        ObtenerUnidadVisibleItem(item)
-                                    ) == "segundo"
-                                        ? "segundos"
-                                        : ObtenerUnidadVisibleItem(item),
-
-                                UnidadCantidad =
-                                    ObtenerUnidadVisibleItem(item)
-                            }
-                        );
-                }
-
-                AplicarCantidadActualAlBriefV24(
-                    item,
-                    copia
-                );
-
-                copia.DesgloseProductivo =
-                    DesgloseProductivoService.Generar(
-                        copia
-                    );
-
-                GuardarSnapshotCotizacionItemProyecto(
-                    item,
-                    copia
-                );
-
-                return copia;
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine(
-                    "[V25] No se pudo reconstruir snapshot: " +
-                    ex
-                );
-
-                return null;
-            }
-        }
         private void AplicarCantidadActualAlBriefV24(
             ItemProyecto item,
             Cotizacion snapshot)
@@ -7709,17 +7588,9 @@ namespace Cotizador_animacion_Othalart
 
                         if (snapshot == null)
                         {
-                            snapshot =
-                                ReconstruirSnapshotFaltanteV25(
-                                    item
-                                );
-                        }
-
-                        if (snapshot == null)
-                        {
                             errores.Add(
                                 (item.Nombre ?? "Producto sin nombre") +
-                                ": no se pudo cargar ni reconstruir el snapshot."
+                                ": no se pudo cargar el snapshot."
                             );
                             continue;
                         }
