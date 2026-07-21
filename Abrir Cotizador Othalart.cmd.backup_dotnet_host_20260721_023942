@@ -31,6 +31,7 @@ if exist "OthalartSoftware v1.0.csproj" (
 
 if not defined CSPROJ (
     echo ERROR: No se encontro ningun archivo .csproj.
+    echo Este archivo debe estar en la carpeta raiz del proyecto.
     echo.
     pause
     exit /b 1
@@ -40,6 +41,9 @@ echo Proyecto detectado:
 echo !CSPROJ!
 echo.
 
+taskkill /F /IM OthalartCotizadorDev.exe >nul 2>nul
+taskkill /F /IM "OthalartSoftware v1.0.exe" >nul 2>nul
+
 echo Compilando...
 dotnet build "!CSPROJ!" -c Debug --nologo
 
@@ -48,43 +52,46 @@ if errorlevel 1 (
     echo ==========================================
     echo ERROR DE COMPILACION
     echo ==========================================
+    echo Revisa los errores mostrados arriba.
+    echo.
     pause
     exit /b 1
 )
 
-set "DLL="
+set "EXE="
 
-if exist "bin\Debug\net8.0-windows\OthalartCotizadorDev.dll" (
-    set "DLL=bin\Debug\net8.0-windows\OthalartCotizadorDev.dll"
+if exist "bin\Debug\net8.0-windows\OthalartCotizadorDev.exe" (
+    set "EXE=bin\Debug\net8.0-windows\OthalartCotizadorDev.exe"
 )
 
-if not defined DLL (
-    for /r "bin\Debug" %%F in (*.dll) do (
-        echo %%~nxF | findstr /I "OthalartCotizadorDev.dll" >nul
+if not defined EXE (
+    for /r "bin\Debug" %%F in (*.exe) do (
+        echo %%~nxF | findstr /I /V "testhost apphost" >nul
         if not errorlevel 1 (
-            if not defined DLL set "DLL=%%F"
+            if not defined EXE set "EXE=%%F"
         )
     )
 )
 
-if not defined DLL (
+if not defined EXE (
     echo.
-    echo ERROR: Se compilo el proyecto pero no se encontro OthalartCotizadorDev.dll.
+    echo ERROR: Se compilo el proyecto pero no se encontro el ejecutable.
+    echo Revisa la carpeta bin\Debug.
     echo.
     pause
     exit /b 1
 )
 
 echo.
-echo Abriendo mediante el host firmado de .NET:
-echo !DLL!
+echo Abriendo:
+echo !EXE!
 echo.
 
-dotnet "!DLL!"
+start "" "!EXE!"
 
 if errorlevel 1 (
     echo.
-    echo ERROR: La aplicacion termino con codigo !errorlevel!.
+    echo ERROR: Windows no pudo abrir el ejecutable.
     echo.
     pause
     exit /b 1

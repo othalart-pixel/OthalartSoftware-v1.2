@@ -1,3 +1,16 @@
+﻿$ErrorActionPreference = "Stop"
+
+$raiz = Get-Location
+$cmd = Join-Path $raiz "Abrir Cotizador Othalart.cmd"
+
+if (-not (Test-Path $cmd)) {
+    throw "No se encontro 'Abrir Cotizador Othalart.cmd'. Ejecuta este hotfix desde la carpeta raiz del proyecto."
+}
+
+$backup = "$cmd.backup_dotnet_host_" + (Get-Date -Format "yyyyMMdd_HHmmss")
+Copy-Item $cmd $backup -Force
+
+$contenido = @'
 @echo off
 setlocal EnableExtensions EnableDelayedExpansion
 
@@ -91,3 +104,21 @@ if errorlevel 1 (
 )
 
 exit /b 0
+'@
+
+$encoding = New-Object System.Text.UTF8Encoding($false)
+
+[System.IO.File]::WriteAllText(
+    $cmd,
+    $contenido,
+    $encoding
+)
+
+Write-Host ""
+Write-Host "HOTFIX APLICADO CORRECTAMENTE" -ForegroundColor Green
+Write-Host ""
+Write-Host "El lanzador ya no ejecutara el .exe bloqueado."
+Write-Host "Ahora abrira OthalartCotizadorDev.dll mediante dotnet.exe."
+Write-Host ""
+Write-Host "Backup: $backup"
+Write-Host "Abre con doble clic: Abrir Cotizador Othalart.cmd"

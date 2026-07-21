@@ -3192,128 +3192,21 @@ namespace Cotizador_animacion_Othalart
                 proceso.Periodo =
                     principal.RendimientoPeriodo ?? "";
 
-                SincronizarAsignacionesCalculadasV19(
-                    proceso,
-                    horas,
-                    costo
-                );
-            }
-        }
-        private void SincronizarAsignacionesCalculadasV19(
-            ProcesoProyecto proceso,
-            decimal horasTotales,
-            decimal costoTotal)
-        {
-            if (proceso == null)
-            {
-                return;
-            }
-
-            List<AsignacionProductiva> automaticas =
-                (proceso.Asignaciones ??
-                    new List<AsignacionProductiva>())
-                .Where(a =>
-                    a != null &&
-                    a.OrigenHoras !=
+                foreach (AsignacionProductiva asignacion in
+                    (proceso.Asignaciones ??
+                        new List<AsignacionProductiva>())
+                    .Where(a => a != null))
+                {
+                    if (asignacion.OrigenHoras ==
                         OrigenHorasProductivas.Manual)
-                .ToList();
+                    {
+                        continue;
+                    }
 
-            if (automaticas.Count == 0)
-            {
-                return;
-            }
-
-            decimal sumaHorasAnteriores =
-                automaticas.Sum(a =>
-                    Math.Max(
-                        0m,
-                        a.HorasCalculadas
-                    ));
-
-            decimal sumaCostosAnteriores =
-                automaticas.Sum(a =>
-                    Math.Max(
-                        0m,
-                        a.CostoCalculado
-                    ));
-
-            decimal horasRestantes =
-                Math.Max(0m, horasTotales);
-
-            decimal costoRestante =
-                Math.Max(0m, costoTotal);
-
-            for (int i = 0;
-                i < automaticas.Count;
-                i++)
-            {
-                AsignacionProductiva asignacion =
-                    automaticas[i];
-
-                decimal proporcionHoras;
-
-                if (sumaHorasAnteriores > 0m)
-                {
-                    proporcionHoras =
-                        Math.Max(
-                            0m,
-                            asignacion.HorasCalculadas
-                        ) /
-                        sumaHorasAnteriores;
+                    // Las asignaciones automáticas no pueden conservar
+                    // resultados antiguos después de cambiar la cantidad.
+                    asignacion.HorasAsignadas = 0m;
                 }
-                else
-                {
-                    proporcionHoras =
-                        1m / automaticas.Count;
-                }
-
-                decimal proporcionCosto;
-
-                if (sumaCostosAnteriores > 0m)
-                {
-                    proporcionCosto =
-                        Math.Max(
-                            0m,
-                            asignacion.CostoCalculado
-                        ) /
-                        sumaCostosAnteriores;
-                }
-                else
-                {
-                    proporcionCosto =
-                        proporcionHoras;
-                }
-
-                decimal horasNuevas =
-                    i == automaticas.Count - 1
-                        ? horasRestantes
-                        : Math.Round(
-                            horasTotales *
-                            proporcionHoras,
-                            6
-                        );
-
-                decimal costoNuevo =
-                    i == automaticas.Count - 1
-                        ? costoRestante
-                        : Math.Round(
-                            costoTotal *
-                            proporcionCosto,
-                            2
-                        );
-
-                horasRestantes -= horasNuevas;
-                costoRestante -= costoNuevo;
-
-                asignacion.HorasAsignadas = 0m;
-                asignacion.HorasCalculadas =
-                    Math.Max(0m, horasNuevas);
-
-                asignacion.CostoCalculado =
-                    Math.Max(0m, costoNuevo);
-
-                asignacion.OrigenHoras =
-                    OrigenHorasProductivas.Calculada;
             }
         }
         private void SincronizarCantidadProcesoV4(
